@@ -1,0 +1,8 @@
+.env
+*.pem
+data/
+.venv/
+__pycache__/
+web/node_modules/
+web/dist/
+.design/

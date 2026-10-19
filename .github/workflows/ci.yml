@@ -1,0 +1,86 @@
+# Tests and the web build on every pull request and push; the image on main and on version tags.
+#
+# GitHub-hosted runners only: pull requests come from anyone's fork, and their code must never run on a
+# machine of ours. Nothing here deploys. Deployments pull a published image (ghcr.io/gthanasis/ebby) and
+# live elsewhere.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # Row-level security is what the tests check, so they need a real Postgres.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: bank_sync_owner
+          POSTGRES_PASSWORD: owner
+          POSTGRES_DB: bank_sync
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U bank_sync_owner -d bank_sync"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_OWNER_URL: postgresql://bank_sync_owner:owner@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Typecheck and build the web app
+        working-directory: web
+        run: npm ci && npm run build
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - name: Tests
+        run: |
+          uv sync --frozen
+          uv run pytest -q
+
+  image:
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # arm64 too, for Apple Silicon and ARM servers; the Python layers build under emulation.
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+        # main: the commit and `edge`. A tag v1.2.3: `1.2.3`, `1.2` and `latest`, what deployments pin to.
+        run: |
+          tags=(-t "$IMAGE:sha-${SHA:0:12}")
+          case "$REF" in
+            refs/heads/main) tags+=(-t "$IMAGE:edge") ;;
+            refs/tags/v*)
+              v=${REF#refs/tags/v}
+              tags+=(-t "$IMAGE:$v" -t "$IMAGE:${v%.*}" -t "$IMAGE:latest") ;;
+          esac
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --label "org.opencontainers.image.licenses=LicenseRef-PolyForm-Noncommercial-1.0.0" \
+            "${tags[@]}" --push .

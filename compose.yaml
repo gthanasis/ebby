@@ -1,0 +1,29 @@
+services:
+  ebby:
+    image: ghcr.io/gthanasis/ebby:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      DATABASE_URL: postgresql://bank_sync_app:${APP_DB_PASSWORD:-app}@postgres/bank_sync
+      DATABASE_OWNER_URL: postgresql://bank_sync_owner:${POSTGRES_PASSWORD:-owner}@postgres/bank_sync
+    volumes:
+      - ./data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bank_sync
+      POSTGRES_USER: bank_sync_owner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-owner}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "bank_sync_owner", "-d", "bank_sync"]
+      interval: 5s

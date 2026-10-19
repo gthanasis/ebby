@@ -1,0 +1,19 @@
+{
+  "name": "ebby",
+  "short_name": "ebby",
+  "description": "Where the money goes, synced from Alpha Bank and Revolut.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f5f2",
+  "theme_color": "#1f7a5a",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Transactions", "url": "/#/transactions/" },
+    { "name": "Accounts", "url": "/#/accounts/" }
+  ]
+}
