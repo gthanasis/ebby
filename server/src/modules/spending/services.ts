@@ -6,6 +6,7 @@ import * as transactionsRepo from "../../shared/ledger/transactions.js";
 import { PyDate, pyRound, sorted, sum } from "../../shared/utils/python.js";
 import { MCC_NAMES } from "../../shared/reference/mcc.js";
 import { monthBounds, shift } from "../../shared/months.js";
+import { type ServiceDetail, toServiceDetail } from "./converters.js";
 
 const SERVICE_ALIASES: [RegExp, string][] = [
   [/SDDFTSID/u, "Direct debit"], [/ΔΙΑΦΟΡΕΣ ΠΛΗΡΩΜΕΣ/u, "Bill payment"],
@@ -39,7 +40,7 @@ async function serviceRows(conn: Conn, category: string, name: string, start?: s
   return (await transactionsRepo.servicePayments(conn, category, start, end)).filter((r) => sn(r) === name);
 }
 
-export async function serviceDetail(conn: Conn, category: string, name: string, month: string): Promise<Row> {
+export async function serviceDetail(conn: Conn, category: string, name: string, month: string): Promise<ServiceDetail> {
   const [start, end] = monthBounds(month);
   const rows = await serviceRows(conn, category, name, start, end);
   const spent = pyRound(-sum(rows.map((r) => r.amount)), 2);
@@ -59,13 +60,7 @@ export async function serviceDetail(conn: Conn, category: string, name: string, 
     const m = shift(month, -i);
     history.push({ month: m, spent: pyRound(-sum(histRows.filter((r) => r.date.startsWith(m)).map((r) => r.amount)), 2) });
   }
-  return {
-    category, name, month, spent, count,
-    average: count ? pyRound(spent / count, 2) : 0,
-    share: categoryTotal > 0 ? pyRound(spent / categoryTotal, 3) : null,
-    history, weekdays: weekdays.map((v) => pyRound(v, 2)),
-    busiest_days: sorted(busiest, (x) => x[1]).map(([n, d]) => ({ date: d, count: n })),
-  };
+  return toServiceDetail(category, name, month, spent, count, categoryTotal, history, weekdays, busiest);
 }
 
 export async function serviceTransactionIds(conn: Conn, category: string, name: string): Promise<string[]> {
