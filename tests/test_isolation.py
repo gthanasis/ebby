@@ -123,7 +123,7 @@ def test_streamed_responses_act_as_the_requests_user(client_as, users):
 
 
 def test_scheduler_runs_each_user_as_themselves(monkeypatch, users):
-    from app.domain import ai, alerts
+    from app.domain import alerts
     ran = []
     monkeypatch.setattr(sync, "sync", lambda: ran.append(("sync", db.current_user())))
     monkeypatch.setattr(alerts, "check", lambda: ran.append(("alerts", db.current_user())))

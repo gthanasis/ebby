@@ -1,18 +1,15 @@
 """Who's signed in, their keys, first-run setup, and the admin's people."""
 
 
-from fastapi import File, Form, HTTPException, UploadFile
-from fastapi.concurrency import run_in_threadpool
 from typing import Literal
 
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
-
-from app.domain import ai_usage, insights
 from app import config
 from app.data import credentials, db, users, vault
-from fastapi import APIRouter
-
+from app.domain import ai_usage, insights
 
 router = APIRouter()
 

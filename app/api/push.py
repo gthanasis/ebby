@@ -2,12 +2,10 @@
 
 
 
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-
 from app.integrations import push
-from fastapi import APIRouter
-
 
 router = APIRouter()
 

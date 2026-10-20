@@ -2,17 +2,13 @@
 
 from datetime import date
 
-from fastapi import HTTPException
-
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-
-from app.domain import ai, ai_usage, insights, spending
-from app.data import db
-from app.domain.categories import CATEGORIES
-from fastapi import APIRouter
-
 from app.api import common
+from app.data import db
+from app.domain import ai, ai_usage, insights, spending
+from app.domain.categories import CATEGORIES
 
 router = APIRouter()
 

@@ -538,6 +538,7 @@ def cuts(conn, needed_monthly: float) -> list[dict]:
 def local_today() -> date:
     from datetime import datetime
     from zoneinfo import ZoneInfo
+
     from app import config
     return datetime.now(ZoneInfo(config.TIMEZONE)).date()
 
@@ -841,7 +842,7 @@ CASH_ACCOUNT = "cash"
 def cash_view(conn, month: str) -> dict:
     """Withdrawn this month vs what has been logged against it."""
     start, end = month_bounds(month)
-    withdrawn = -conn.execute(f"""SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE date >= ? AND date < ?
+    withdrawn = -conn.execute("""SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE date >= ? AND date < ?
         AND category = 'cash' AND account != ? AND amount < 0 AND duplicate_of IS NULL AND currency = 'EUR'""",
                               (start, end, CASH_ACCOUNT)).fetchone()[0]
     logged = -conn.execute("""SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE date >= ? AND date < ?

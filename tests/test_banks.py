@@ -3,11 +3,11 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.integrations import banks
 from app import config, server
 from app.data import credentials, db
-from app.jobs import sync
+from app.integrations import banks
 from app.integrations.enable_banking import Client
+from app.jobs import sync
 
 ASPSPS = [
     {"name": "Piraeus Bank", "logo": "https://example.com/piraeus.png", "beta": True, "psu_types": ["business", "personal"],

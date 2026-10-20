@@ -1,13 +1,12 @@
 import base64
-import mimetypes
 import logging
+import mimetypes
 import secrets
 
 from fastapi import FastAPI, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-
 
 from app import config
 from app.api import auth

@@ -1,7 +1,7 @@
 """The categories people usually have and Greek banks print: insurance, loans, investments and the rest."""
 
-from app.domain import categories
 from app.data import db
+from app.domain import categories
 from app.domain.categories import CATEGORIES, SPENDING, categorize
 
 
@@ -45,8 +45,9 @@ def test_history_is_sorted_again_when_the_rules_change(database, monkeypatch):
     """Rows stored under an older categories.py move to the new categories on the next scheduler round,
     and a person's own rule still wins."""
     import json
-    from app.jobs import sync
+
     from app.data.import_sqlite import ensure_user
+    from app.jobs import sync
     me = ensure_user("recategorize@example.com")
 
     def tx(text):

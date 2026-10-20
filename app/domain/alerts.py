@@ -7,8 +7,8 @@ from zoneinfo import ZoneInfo
 from app import config
 from app.data import db
 from app.domain import habits, insights
-from app.integrations import push
 from app.domain.categories import CATEGORIES
+from app.integrations import push
 
 log = logging.getLogger("bank-sync")
 LEVELS = {"ahead": 1, "over": 2}

@@ -2,16 +2,12 @@
 
 from datetime import date, timedelta
 
-from fastapi import HTTPException
-
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-
-from app.domain import insights
 from app.data import db
+from app.domain import insights
 from app.domain.categories import CATEGORIES
-from fastapi import APIRouter
-
 
 router = APIRouter()
 # Totals only add up euros; rows in other currencies (Revolut pockets) still show in the list.

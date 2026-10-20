@@ -8,13 +8,13 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
-from app.domain import ai, ai_usage
-from app.api import auth
 from app import config, server
+from app.api import auth
 from app.data import credentials, db
-from app.jobs import sync
 from app.data import users as people  # `users` is the fixture with the test people's ids
+from app.domain import ai, ai_usage
 from app.integrations.enable_banking import Client, EnableBankingError
+from app.jobs import sync
 
 APP_ID = "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0"
 ORIGIN = {"Origin": "http://testserver"}

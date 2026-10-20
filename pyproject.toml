@@ -31,3 +31,20 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.17.1",
 ]
+
+[tool.ruff]
+line-length = 130
+target-version = "py312"
+
+[tool.ruff.lint]
+# Mistakes, not style: undefined or unused names, likely bugs, syntax, and sorted imports.
+select = ["F", "E4", "E7", "E9", "B", "I"]
+ignore = [
+  "B008",  # FastAPI's File()/Form() parameters are meant to be called in the signature
+  "B904",  # an HTTPException raised while handling another is the answer, not a second failure
+  "B905",  # zip() over lists built side by side
+  "E702", "E731", "E741",  # house style: short paired statements, small lambdas, l for a label
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
