@@ -9,7 +9,7 @@ import { ExtraPay } from "../plan/schemas.js";
 export const Cut = z.strictObject({ category: z.string(), text: z.string(), detail: z.string(), monthly: z.number() });
 
 export const Goal = z.strictObject({
-  id: z.number(), user_id: z.number(), name: z.string(), price: z.number(), saved: z.number(), target_date: z.string(),
+  id: z.number(), name: z.string(), price: z.number(), saved: z.number(), target_date: z.string(),
   created_at: z.string(), kind: z.enum(["buy", "save"]),
   remaining: z.number(), weeks_left: z.number(), weekly: z.number(), monthly: z.number(), cuts: z.array(Cut),
 });

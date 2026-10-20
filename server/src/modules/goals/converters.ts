@@ -18,8 +18,9 @@ export function needs(goal: GoalRow, today: PyDate) {
 }
 
 export function toGoal(goal: GoalRow, n: ReturnType<typeof needs>, cuts: Cut[]): Goal {
+  const { user_id: _, ...shown } = goal;  // whose it is goes without saying
   return {
-    ...goal, kind: goal.kind === "save" ? "save" : "buy", remaining: pyRound(n.remaining, 2), weeks_left: Math.max(1, pyRound(n.days / 7)),
+    ...shown, kind: goal.kind === "save" ? "save" : "buy", remaining: pyRound(n.remaining, 2), weeks_left: Math.max(1, pyRound(n.days / 7)),
     weekly: pyRound(n.weekly, 2), monthly: pyRound(n.monthly, 2), cuts,
   };
 }

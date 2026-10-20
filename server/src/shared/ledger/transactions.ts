@@ -350,7 +350,7 @@ export async function withAccount(conn: Conn, id: string): Promise<(PayeeFields 
 /** The six latest other payments out with the same merchant or bank text, newest first. */
 export async function earlierToPayee(conn: Conn, merchant: string, description: string, exceptId: string): Promise<{ date: string; amount: number }[]> {
   return (await conn.execute<{ date: string; amount: number }>(`SELECT date, amount FROM transactions WHERE (merchant = ? OR description = ?) AND amount < 0 AND duplicate_of IS NULL
-                                         AND id != ? ORDER BY date DESC LIMIT 6`, [merchant, description, exceptId])).rows;
+                                         AND id != ? ORDER BY date DESC, id DESC LIMIT 6`, [merchant, description, exceptId])).rows;
 }
 
 /** Filters for the assistant's search: a pay month's bounds, or from/to days (both included). */
