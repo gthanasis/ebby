@@ -1,12 +1,12 @@
 // Pay months: what every total, budget and pace is counted over. The dates are real 2026 weekdays.
 import { beforeAll, describe, expect, it } from "vitest";
 
-import * as db from "../src/data/db.js";
+import * as db from "../src/shared/db.js";
 import type { Payday } from "../src/types/entities.js";
 import { users } from "./fixtures.js";
-import { monthBounds, monthOf, PayCalendar, setPayday, shift, withPayday } from "../src/domain/months.js";
-import { budgetsFor } from "../src/domain/plan.js";
-import { orthodoxEaster } from "../src/domain/extra_pay.js";
+import { monthBounds, monthOf, PayCalendar, setPayday, shift, withPayday } from "../src/shared/months.js";
+import { budgetsFor } from "../src/modules/plan/service.js";
+import { orthodoxEaster } from "../src/modules/plan/extra_pay.js";
 
 let a: number;
 beforeAll(async () => { a = (await users()).a; });

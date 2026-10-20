@@ -23,36 +23,43 @@ spending. In the image the commands are `ebby serve`, `ebby demo-seed`, `ebby ad
 ```
 server/
   src/main.ts         commands: serve, demo-seed, add-user
-  src/server.ts       builds the app: the sign-in middleware, the routers, the web app's files
+  src/server.ts       builds the app: the sign-in middleware, every feature's routes, the web app's files
+  src/scheduler.ts    the background round per person: sync, alerts, the weekly read
   src/config.ts       the only place that reads the environment: validated settings, and secrets apart
-  src/clock.ts        the only place that reads the date or time
-  src/utils/          python.ts: Python's rounding, json.dumps and dates, exactly (see "Numbers" below);
-                      python_random.ts: its random module, for the demo seed
-  src/api/            the HTTP routes, one module per area (account, banks, transactions, spending, plan, goals…);
-                      http.ts holds errors ({"detail": ...}), body checking and query parsing
-  src/jobs/           bank sync, the scheduler, the demo seed
-  src/domain/         the logic, one module per idea: months (pay months, payday), plan, pace, services,
-                      subscriptions, commitments, goals, today, year, category, cash, extra_pay, questions, savings,
-                      ingest (bank rows → stored rows), habits, spending, the sorter, alerts, the assistant, AI allowance
-    prompts/          each Claude system prompt, one module apiece
-  src/integrations/   Enable Banking, its bank list, people's own keys (credentials), web push
-  src/data/           the database, encryption, users (ensureUser)
-    repos/            one module per table (goals, commitments, rules, transactions…): SQL lives nowhere else
-  src/core/           the vocabulary every layer shares: categories, what counts as spending (spend_sql),
-                      constants (PAYDAY_MIN, CASH_ACCOUNT, the assistant's models), reference/ (merchant codes)
+  src/modules/        one folder per feature; inside, routes.ts (HTTP), service.ts (the logic), repo.ts (SQL):
+    account/          you, sign-in (auth), people, settings
+    banks/            connecting banks, sync, Enable Banking, the bank list, keys (credentials), ingest
+                      (bank rows → stored rows, categorizing, pairing debit-card copies)
+    transactions/     the overview and the transaction list, moving a payment
+    spending/         spending by range, services (payees grouped), subscriptions, cash, open questions
+    plan/             the plan and budgets, pace, today, the year, a category's detail, payday, savings
+                      accounts, extra pay
+    commitments/  goals/  habits/ (habit rules, wishlist, yearly costs)
+    alerts/           cool-down and commitment alerts, web push
+    assistant/        the chat, the sorter's guesses, the weekly read and explanations (ai), the AI allowance,
+                      prompts/
+    demo/             the made-up demo person
+  src/shared/         what every feature uses: db (connections, whose data, meta), months (the pay calendar),
+                      categories, spend_sql (what counts as spending), constants, clock (the only place that reads
+                      the time), http (errors, body checks), vault, reference/ (merchant codes),
+                      ledger/ (the transactions, rules and accounts tables: read by nearly every feature),
+                      utils/python.ts (Python's rounding, json.dumps and dates, exactly: see "Numbers" below)
   src/types/          db.ts: the tables, generated from migrations/ (npm run db:types after adding one; CI checks);
                       entities.ts: rows as the app reads them, and the JSON documents kept in meta
   migrations/         numbered SQL files, applied at startup
   test/               unit tests, and test/api/: the API as a black box (below)
 ```
 
-Imports point one way: api → jobs → domain → integrations → data → core → utils/clock/config → types
-(main.ts and server.ts wire everything). No dynamic `import()`, no cycles, no SQL outside `src/data`;
-`npm run check:layers` enforces it and CI runs it. Something two modules both need goes down a layer, not sideways.
+Code is organized by feature. A new endpoint goes in its feature's routes.ts, its logic in service.ts (or a file
+named for the idea), its queries in repo.ts. `npm run check:structure` (a CI step) keeps it that way:
+- shared/ never imports a feature; only server.ts imports a routes.ts;
+- repositories import only shared/; SQL lives only in repositories, shared/db.ts and shared/ledger/;
+- features may use each other but never in a circle (routes aside, which only wire); no file cycles, no dynamic
+  `import()`. Something two features both need goes in the lower one, or in shared/.
 
-Routes stay thin: they check input and call the domain. Logic that needs testing lives in `src/domain/`.
-Queries live in `src/data/repos/`: Kysely's typed builder for single-table reads and writes, SQL with `?`
-placeholders (`conn.execute`) for the rest. Callers open the transaction (`db.connect(conn => ...)`).
+Routes stay thin: they check input and call the service. Queries use Kysely's typed builder for single-table
+reads and writes and SQL with `?` placeholders (`conn.execute`) for the rest; callers open the transaction
+(`db.connect(conn => ...)`).
 
 ## Tests
 
@@ -89,13 +96,13 @@ placeholders (`conn.execute`) for the rest. Callers open the transaction (`db.co
   meta documents through `db.getMeta(conn, "plan")`, which is typed by key: a new meta key gets its shape in
   `MetaDocuments`. Avoid adding `Row` (`Record<string, any>`).
 - **Pay months need the pay calendar:** every request (the middleware) and every job's work for a person runs
-  inside `withPayCalendar()` (domain/months.ts), which reads their payday fresh; `monthBounds` outside it throws
+  inside `withPayCalendar()` (shared/months.ts), which reads their payday fresh; `monthBounds` outside it throws
   rather than silently using the 1st. `PayCalendar` itself is plain: `new PayCalendar(25).monthBounds("2026-10")`.
 - **Numbers and ids match what Python wrote.** Stored data and transaction ids were first made by a Python app,
   and the snapshots hold its numbers. Round money with `pyRound` (halves to even), format with `fmt0`/`fmt2`,
   and build stored JSON and ids with `pyDumps`. A plain `Math.round` or `JSON.stringify` there changes totals
   or makes a sync store a payment twice.
-- **Categories:** rules live in `server/src/core/categories.ts`. After changing them, bump `VERSION` so stored
+- **Categories:** rules live in `server/src/shared/categories.ts`. After changing them, bump `VERSION` so stored
   history is sorted again. A new category also goes in the web sorter's order (`web/src/components/Sorter.tsx`),
   and its icon in the registry (`web/src/components/ui.tsx`), or it renders as "•••".
 - **Banks are rate-limited:** about four unattended fetches a day per connection. Don't add calls to Enable

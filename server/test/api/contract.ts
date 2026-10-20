@@ -9,10 +9,10 @@
 import type { Hono } from "hono";
 import pg from "pg";
 
-import * as credentials from "../../src/integrations/credentials.js";
-import * as db from "../../src/data/db.js";
-import * as demo from "../../src/jobs/demo.js";
-import * as banks from "../../src/integrations/banks.js";
+import * as credentials from "../../src/modules/banks/credentials.js";
+import * as db from "../../src/shared/db.js";
+import * as demo from "../../src/modules/demo/seed.js";
+import * as banks from "../../src/modules/banks/bank_list.js";
 import { createApp } from "../../src/server.js";
 
 export const NOW = "2026-10-20T09:00:00+03:00";  // a Tuesday morning in Athens, mid pay month

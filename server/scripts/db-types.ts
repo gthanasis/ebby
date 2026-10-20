@@ -18,7 +18,7 @@ await admin.connect();
 await admin.query(`DROP DATABASE IF EXISTS ${NAME} WITH (FORCE)`);
 await admin.query(`CREATE DATABASE ${NAME}`);
 Object.assign(process.env, { DATABASE_URL: app.href, DATABASE_OWNER_URL: owner.href });
-const db = await import("../src/data/db.js");
+const db = await import("../src/shared/db.js");
 await db.init();
 await db.close();
 execFileSync("npx", ["kysely-codegen", "--url", owner.href, "--dialect", "postgres", "--out-file", "src/types/db.ts", "--exclude-pattern", "schema_migrations",

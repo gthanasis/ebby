@@ -9,11 +9,11 @@
 import { serve } from "@hono/node-server";
 
 import { config, ConfigError, validateConfig } from "./config.js";
-import * as db from "./data/db.js";
-import * as users from "./data/users.js";
-import * as demo from "./jobs/demo.js";
-import * as sync from "./jobs/sync.js";
+import * as db from "./shared/db.js";
+import * as users from "./modules/account/repo.js";
+import * as demo from "./modules/demo/seed.js";
 import { createApp } from "./server.js";
+import { runScheduler } from "./scheduler.js";
 
 async function startup() {
   await db.init();
@@ -25,7 +25,7 @@ async function main(args: string[]) {
   validateConfig({ database: true });
   if (cmd === "serve") {
     await startup();
-    sync.runScheduler();
+    runScheduler();
     serve({ fetch: createApp().fetch, port: config.PORT, hostname: "0.0.0.0" }, (info) => console.info(`ebby listening on :${info.port}`));
     return;
   }

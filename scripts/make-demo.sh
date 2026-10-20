@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The README's screenshots, demo video and GIF, from made-up data (server/src/jobs/demo.ts). Nobody's real money.
+# The README's screenshots, demo video and GIF, from made-up data (server/src/modules/demo/seed.ts). Nobody's real money.
 #
 #   scripts/make-demo.sh      -> docs/demo.mp4, docs/demo.gif, docs/hero.png, docs/banner-*.png, docs/screens/*.png
 #
