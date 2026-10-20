@@ -12,14 +12,14 @@ import pg from "pg";
 import * as credentials from "../../src/data/credentials.js";
 import * as db from "../../src/data/db.js";
 import * as demo from "../../src/data/demo.js";
-import * as insights from "../../src/domain/insights.js";
 import * as banks from "../../src/integrations/banks.js";
 import { createApp } from "../../src/server.js";
+import { _paydays } from "../../src/domain/months.js";
 
 export const NOW = "2026-10-20T09:00:00+03:00";  // a Tuesday morning in Athens, mid pay month
 
 function clearCaches() {
-  insights._paydays.clear(); credentials._clients.clear(); banks._cache.clear();
+  _paydays.clear(); credentials._clients.clear(); banks._cache.clear();
 }
 
 /** Points the app at a fresh database named `name`, seeds the demo person into it and pins the clock. Returns a

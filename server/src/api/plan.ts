@@ -5,11 +5,14 @@ import { z } from "zod";
 
 import * as db from "../data/db.js";
 import * as ai from "../domain/ai.js";
-import * as insights from "../domain/insights.js";
 import * as push from "../integrations/push.js";
 import { pyDumps } from "../py.js";
 import * as common from "./common.js";
 import { body, fail, integer, num } from "./http.js";
+import { averages, getPlan, planView, savePlan, setLimit, suggestBudgets } from "../domain/plan.js";
+import { committedTotal } from "../domain/commitments.js";
+import { detectPayday, setPayday } from "../domain/months.js";
+import { extraPay } from "../domain/extra_pay.js";
 
 const PlanIn = z.object({
   take_home: num, keep: num, budgets: z.record(z.string(), num).nullable().default(null),
@@ -30,15 +33,15 @@ const SettingsIn = z.object({
 
 export function routes(app: Hono) {
   app.get("/api/plan", async (c) => c.json(await db.connect(async (conn) => ({
-    ...(await insights.planView(conn)), committed: await insights.committedTotal(conn),
+    ...(await planView(conn)), committed: await committedTotal(conn),
     settings: await common.settings(conn), devices: await push.count(), ai: await ai.available(),
-    payday_detected: await insights.detectPayday(conn), extra_pay: await insights.extraPay(conn),
+    payday_detected: await detectPayday(conn), extra_pay: await extraPay(conn),
   }))));
 
   app.post("/api/plan/suggest", async (c) => {
     const b = await body(c, PlanIn);
     return c.json(await db.connect(async (conn) => ({
-      budgets: await insights.suggestBudgets(conn, b.take_home, b.keep), averages: await insights.averages(conn), committed: await insights.committedTotal(conn),
+      budgets: await suggestBudgets(conn, b.take_home, b.keep), averages: await averages(conn), committed: await committedTotal(conn),
     })));
   });
 
@@ -46,16 +49,16 @@ export function routes(app: Hono) {
     const b = await body(c, PlanIn);
     if (b.take_home <= 0 || b.keep < 0 || b.keep >= b.take_home) fail(400, "Keep must be less than take-home");
     await db.connect(async (conn) => {
-      if (b.keep + await insights.committedTotal(conn) >= b.take_home) fail(400, "What you keep plus your committed costs leaves nothing to spend");
+      if (b.keep + await committedTotal(conn) >= b.take_home) fail(400, "What you keep plus your committed costs leaves nothing to spend");
     });
-    return c.json(await db.connect((conn) => insights.savePlan(conn, b.take_home, b.keep, b.budgets, b.split)));
+    return c.json(await db.connect((conn) => savePlan(conn, b.take_home, b.keep, b.budgets, b.split)));
   });
 
   app.put("/api/plan/limit", async (c) => {
     const b = await body(c, z.object({ month: z.string().regex(/^\d{4}-\d{2}$/), limit: num.refine((v) => v > 0, "Input should be greater than 0") }));
     return c.json(await db.connect(async (conn) => {
-      if (!(await insights.getPlan(conn))) fail(400, "Set up the plan first");
-      return insights.setLimit(conn, b.month, b.limit);
+      if (!(await getPlan(conn))) fail(400, "Set up the plan first");
+      return setLimit(conn, b.month, b.limit);
     }));
   });
 
@@ -71,7 +74,7 @@ export function routes(app: Hono) {
       if (pyDumps(out.owner_names ?? null) !== pyDumps(before.owner_names ?? null)) await db.recategorize(conn);
       return out;
     });
-    if (b.payday) insights.setPayday(b.payday);
+    if (b.payday) setPayday(b.payday);
     return c.json(merged);
   });
 }

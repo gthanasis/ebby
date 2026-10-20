@@ -18,10 +18,11 @@ import { fmt2, isoUtc, PyDate, pyRound } from "../py.js";
 import * as ai from "./ai.js";
 import * as aiUsage from "./ai_usage.js";
 import { CATEGORIES } from "./categories.js";
-import * as insights from "./insights.js";
 import { SORTER_GUESS } from "./prompts/sorter.js";
 import * as spending from "./spending.js";
 import { SHOP_TYPES } from "./reference/mcc.js";
+import { localToday } from "./months.js";
+import { questions } from "./questions.js";
 
 
 const GUESS_KEY = "sorter_guesses";
@@ -38,8 +39,8 @@ function how(row: Row): string {
 export async function items(conn: Conn): Promise<Row[]> {
   const out = [];
   const guesses = (await db.getMeta(conn, GUESS_KEY)) || {};
-  const today = insights.localToday();
-  for (const q of await insights.questions(conn, 50)) {
+  const today = localToday();
+  for (const q of await questions(conn, 50)) {
     const t = (await conn.execute(`SELECT t.id, t.date, t.amount, t.merchant, t.description, t.mcc, a.name AS account_name, a.bank, a.is_card
                                    FROM transactions t JOIN accounts a ON a.id = t.account WHERE t.id = ?`, [q.tx_id])).one();
     if (!t) continue;

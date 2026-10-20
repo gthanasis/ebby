@@ -29,8 +29,9 @@ server/
   src/py.ts           Python's rounding, json.dumps and dates, exactly (see "Numbers" below)
   src/api/            the HTTP routes, one module per area (account, banks, transactions, spending, plan, goals…);
                       http.ts holds errors ({"detail": ...}), body checking and query parsing
-  src/domain/         the logic: categories, insights (pay months, plan, pace, goals, commitments), habits,
-                      spending, the sorter, alerts, the assistant and its AI allowance
+  src/domain/         the logic, one module per idea: months (pay months, payday), plan, pace, services,
+                      subscriptions, commitments, goals, today, year, category, cash, extra_pay, questions;
+                      categories, habits, spending, the sorter, alerts, the assistant and its AI allowance
     constants.ts      values several modules share (PAYDAY_MIN, CASH_ACCOUNT, the assistant's models)
     prompts/          each Claude system prompt, one module apiece
     reference/        fixed reference data: what merchant category codes mean
@@ -82,7 +83,7 @@ connections and transactions, and its typed builder is there for new queries.
   meta documents through `db.getMeta(conn, "plan")`, which is typed by key: a new meta key gets its shape in
   `MetaDocuments`. Avoid adding `Row` (`Record<string, any>`).
 - **Pay months need the payday loaded:** every request (the middleware) and every job loads it with
-  `insights.loadPayday()` before using `monthBounds`; forgetting throws rather than silently using the 1st.
+  `loadPayday()` (domain/months.ts) before using `monthBounds`; forgetting throws rather than silently using the 1st.
 - **Numbers and ids match what Python wrote.** Stored data and transaction ids were first made by a Python app,
   and the snapshots hold its numbers. Round money with `pyRound` (halves to even), format with `fmt0`/`fmt2`,
   and build stored JSON and ids with `pyDumps`. A plain `Math.round` or `JSON.stringify` there changes totals

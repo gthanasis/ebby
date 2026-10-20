@@ -1,22 +1,25 @@
 /** Categories, the month's overview, the transaction list, and moving a payment to another category. */
 
 import type { Hono } from "hono";
+
+import { SPEND_ARGS, SPEND_SQL } from "../domain/spend_sql.js";
 import { z } from "zod";
 
 import * as db from "../data/db.js";
 import { type Conn, first, type Row } from "../data/db.js";
 import { CATEGORIES } from "../domain/categories.js";
-import * as insights from "../domain/insights.js";
 import { PyDate, pyRound, sorted } from "../py.js";
 import { body, fail, int } from "./http.js";
+import { localToday, monthBounds, monthOf, shift, thisMonth } from "../domain/months.js";
+import { serviceName, serviceTransactionIds } from "../domain/services.js";
 
 // Totals only add up euros; rows in other currencies (Revolut pockets) still show in the list.
-const { SPEND_SQL, SPEND_ARGS } = insights;
+
 
 /** [YYYY-MM, first day, first day of the next month] of a pay month. */
 function month(m: string | null | undefined): [string, string, string] {
-  const key = m || insights.thisMonth();
-  return [key, ...insights.monthBounds(key)];
+  const key = m || thisMonth();
+  return [key, ...monthBounds(key)];
 }
 
 async function spent(conn: Conn, start: string, end: string): Promise<number> {
@@ -30,10 +33,10 @@ export function routes(app: Hono) {
 
   app.get("/api/overview", async (c) => {
     const [key, start, end] = month(c.req.query("month"));
-    const today = insights.localToday().isoformat();
+    const today = localToday().isoformat();
     return c.json(await db.connect(async (conn) => {
       const total = await spent(conn, start, end);
-      const [prevKey, prevStart, prevEnd] = month(insights.shift(key, -1));
+      const [prevKey, prevStart, prevEnd] = month(shift(key, -1));
       const prevTotal = await spent(conn, prevStart, prevEnd);
       // Same point last month, so a half-finished month compares fairly.
       const current = start <= today && today < end;
@@ -47,7 +50,7 @@ export function routes(app: Hono) {
         SELECT date, -SUM(amount) AS amount FROM transactions
         WHERE date >= ? AND date < ? AND ${SPEND_SQL} GROUP BY date ORDER BY date
       `, [start, end, ...SPEND_ARGS])).rows;
-      const firstMonth = month(insights.shift(key, -11))[1];
+      const firstMonth = month(shift(key, -11))[1];
       const byMonth = new Map<string, { spent: number; income: number }>();
       for (const r of await conn.execute(`
         SELECT date,
@@ -55,7 +58,7 @@ export function routes(app: Hono) {
           SUM(CASE WHEN category = 'income' AND currency = 'EUR' THEN amount ELSE 0 END) AS income
         FROM transactions WHERE date >= ? AND date < ? GROUP BY date
       `, [...SPEND_ARGS, firstMonth, end])) {
-        const k = insights.monthOf(r.date);
+        const k = monthOf(r.date);
         const m = byMonth.get(k) ?? { spent: 0.0, income: 0.0 };
         m.spent += r.spent; m.income += r.income;
         byMonth.set(k, m);
@@ -74,7 +77,7 @@ export function routes(app: Hono) {
       return {
         month: key, start, end, current, total, count, income: pyRound(income, 2),
         prev_month: prevKey, prev_total: prevTotal, prev_to_date: prevToDate,
-        by_category: byCategory, daily, monthly, merchants, oldest_month: oldestDay ? insights.monthOf(oldestDay) : null,
+        by_category: byCategory, daily, monthly, merchants, oldest_month: oldestDay ? monthOf(oldestDay) : null,
       };
     }));
   });
@@ -93,8 +96,8 @@ export function routes(app: Hono) {
     if (commitment != null) { where.push("commitment_id = ?"); args.push(commitment); }
     if (search) { where.push("(merchant ILIKE ? OR description ILIKE ?)"); args.push(`%${search}%`, `%${search}%`); }
     if (service && category) {
-      // Services are named in code (insights.serviceName), so filter to their ids first.
-      const ids = await db.connect((conn) => insights.serviceTransactionIds(conn, category, service));
+      // Services are named in code (serviceName), so filter to their ids first.
+      const ids = await db.connect((conn) => serviceTransactionIds(conn, category, service));
       where.push(ids.length ? `t.id IN (${ids.map(() => "?").join(",")})` : "false");
       args.push(...ids);
     }

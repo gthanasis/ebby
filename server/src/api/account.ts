@@ -10,9 +10,9 @@ import { type Conn, first } from "../data/db.js";
 import * as users from "../data/users.js";
 import * as vault from "../data/vault.js";
 import * as aiUsage from "../domain/ai_usage.js";
-import * as insights from "../domain/insights.js";
 import { pyRound } from "../py.js";
 import { body, fail, HttpError, int, num } from "./http.js";
+import { localToday } from "../domain/months.js";
 
 async function onboarding(conn: Conn) {
   const keys = await credentials.publicInfo(conn);
@@ -24,7 +24,7 @@ async function admin() {
   if (!(await users.me(db.currentUser()!)).is_admin) fail(403, "Only the admin can manage people.");
 }
 
-const monthStart = () => aiUsage.monthBounds(insights.localToday())[0];
+const monthStart = () => aiUsage.monthBounds(localToday())[0];
 const budget = num.refine((v) => v >= 0 && v <= 1000, "Input should be between 0 and 1000").nullable().optional();
 
 export function routes(app: Hono) {

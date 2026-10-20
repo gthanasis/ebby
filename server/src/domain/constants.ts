@@ -3,7 +3,7 @@
 /** An income deposit at least this big counts as pay: it marks payday, and the plan's take-home. */
 export const PAYDAY_MIN = 1000;
 
-/** The account cash logged by hand is kept in (insights.logCash), apart from every bank account. */
+/** The account cash logged by hand is kept in (logCash), apart from every bank account. */
 export const CASH_ACCOUNT = "cash";
 
 /** The models the chat and the sorter can use, by the name Settings shows. */

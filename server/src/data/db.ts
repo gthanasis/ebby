@@ -297,7 +297,7 @@ export async function recategorize(conn: Conn) {
     const row = txRow(r.account, cards[r.account] ?? false, JSON.parse(r.raw), rules, r.mcc, owners);
     await conn.execute("UPDATE transactions SET merchant = ?, category = ? WHERE id = ?", [row[7], row[9], r.id]);
   }
-  const { assignCommitments } = await import("../domain/insights.js");
+  const { assignCommitments } = await import("../domain/commitments.js");
   await assignCommitments(conn);
 }
 

@@ -9,8 +9,9 @@
 import type { Conn, Row } from "../data/db.js";
 import { first } from "../data/db.js";
 import { fmt0, fmt2, maxBy, median, PyDate, pyRound, sorted, sum } from "../py.js";
-import * as insights from "./insights.js";
-import { SPEND_ARGS, SPEND_SQL } from "./insights.js";
+import { SPEND_ARGS, SPEND_SQL } from "./spend_sql.js";
+import { localToday, monthBounds, monthOf, shift, thisMonth } from "./months.js";
+import { serviceName } from "./services.js";
 
 export const RANGES = ["day", "week", "month", "year"];
 const USUAL_COUNT: Record<string, number> = { day: 8, week: 8, month: 6 };
@@ -27,7 +28,7 @@ const med = (values: number[]) => (values.length ? median(values) : 0.0);
 
 /** [first day, last day, key] of the period `off` steps from the current one. */
 export function bounds(rng: string, off: number): [PyDate, PyDate, string] {
-  const today = insights.localToday();
+  const today = localToday();
   if (rng === "day") {
     const d = today.addDays(off);
     return [d, d, d.isoformat()];
@@ -37,12 +38,12 @@ export function bounds(rng: string, off: number): [PyDate, PyDate, string] {
     return [monday, monday.addDays(6), monday.isoformat()];
   }
   if (rng === "month") {
-    const key = insights.shift(insights.thisMonth(), off);
-    const [a, b] = insights.monthBounds(key);
+    const key = shift(thisMonth(), off);
+    const [a, b] = monthBounds(key);
     return [PyDate.fromisoformat(a), PyDate.fromisoformat(b).addDays(-1), key];
   }
-  const y = parseInt(insights.thisMonth().slice(0, 4), 10) + off;
-  return [PyDate.fromisoformat(insights.monthBounds(`${y}-01`)[0]), PyDate.fromisoformat(insights.monthBounds(`${y}-12`)[1]).addDays(-1), String(y)];
+  const y = parseInt(thisMonth().slice(0, 4), 10) + off;
+  return [PyDate.fromisoformat(monthBounds(`${y}-01`)[0]), PyDate.fromisoformat(monthBounds(`${y}-12`)[1]).addDays(-1), String(y)];
 }
 
 const minDay = (a: PyDate, b: PyDate) => (a.n <= b.n ? a : b);
@@ -53,7 +54,7 @@ export async function rows(conn: Conn, a: PyDate, b: PyDate): Promise<SpendRow[]
       FROM transactions t JOIN accounts a ON a.id = t.account WHERE t.date >= ? AND t.date <= ? AND ${T}
       ORDER BY t.date, t.amount`, [a.isoformat(), b.isoformat(), ...SPEND_ARGS])).rows.map((r) => ({
     date: r.date, amount: pyRound(r.amount, 2), category: r.category,
-    name: insights.serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc),
+    name: serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc),
   }));
 }
 
@@ -138,7 +139,7 @@ function payments(rs: SpendRow[], limit?: number): SpendRow[] {
 const daySpent = (rs: SpendRow[], d: PyDate) => pyRound(sum(rs.filter((r) => r.date === d.isoformat()).map((r) => r.amount)), 2);
 
 export async function view(conn: Conn, rng: string, off: number): Promise<Row> {
-  const today = insights.localToday();
+  const today = localToday();
   const [a, b, key] = bounds(rng, off);
   const upto = minDay(b, today);
   const rs = a.n <= today.n ? await rows(conn, a, upto) : [];
@@ -189,11 +190,11 @@ export async function view(conn: Conn, rng: string, off: number): Promise<Row> {
 }
 
 async function yearView(conn: Conn, year: number, rs: SpendRow[]): Promise<Row> {
-  const today = insights.localToday();
+  const today = localToday();
   const months: Row[] = [];
   for (let m = 1; m <= 12; m++) {
     const key = `${year}-${String(m).padStart(2, "0")}`;
-    const [ma, mb] = insights.monthBounds(key).map(PyDate.fromisoformat);
+    const [ma, mb] = monthBounds(key).map(PyDate.fromisoformat);
     if (ma.n > today.n) { months.push({ key, total: null, done: false }); continue; }
     const mrows = rs.filter((r) => ma.isoformat() <= r.date && r.date < mb.isoformat());
     months.push({ key, total: total(mrows), done: mb.n <= today.n, rows: mrows });
@@ -236,7 +237,7 @@ async function yearView(conn: Conn, year: number, rs: SpendRow[]): Promise<Row> 
 
 /** One category over a period: its total, its usual month, six months of history, and who got it. */
 export async function category(conn: Conn, cat: string, rng: string, off: number): Promise<Row> {
-  const today = insights.localToday();
+  const today = localToday();
   const [a, b, key] = bounds(rng, off);
   const rs = a.n <= today.n ? (await rows(conn, a, minDay(b, today))).filter((r) => r.category === cat) : [];
   const services = new Map<string, [number, number]>();
@@ -246,10 +247,10 @@ export async function category(conn: Conn, cat: string, rng: string, off: number
     services.set(r.name, s);
   }
   const history = [];
-  const month = insights.monthOf(minDay(b, today));
+  const month = monthOf(minDay(b, today));
   for (let k = 5; k >= 0; k--) {
-    const m = insights.shift(month, -k);
-    const [ma, mb] = insights.monthBounds(m).map(PyDate.fromisoformat);
+    const m = shift(month, -k);
+    const [ma, mb] = monthBounds(m).map(PyDate.fromisoformat);
     history.push({ key: m, total: total((await rows(conn, ma, minDay(mb.addDays(-1), today))).filter((r) => r.category === cat)) });
   }
   return {
@@ -276,7 +277,7 @@ export async function context(conn: Conn, rng: string, off: number): Promise<str
     lines.push("By category (spent / per month): " + v.categories.map((c: Row) => `${c.category} €${fmt0(c.spent)} / €${fmt0(c.per_month)}`).join("; "));
   }
   const pays: SpendRow[] = rng !== "year" ? v.payments
-    : payments(await rows(conn, PyDate.fromisoformat(v.start), minDay(PyDate.fromisoformat(v.end), insights.localToday())));
+    : payments(await rows(conn, PyDate.fromisoformat(v.start), minDay(PyDate.fromisoformat(v.end), localToday())));
   lines.push(`\nPayments (date, amount, category, service)${pays.length > 400 ? " - the 400 most recent" : ""}:`);
   for (const p of pays.slice(0, 400)) lines.push(`${p.date}, €${fmt2(p.amount)}, ${p.category}, ${p.name}`);
   return lines.join("\n");
