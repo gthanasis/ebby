@@ -27,8 +27,17 @@ def client_as(monkeypatch, users):
     return make
 
 
+def _all_routes(routes):
+    """Every route, including those of included routers (which FastAPI keeps nested)."""
+    for route in routes:
+        if hasattr(route, "original_router"):
+            yield from _all_routes(route.original_router.routes)
+        else:
+            yield route
+
+
 def _get_routes():
-    for route in server.app.routes:
+    for route in _all_routes(server.app.routes):
         path = getattr(route, "path", "")
         if "GET" in getattr(route, "methods", set()) and path.startswith("/api"):
             for name, value in PATH_VALUES.items():

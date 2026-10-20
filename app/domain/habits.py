@@ -7,7 +7,6 @@ They nudge behaviour rather than report it, so each one answers a single questio
 - Yearly costs: what to set aside each month so a yearly bill doesn't wreck one month.
 """
 
-import json
 from datetime import date, datetime, timedelta, timezone
 
 from app.data import db
@@ -224,7 +223,6 @@ def _bought_wishes(conn, a: date, b: date) -> list[float]:
 
 def _measure(conn, r: dict, a: date, b: date, rows: list[dict]) -> dict:
     """The habit's number for the days a..b: payments, euros, no-spend days or wishlist skips."""
-    from app.domain import spending  # late: spending imports insights
     today = insights.local_today()
     mine = [x for x in rows if x["category"] == r["category"]]
     if r["type"] == "fewer":
