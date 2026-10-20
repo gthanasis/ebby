@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   finishOnboarding, saveAnthropicKey, saveBankAccess, saveSettings, startAuth, type BankAccess, type Me, type Status,
 } from "../lib/api";
+import { useAction } from "../lib/action";
 import { BankPicker } from "./BankPicker";
 import { Logo } from "./Logo";
 import { Card, CardHeader, Icon } from "./ui";
@@ -193,8 +194,7 @@ export function KeyForm({ title = "Add it to ebby", onSaved }: { title?: string;
   const [appId, setAppId] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [over, setOver] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useAction();
   const input = useRef<HTMLInputElement>(null);
 
   const pick = (f: File | undefined) => {
@@ -206,8 +206,7 @@ export function KeyForm({ title = "Add it to ebby", onSaved }: { title?: string;
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!file) return;
-    setBusy(true); setError(null);
-    saveBankAccess(appId.trim(), file).then(onSaved).catch((err: Error) => setError(err.message)).finally(() => setBusy(false));
+    run(() => saveBankAccess(appId.trim(), file).then(onSaved));
   };
 
   return (
@@ -404,13 +403,9 @@ function QuickSettings({ me }: { me: Me }) {
 
 /* ---------- 5. done ---------- */
 function Done({ status, onDone }: { status?: Status; onDone: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run } = useAction();
   const banks = status?.connections.filter((c) => c.connected).map((c) => c.bank) ?? [];
-  const finish = () => {
-    setBusy(true); setError(null);
-    finishOnboarding().then(onDone).catch((e: Error) => { setError(e.message); setBusy(false); });
-  };
+  const finish = () => run(() => finishOnboarding().then(onDone), { keepBusy: true });
 
   return (
     <>

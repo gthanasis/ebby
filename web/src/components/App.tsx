@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useApi, type Category, type Me, type Range, type Status } from "../lib/api";
 import { setThisMonth, thisMonth } from "../lib/format";
 import { Accounts } from "./Accounts";
@@ -29,7 +29,64 @@ const monthsBack = (m: string) => {
   return (y - ty) * 12 + (mo - tm);
 };
 
-const PAGES: Page[] = ["home", "assistant", "spending", "committed", "category", "service", "subscriptions", "transactions", "year", "goals", "plan", "settings", "accounts", "login", "welcome"];
+/** What every page can draw from: the screens' shared props, and the app-wide state they reload. */
+interface Shared {
+  screen: ScreenProps; categories: Category[]; changed: () => void;
+  status?: Status; reloadStatus: () => void; me?: Me; reloadMe: () => void;
+}
+
+/** Each page, and the tab it sits under. `year` and `plan` are old pages kept for old links and installs. */
+const SCREENS: Record<Page, { tab?: Page; render: (r: Route, s: Shared) => ReactNode }> = {
+  home: { tab: "home", render: (_, s) => <HomeScreen {...s.screen} status={s.status} onSync={s.reloadStatus} /> },
+  assistant: {
+    tab: "assistant",
+    render: (r, s) => r.section === "sort"
+      ? <Sorter {...s.screen} onChanged={() => { s.changed(); s.reloadStatus(); }} />
+      : <AssistantScreen {...s.screen} onChanged={() => { s.changed(); s.reloadStatus(); }} />,
+  },
+  spending: { tab: "spending", render: (r, s) => <Spending {...s.screen} range={r.range ?? "month"} off={r.off ?? 0} /> },
+  year: { tab: "spending", render: (r, s) => SCREENS.spending.render(r, s) },
+  committed: { tab: "spending", render: (r, s) => <CommittedView {...s.screen} month={r.month} onChanged={s.changed} /> },
+  category: {
+    tab: "spending",
+    render: (r, s) => r.category && <CategoryView {...s.screen} range={r.range ?? "month"} off={r.off ?? 0} category={r.category} />,
+  },
+  service: {
+    tab: "spending",
+    render: (r, s) => r.category && r.service && <ServiceView {...s.screen} month={r.month} category={r.category} service={r.service} />,
+  },
+  subscriptions: { tab: "spending", render: (_, s) => <SubscriptionsScreen {...s.screen} /> },
+  transactions: {
+    tab: "spending",
+    render: (r, s) => (
+      <Transactions month={r.month} category={r.category} service={r.service} commitment={r.commitment} categories={s.categories} byId={s.screen.byId}
+        version={s.screen.version} onChanged={s.changed} go={s.screen.go} />
+    ),
+  },
+  goals: { tab: "goals", render: (r, s) => <Goals {...s.screen} section={r.section} id={r.id} onChanged={s.changed} /> },
+  settings: {
+    tab: "settings",
+    render: (r, s) => (
+      <SettingsScreen {...s.screen} section={r.section} commitment={r.commitment} status={s.status} reloadStatus={s.reloadStatus} onChanged={s.changed}
+        me={s.me} reloadMe={s.reloadMe} />
+    ),
+  },
+  plan: { tab: "settings", render: (r, s) => SCREENS.settings.render(r, s) },
+  accounts: {
+    tab: "settings",
+    render: (_, s) => (
+      <>
+        <a className="back" href={hrefFor({ page: "settings" })}><Icon icon="mdi:chevron-left" />Settings</a>
+        <div className="hello"><h1>Banks</h1></div>
+        <Accounts status={s.status} reload={s.reloadStatus} />
+      </>
+    ),
+  },
+  // Login draws on its own, before the tabs; welcome is onboarding's address, and leaves for home once it's done.
+  login: { render: () => null },
+  welcome: { render: () => null },
+};
+const PAGES = Object.keys(SCREENS) as Page[];
 
 function parseHash(): Route {
   const [page, ...rest] = location.hash.replace(/^#\/?/, "").split("/");
@@ -69,12 +126,12 @@ export function hrefFor(r: Partial<Route> & { page: Page }) {
   return `#/${r.page}/${params}`;
 }
 
-const TABS: { page: Page; label: string; icon: string; covers: Page[] }[] = [
-  { page: "home", label: "Overview", icon: "mdi:home-outline", covers: ["home"] },
-  { page: "spending", label: "Spending", icon: "mdi:chart-donut", covers: ["spending", "year", "committed", "category", "service", "subscriptions", "transactions"] },
-  { page: "assistant", label: "Assistant", icon: "mdi:creation-outline", covers: ["assistant"] },
-  { page: "goals", label: "Goals", icon: "mdi:flag-checkered", covers: ["goals"] },
-  { page: "settings", label: "Settings", icon: "mdi:cog-outline", covers: ["settings", "plan", "accounts"] },
+const TABS: { page: Page; label: string; icon: string }[] = [
+  { page: "home", label: "Overview", icon: "mdi:home-outline" },
+  { page: "spending", label: "Spending", icon: "mdi:chart-donut" },
+  { page: "assistant", label: "Assistant", icon: "mdi:creation-outline" },
+  { page: "goals", label: "Goals", icon: "mdi:flag-checkered" },
+  { page: "settings", label: "Settings", icon: "mdi:cog-outline" },
 ];
 
 export function App() {
@@ -115,7 +172,10 @@ export function App() {
   const list = categories.data ?? [];
   const byId = Object.fromEntries(list.map((c) => [c.id, c]));
   const changed = () => setVersion((v) => v + 1);
-  const shared = { byId, version, go };
+  const shared: Shared = {
+    screen: { byId, version, go }, categories: list, changed,
+    status: status.data, reloadStatus: status.reload, me: me.data, reloadMe: me.reload,
+  };
 
   if (route.page === "login") return <Login />;
   // Until /api/me answers, draw nothing rather than flash the tabs at someone who still has setup to do.
@@ -128,39 +188,11 @@ export function App() {
 
   return (
     <div className="shell">
-      <div className="wrap narrow">
-        {route.page === "assistant" && (route.section === "sort"
-          ? <Sorter {...shared} onChanged={() => { changed(); status.reload(); }} />
-          : <AssistantScreen {...shared} onChanged={() => { changed(); status.reload(); }} />)}
-        {route.page === "home" && <HomeScreen {...shared} status={status.data} onSync={status.reload} />}
-        {(route.page === "spending" || route.page === "year") && <Spending {...shared} range={route.range ?? "month"} off={route.off ?? 0} />}
-        {route.page === "committed" && <CommittedView {...shared} month={route.month} onChanged={changed} />}
-        {route.page === "category" && route.category && <CategoryView {...shared} range={route.range ?? "month"} off={route.off ?? 0} category={route.category} />}
-        {route.page === "service" && route.category && route.service && (
-          <ServiceView {...shared} month={route.month} category={route.category} service={route.service} />
-        )}
-        {route.page === "subscriptions" && <SubscriptionsScreen {...shared} />}
-        {route.page === "transactions" && (
-          <Transactions month={route.month} category={route.category} service={route.service} commitment={route.commitment} categories={list} byId={byId}
-            version={version} onChanged={changed} go={go} />
-        )}
-        {route.page === "goals" && <Goals {...shared} section={route.section} id={route.id} onChanged={changed} />}
-        {(route.page === "settings" || route.page === "plan") && (
-          <SettingsScreen {...shared} section={route.section} commitment={route.commitment} status={status.data} reloadStatus={status.reload} onChanged={changed}
-            me={me.data} reloadMe={me.reload} />
-        )}
-        {route.page === "accounts" && (
-          <>
-            <a className="back" href={hrefFor({ page: "settings" })}><Icon icon="mdi:chevron-left" />Settings</a>
-            <div className="hello"><h1>Banks</h1></div>
-            <Accounts status={status.data} reload={status.reload} />
-          </>
-        )}
-      </div>
+      <div className="wrap narrow">{SCREENS[route.page].render(route, shared)}</div>
 
       <nav className="tabbar" aria-label="Sections" style={{ ["--tabs" as string]: TABS.length }}>
         {TABS.map((t) => {
-          const on = t.covers.includes(route.page);
+          const on = SCREENS[route.page].tab === t.page;
           return (
             <a key={t.page} className={on ? "on" : ""} aria-current={on ? "page" : undefined} href={hrefFor({ page: t.page })}>
               <Icon icon={t.icon} />{t.label}

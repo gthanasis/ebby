@@ -61,7 +61,7 @@ export function Spending({ byId, version, go, range, off }: ScreenProps & { rang
       </div>
       <div className="sp-nav">
         <button className="chip icon-only" aria-label={`Previous ${range}`} disabled={!v?.can_prev} onClick={() => set({ off: off - 1 })}><Icon icon="mdi:chevron-left" /></button>
-        <div>{v ? <><b>{title(v)}</b><small>{subtitle(v)}</small></> : <b>&nbsp;</b>}</div>
+        <div>{v ? <><b>{RANGE[v.range].title(v)}</b><small>{RANGE[v.range].subtitle(v)}</small></> : <b>&nbsp;</b>}</div>
         <button className="chip icon-only" aria-label={`Next ${range}`} disabled={off >= 0} onClick={() => set({ off: off + 1 })}><Icon icon="mdi:chevron-right" /></button>
       </div>
       {error && <div className="error">{error}</div>}
@@ -73,18 +73,45 @@ export function Spending({ byId, version, go, range, off }: ScreenProps & { rang
   );
 }
 
-function title(v: SpendView): string {
-  if (v.range === "day") return v.off === 0 ? "Today" : v.off === -1 ? "Yesterday" : fmt(v.start, { weekday: "long" });
-  if (v.range === "week") return v.off === 0 ? "This week" : v.off === -1 ? "Last week" : `Week of ${fmt(v.start, SHORT)}`;
-  if (v.range === "month") return monthLabel(v.key).split(" ")[0] + (v.key.slice(0, 4) === thisMonth().slice(0, 4) ? "" : ` ${v.key.slice(0, 4)}`);
-  return v.key;
-}
+const span = (v: SpendView) => `${fmt(v.start, SHORT)} – ${fmt(v.end, SHORT)}`;
+const monthsIn = (v: SpendView) => v.months?.filter((m) => m.total != null).length ?? 0;
+const lastMonth = (v: SpendView) => v.last_key ? monthLabel(v.last_key).split(" ")[0] : "";
+const paymentsTab = (v: SpendView) => `Payments · ${v.count}`;
 
-function subtitle(v: SpendView): string {
-  if (v.range === "day") return fmt(v.start, { day: "numeric", month: "long" });
-  if (v.range === "year") return `${v.months?.filter((m) => m.total != null).length ?? 0} pay months`;
-  return `${fmt(v.start, SHORT)} – ${fmt(v.end, SHORT)}`;
-}
+/** How each range names itself: the header, the period before it, the "so far" caption and the tab labels. */
+const RANGE: Record<Range, {
+  title: (v: SpendView) => string; subtitle: (v: SpendView) => string;
+  /** The period before, for "€40 more than …". */
+  lastName: (v: SpendView) => string;
+  /** Under the total while the period is still running. */
+  soFar: (v: SpendView) => string;
+  /** The chart tab that steps through past periods. */
+  trend: string;
+  paymentsTab: (v: SpendView) => string;
+  /** "Explain this week" */
+  explain: string;
+}> = {
+  day: {
+    title: (v) => v.off === 0 ? "Today" : v.off === -1 ? "Yesterday" : fmt(v.start, { weekday: "long" }),
+    subtitle: (v) => fmt(v.start, { day: "numeric", month: "long" }),
+    lastName: lastMonth, soFar: () => "so far", trend: "Months", paymentsTab, explain: "this day",
+  },
+  week: {
+    title: (v) => v.off === 0 ? "This week" : v.off === -1 ? "Last week" : `Week of ${fmt(v.start, SHORT)}`,
+    subtitle: span,
+    lastName: (v) => v.off === 0 ? "last week" : "the week before", soFar: () => "so far", trend: "Weeks", paymentsTab, explain: "this week",
+  },
+  month: {
+    title: (v) => monthLabel(v.key).split(" ")[0] + (v.key.slice(0, 4) === thisMonth().slice(0, 4) ? "" : ` ${v.key.slice(0, 4)}`),
+    subtitle: span,
+    lastName: lastMonth, soFar: (v) => `so far, day ${v.elapsed} of ${v.length}`, trend: "Months", paymentsTab, explain: "this month",
+  },
+  year: {
+    title: (v) => v.key,
+    subtitle: (v) => `${monthsIn(v)} pay months`,
+    lastName: lastMonth, soFar: (v) => `so far, ${monthsIn(v)} months`, trend: "Months", paymentsTab: () => "Biggest", explain: "this year",
+  },
+};
 
 /** "€118 less than last week (€718)", the difference coloured; "about the same" when close. */
 function compare(value: number, base: number, name: string, close = 10): ReactNode {
@@ -145,20 +172,19 @@ function PeriodView({ v, byId, onPick, onExplained }: {
   const [chart, setChart] = useRemembered<"days" | "trend">("spendingChart", "days");
   const year = v.range === "year";
   const unit = v.range;
-  const lastName = v.range === "week" ? (v.off === 0 ? "last week" : "the week before") : v.last_key ? monthLabel(v.last_key).split(" ")[0] : "";
+  const named = RANGE[v.range];
   const by = v.partial ? " by this point" : "";
-  const months = v.months?.filter((m) => m.total != null).length ?? 0;
 
   return (
     <div className="col">
       <Card>
         <div className="sp-total num">{euroRound(v.total)}
-          {v.partial && <small>{v.range === "month" ? `so far, day ${v.elapsed} of ${v.length}` : year ? `so far, ${months} months` : "so far"}</small>}
+          {v.partial && <small>{named.soFar(v)}</small>}
         </div>
         {year ? <p className="sp-line num">A usual month is <b>{euroRound(v.usual)}</b>.{standout(v)}</p>
           : (v.last != null || v.usual != null) && (
             <p className="sp-line num">
-              {v.last != null && compare(v.total, v.last, `${lastName}${by}`)}
+              {v.last != null && compare(v.total, v.last, `${named.lastName(v)}${by}`)}
               {v.last != null && v.usual != null && ", and "}
               {v.usual != null && compare(v.total, v.usual, `a usual ${unit}${by}`)}.
             </p>
@@ -166,7 +192,7 @@ function PeriodView({ v, byId, onPick, onExplained }: {
         {!year && (
           <div className="sp-mini" role="tablist" aria-label="Chart">
             <button role="tab" aria-selected={chart === "days"} onClick={() => setChart("days")}>Days</button>
-            <button role="tab" aria-selected={chart === "trend"} onClick={() => setChart("trend")}>{v.range === "week" ? "Weeks" : "Months"}</button>
+            <button role="tab" aria-selected={chart === "trend"} onClick={() => setChart("trend")}>{named.trend}</button>
           </div>
         )}
         {year ? <YearChart v={v} onPick={(key) => onPick({ range: "month", off: monthOff(key) })} />
@@ -176,7 +202,7 @@ function PeriodView({ v, byId, onPick, onExplained }: {
       <div className="sp-tabs" role="tablist" aria-label="Show">
         {(["highlights", "categories", "payments"] as Tab[]).map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
-            {t === "highlights" ? "Highlights" : t === "categories" ? "Categories" : year ? "Biggest" : `Payments · ${v.count}`}
+            {t === "highlights" ? "Highlights" : t === "categories" ? "Categories" : named.paymentsTab(v)}
           </button>
         ))}
       </div>
@@ -311,7 +337,7 @@ function Explain({ v, onDone }: { v: SpendView; onDone: () => void }) {
   const [error, setError] = useState<unknown>(null);
   const [read, setRead] = useState<Explanation | null>(v.explanation);
   useEffect(() => { setRead(v.explanation); setError(null); }, [v.range, v.off, v.explanation]);
-  const label = { day: "this day", week: "this week", month: "this month", year: "this year" }[v.range];
+  const label = RANGE[v.range].explain;
   const ask = () => {
     setBusy(true); setError(null);
     explainPeriod(v.range, v.off).then((r) => { setRead(r); onDone(); }).catch(setError).finally(() => setBusy(false));
