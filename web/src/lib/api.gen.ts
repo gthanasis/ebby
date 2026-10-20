@@ -86,7 +86,6 @@ export interface Cut {
 }
 export interface Goal {
   id: number;
-  user_id: number;
   name: string;
   price: number;
   saved: number;

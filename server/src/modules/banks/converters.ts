@@ -23,7 +23,13 @@ export function toConnection(x: ConnectionRow): Connection {
   return { bank: x.bank, connected: Boolean(x.session_id), valid_until: x.valid_until, last_sync: x.last_sync, last_error: x.last_error };
 }
 
-/** What's safe to show of each key: {kind: public_info + verified_at}. */
+// The fields of public_info that may be shown, per kind: whatever else a write puts there stays on the server.
+const SHOWN: Record<string, string[]> = { enable_banking: ["app_id", "key_fingerprint"], anthropic: ["masked"] };
+
+/** What's safe to show of each key: {kind: its shown public_info fields + verified_at}. */
 export function toCredentials(rows: { kind: string; public_info: any; verified_at: string | null }[]): Credentials {
-  return Object.fromEntries(rows.map((r) => [r.kind, { ...r.public_info, verified_at: r.verified_at ?? null }]));
+  return Object.fromEntries(rows.filter((r) => Object.hasOwn(SHOWN, r.kind)).map((r) => [r.kind, {
+    ...Object.fromEntries(SHOWN[r.kind].filter((k) => r.public_info?.[k] !== undefined).map((k) => [k, r.public_info[k]])),
+    verified_at: r.verified_at ?? null,
+  }]));
 }
