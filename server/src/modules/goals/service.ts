@@ -3,21 +3,16 @@
 import * as clock from "../../shared/clock.js";
 import { type Conn, type Row } from "../../shared/db.js";
 import * as transactionsRepo from "../../shared/ledger/transactions.js";
-import { fmt0, PyDate, pyRound, sorted } from "../../shared/utils/python.js";
+import { fmt0, pyRound, sorted } from "../../shared/utils/python.js";
 import type { Goal } from "../../types/entities.js";
 import { monthBounds, shift, thisMonth } from "../../shared/months.js";
 import { subscriptions } from "../spending/subscriptions.js";
+import { type Cut, type Goal as GoalView, needs, toGoal } from "./converters.js";
 import * as goalsRepo from "./repo.js";
 
-export async function goalView(conn: Conn, goal: Goal): Promise<Row> {
-  const remaining = Math.max(0.0, goal.price - goal.saved);
-  const days = Math.max(1, PyDate.fromisoformat(goal.target_date).diffDays(clock.serverToday()));
-  const weekly = remaining / (days / 7);
-  const monthly = remaining / (days / 30.44);
-  return {
-    ...goal, remaining: pyRound(remaining, 2), weeks_left: Math.max(1, pyRound(days / 7)),
-    weekly: pyRound(weekly, 2), monthly: pyRound(monthly, 2), cuts: await cuts(conn, monthly),
-  };
+export async function goalView(conn: Conn, goal: Goal): Promise<GoalView> {
+  const n = needs(goal, clock.serverToday());
+  return toGoal(goal, n, await cuts(conn, n.monthly));
 }
 
 type HabitStats = Awaited<ReturnType<typeof transactionsRepo.threeMonthHabits>>[number];
@@ -45,11 +40,11 @@ const CUT_RULES: CutRule[] = [
 ];
 
 /** Concrete changes from your last 3 months, biggest first, until they cover the goal. */
-export async function cuts(conn: Conn, neededMonthly: number): Promise<Row[]> {
+export async function cuts(conn: Conn, neededMonthly: number): Promise<Cut[]> {
   const start = monthBounds(shift(thisMonth(), -3))[0];
   const end = monthBounds(thisMonth())[0];
   const stats = new Map((await transactionsRepo.threeMonthHabits(conn, start, end)).map((r) => [r.category, r]));
-  const options: Row[] = [];
+  const options: Cut[] = [];
   for (const rule of CUT_RULES) {
     const st = stats.get(rule.category);
     if (st && rule.applies(st)) options.push({ category: rule.category, text: rule.text, detail: rule.detail(st), monthly: rule.monthly(st) });
@@ -60,7 +55,7 @@ export async function cuts(conn: Conn, neededMonthly: number): Promise<Row[]> {
   }
   // Small, specific habits first (they stick); the blunt levers only if those aren't enough.
   const order = ["delivery", "eating_out", "subscriptions", "coffee_bars", "shopping", "cash"];
-  const chosen: Row[] = [];
+  const chosen: Cut[] = [];
   let total = 0.0;
   for (const o of sorted(options, (o) => [order.indexOf(o.category), -o.monthly])) {
     if (total >= neededMonthly && chosen.length >= 2) break;
@@ -71,7 +66,7 @@ export async function cuts(conn: Conn, neededMonthly: number): Promise<Row[]> {
 }
 
 /** Every goal with its progress, soonest first. */
-export async function goalsList(conn: Conn): Promise<Row[]> {
+export async function goalsList(conn: Conn): Promise<GoalView[]> {
   const out = [];
   for (const r of await goalsRepo.all(conn)) out.push(await goalView(conn, r));
   return out;

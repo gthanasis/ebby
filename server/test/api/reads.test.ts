@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { responses } from "../../src/contract.js";
 import { contractApp, diff } from "./contract.js";
 
 const SNAPSHOTS = join(dirname(fileURLToPath(import.meta.url)), "snapshots");
@@ -60,6 +61,11 @@ describe("every read matches its snapshot", () => {
     const want = JSON.parse(readFileSync(file, "utf8"));
     expect(res.status, `${url}: status`).toBe(want.status);
     expect(diff(want.body, got.body), url).toBeNull();
+    const schema = responseSchema(url);
+    if (schema) {
+      const parsed = schema.safeParse(got.body);
+      expect(parsed.success ? null : parsed.error.issues.slice(0, 3), `${url}: its response schema`).toBeNull();
+    }
   });
 
   it("a new GET route gets a snapshot here, or a reason it can't have one", () => {
@@ -71,6 +77,13 @@ describe("every read matches its snapshot", () => {
     }
   });
 });
+
+/** The declared response of the route a URL hits (GET), if there is one. */
+function responseSchema(url: string) {
+  const path = url.split("?")[0];
+  const route = api.app.routes.find((r) => r.method === "GET" && new RegExp(`^${r.path.replace(/:\w+(\{[^}]*\})?/g, "[^/]+")}$`).test(path));
+  return route ? responses[`GET ${route.path}`] : undefined;
+}
 
 function sortKeys(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(sortKeys);

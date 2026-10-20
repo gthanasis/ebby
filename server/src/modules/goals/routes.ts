@@ -5,12 +5,13 @@ import { z } from "zod";
 
 import * as clock from "../../shared/clock.js";
 import * as db from "../../shared/db.js";
-import type { Conn, Row } from "../../shared/db.js";
+import type { Conn } from "../../shared/db.js";
 import * as habits from "../habits/service.js";
 import * as spending from "../spending/service.js";
 import { addMonths } from "../../shared/utils/dates.js";
 import { median, PyDate, pyRound, sum } from "../../shared/utils/python.js";
 import * as goalsRepo from "./repo.js";
+import { type GoalSuggestion, toSafetyNet } from "./converters.js";
 import { goalsList } from "./service.js";
 import { body, fail, int, isoDate, num } from "../../shared/http.js";
 import { committedTotal } from "../commitments/service.js";
@@ -19,7 +20,7 @@ import { getPlan } from "../plan/service.js";
 import { localToday, monthBounds, shift, thisMonth } from "../../shared/months.js";
 
 /** Suggested until you have a savings total: three months of your fixed costs and usual spending, in a year. */
-async function safetyNet(conn: Conn): Promise<Row | null> {
+async function safetyNet(conn: Conn): Promise<GoalSuggestion | null> {
   if (await goalsRepo.hasSavingsTotal(conn)) return null;
   const month = thisMonth();
   let totals: number[] = [];
@@ -31,8 +32,7 @@ async function safetyNet(conn: Conn): Promise<Row | null> {
   totals = totals.filter((t) => t > 0);
   if (totals.length < 3) return null;
   const costs = median(totals) + await committedTotal(conn);
-  const amount = -Math.floor(-costs * 3 / 100) * 100;
-  return { name: "Safety net", price: amount, kind: "save", target_date: addMonths(localToday(), 12).isoformat(), monthly: pyRound(amount / 12, 2) };
+  return toSafetyNet(costs, addMonths(localToday(), 12));
 }
 
 export function routes(app: Hono) {

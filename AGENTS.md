@@ -57,6 +57,13 @@ named for the idea), its queries in repo.ts. `npm run check:structure` (a CI ste
 - features may use each other but never in a circle (routes aside, which only wire); no file cycles, no dynamic
   `import()`. Something two features both need goes in the lower one, or in shared/.
 
+**Responses have schemas.** A feature's `schemas.ts` declares, in Zod, what each of its routes returns (`responses`,
+keyed `"GET /api/goals"`) and names the shapes (`schemas`); `src/contract.ts` gathers them. The read tests hold every
+snapshot to its route's schema (strict: an extra key fails), and `npm run api:types` turns them into
+`web/src/lib/api.gen.ts`, which the web app imports instead of writing API types by hand (CI checks it's current).
+`converters.ts` turns rows into those shapes: pure functions, no database, easy to test. A new or changed response
+means: schema, converter, `npm run api:types`.
+
 Routes stay thin: they check input and call the service. Queries use Kysely's typed builder for single-table
 reads and writes and SQL with `?` placeholders (`conn.execute`) for the rest; callers open the transaction
 (`db.connect(conn => ...)`).
