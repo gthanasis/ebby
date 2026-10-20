@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Cut, Goal, GoalsOverview } from "./api.gen";
+export type { Cut, Goal, GoalsOverview };
 
 export interface Category { id: string; label: string; icon: string; spending: boolean }
 export interface Account {
@@ -102,11 +104,6 @@ export interface Periods {
   month: { key: string; spent: number; limit: number; goal: number; days_left: number; daily_limit: number; days: { date: string; spent: number | null }[] };
   /** A working limit to step down with: for next month while catching up, or for this one early on after a bad month. */
   suggest_limit: { month: string; limit: number; goal: number; last?: number } | null;
-}
-export interface Cut { category: string; text: string; detail: string; monthly: number }
-export interface Goal {
-  id: number; name: string; price: number; saved: number; target_date: string; created_at: string; kind: "buy" | "save";
-  remaining: number; weeks_left: number; weekly: number; monthly: number; cuts: Cut[];
 }
 /** payday: a day 1-28 (1 = calendar months) or "last" for the last working day. */
 export type Payday = number | "last";
@@ -305,11 +302,6 @@ export interface SpendCategory {
 }
 export const explainPeriod = (range: Range, off: number) => request<Explanation>("/api/spending/explain", json("POST", { range, off }));
 
-export interface GoalsOverview {
-  save_monthly: Habits["pay_first"] | null; goals: Goal[]; monthly: number; committed: number; take_home: number | null; left: number | null;
-  suggestion: { name: string; price: number; kind: "save"; target_date: string; monthly: number } | null;
-  extra_pay: ExtraPay[];
-}
 
 /** A weekly habit: fewer payments, under an amount, no-spend days, or waiting 48 hours first. */
 export type HabitType = "fewer" | "spend_less" | "nospend" | "wait";

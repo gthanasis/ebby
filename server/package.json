@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:types": "tsx scripts/db-types.ts",
-    "check:structure": "tsx scripts/check-structure.ts"
+    "check:structure": "tsx scripts/check-structure.ts",
+    "api:types": "tsx scripts/api-types.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
@@ -25,6 +26,7 @@
     "@types/node": "^26.6.5",
     "@types/pg": "^8.23.1",
     "@types/web-push": "^3.6.4",
+    "json-schema-to-typescript": "^16.0.0",
     "kysely-codegen": "^0.20.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

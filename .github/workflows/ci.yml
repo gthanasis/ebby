@@ -56,6 +56,10 @@ jobs:
       - name: Structure
         working-directory: server
         run: npm run check:structure
+      # web/src/lib/api.gen.ts is generated from the server's response schemas; change one without `npm run api:types` and this fails.
+      - name: Web API types match the server's schemas
+        working-directory: server
+        run: npm run api:types && git diff --exit-code ../web/src/lib/api.gen.ts
       # Unit tests and the API contract (every read against its snapshot, every write through the reads).
       - name: Tests
         working-directory: server
