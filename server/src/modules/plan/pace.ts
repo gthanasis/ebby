@@ -1,10 +1,11 @@
 /** Pace: a pay month's spending against the plan, category by category, in plain words. */
 
-import { type Conn, type Row } from "../../shared/db.js";
+import { type Conn } from "../../shared/db.js";
 import * as transactionsRepo from "../../shared/ledger/transactions.js";
 import { fmt0, pyRound, sorted, sum } from "../../shared/utils/python.js";
 import { dayProgress, monthBounds, thisMonth } from "../../shared/months.js";
 import { budgetsFor, getPlan } from "./service.js";
+import { type Pace, type PaceCategory, toPaceCategory } from "./converters.js";
 
 export async function categoryRows(conn: Conn, start: string, end: string): Promise<Map<string, { spent: number; count: number }>> {
   const rows = await transactionsRepo.spentAndCountByCategory(conn, start, end);
@@ -24,7 +25,7 @@ export function habit(category: string, spent: number, count: number, budget: nu
   return `${count} payments, €${fmt0(per)} on average.${plan}`;
 }
 
-export async function pace(conn: Conn, month: string): Promise<Row> {
+export async function pace(conn: Conn, month: string): Promise<Pace> {
   const [start, end] = monthBounds(month);
   const [elapsed, days] = dayProgress(month);
   const plan = await getPlan(conn);
@@ -34,22 +35,19 @@ export async function pace(conn: Conn, month: string): Promise<Row> {
   const planned = plan ? pyRound(sum(Object.values(budgets)), 2) : null;
   const expected = planned ? planned * elapsed / days : null;
 
-  const categories = [];
+  const categories: PaceCategory[] = [];
   // Ties (nothing spent yet) by name: a set's order changes from one process to the next.
   const all = new Set([...rows.keys(), ...Object.keys(budgets)]);
   for (const cat of sorted(all, (c) => [-(rows.get(c)?.spent ?? 0), c])) {
     const r = rows.get(cat) ?? { spent: 0.0, count: 0 };
     const budget = budgets[cat];
-    let status = "none";
+    let status: PaceCategory["status"] = "none";
     if (budget) {
       if (r.spent > budget) status = "over";
       else if (elapsed && r.spent > budget * elapsed / days * 1.15 && r.spent - budget * elapsed / days > 25) status = "ahead";
       else status = "fine";
     }
-    categories.push({
-      category: cat, spent: r.spent, count: r.count, budget: budget ?? null, status,
-      habit: r.count ? habit(cat, r.spent, r.count, budget, elapsed) : "",
-    });
+    categories.push(toPaceCategory(cat, r, budget, status, r.count ? habit(cat, r.spent, r.count, budget, elapsed) : ""));
   }
   const projected = elapsed && month === thisMonth() ? pyRound(total / elapsed * days, 2) : total;
   return {

@@ -1,10 +1,11 @@
 /** Extra pay: the Easter, summer and Christmas bonuses of 14 salaries a year. */
 
-import { type Conn, type Row } from "../../shared/db.js";
+import { type Conn } from "../../shared/db.js";
 import { monthName, PyDate, pyMod, pyRound, sorted } from "../../shared/utils/python.js";
 import { getPlan } from "./service.js";
 import { localToday } from "../../shared/months.js";
 import { readSettings } from "../../shared/settings.js";
+import type { ExtraPay } from "./converters.js";
 
 /** Greek Easter: the Julian computus, moved to the Gregorian calendar (13 days, 1900-2099). */
 export function orthodoxEaster(y: number): PyDate {
@@ -17,12 +18,12 @@ export function orthodoxEaster(y: number): PyDate {
 
 /** The next three bonuses, soonest first, when 14 salaries is on. Rough amounts from your pay: a month at
  * Christmas, half a month at Easter and in summer. The monthly budget doesn't count on them. */
-export async function extraPay(conn: Conn): Promise<Row[]> {
+export async function extraPay(conn: Conn): Promise<ExtraPay[]> {
   if (!(await readSettings(conn)).extra_pay) return [];
   const plan = await getPlan(conn);
   const pay = plan ? plan.take_home : 0;
   const today = localToday();
-  let out: Row[] = [];
+  let out: ExtraPay[] = [];
   for (const y of [today.year, today.year + 1]) {
     out.push(
       { name: "Easter bonus", amount: pyRound(pay / 2), date: orthodoxEaster(y).addDays(-4).isoformat(), when: "before Easter" },
