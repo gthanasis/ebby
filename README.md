@@ -38,6 +38,12 @@ Open http://localhost:8000.
 
 Invite others from **Settings → People**. Each of them sets up their own Enable Banking app the same way.
 
+## Updating
+
+`docker compose pull && docker compose up -d`. Your install follows one major version (`ghcr.io/gthanasis/ebby:0`
+in `compose.yaml`), so updates never need anything from you. A new major version only arrives when you change that
+number, and its [release notes](https://github.com/gthanasis/ebby/releases) say what to do first.
+
 ## Support
 
 ebby is free for personal use. If it helps you, you can

@@ -1,0 +1,24 @@
+# Every pull request says what it releases (one release:* label), and a breaking change can't hide under a
+# smaller one. Runs again when labels or the description change. See scripts/release.py.
+name: release label
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Release label and breaking changes
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: python3 scripts/release.py check

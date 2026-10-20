@@ -1,0 +1,51 @@
+# Releases every merge to main once CI passes on it: the merged pull request's release:* label picks the next
+# version (patch, minor, major, or none), which is tagged, published as a GitHub release, and built as an image
+# (ghcr.io/gthanasis/ebby:<version>) by ci.yml. See scripts/release.py and AGENTS.md, "Releases".
+name: release
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write   # the tag and the release
+  actions: write    # starting ci.yml on the new tag
+  pull-requests: read
+
+# One at a time, so two quick merges get two versions, in order.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+      - id: next
+        name: Next version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: python3 scripts/release.py next | tee -a "$GITHUB_OUTPUT"
+      - name: Tag, publish, build
+        if: steps.next.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.next.outputs.version }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$V" "$SHA" -m "v$V"
+          git push origin "v$V"
+          # A major's upgrade notes (release-notes.md) come first, then the merged pull requests.
+          gh release create "v$V" --verify-tag --title "v$V" --generate-notes --notes-file release-notes.md
+          # A tag pushed with this workflow's token starts no other workflow; ci.yml builds the image when asked.
+          gh workflow run ci.yml --ref "v$V"

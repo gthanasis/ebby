@@ -1,6 +1,7 @@
 services:
   ebby:
-    image: ghcr.io/gthanasis/ebby:latest
+    # The major version: updates within it need nothing from you. A new major's release notes say what to do first.
+    image: ghcr.io/gthanasis/ebby:0
     restart: unless-stopped
     ports:
       - "${PORT:-8000}:8000"
