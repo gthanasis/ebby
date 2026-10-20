@@ -618,6 +618,11 @@ a.part .icon:last-child { color: var(--tg-muted); }
 .so-guess p { margin: 6px 0 12px; font-size: 14px; line-height: 1.5; }
 .so-big { width: 100%; height: 52px; border-radius: 14px; background: var(--tg-accent); color: var(--accent-contrast); font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; }
 .so-big .icon { width: 20px; height: 20px; }
+.so-confirm { margin-top: 12px; }
+.so-confirm p { margin: 8px 2px 0; }
+.so-next { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 500; opacity: .9; }
+.so-confirm .so-big { justify-content: flex-start; padding: 0 16px; }
+.so-shh { display: block; font-weight: 400; margin-top: 2px; }
 .so-row3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
 .so-row3 button { height: 44px; border-radius: 12px; background: var(--tg-chip); font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
 .so-row3 button .icon { width: 16px; height: 16px; color: var(--tg-muted); }
@@ -637,6 +642,8 @@ a.part .icon:last-child { color: var(--tg-muted); }
 .so-done .icon { width: 40px; height: 40px; color: var(--tg-accent); }
 .so-done h2 { margin: 10px 0 4px; font-size: 20px; }
 .so-done p { margin: 0; font-size: 14px; }
+.so-done .chip { margin-top: 14px; }
+.so-done .chip .icon { width: 16px; height: 16px; color: inherit; }
 
 /* Goals: habits and goals */
 .gl-ok { color: var(--tg-ok) !important; }

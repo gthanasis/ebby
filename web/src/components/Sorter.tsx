@@ -16,6 +16,8 @@ export function Sorter({ byId, version, onChanged }: ScreenProps & { onChanged: 
   const [skipped, setSkipped] = useState<string[]>([]);
   const [guesses, setGuesses] = useState<Record<string, SortGuess | "busy" | "failed">>({});
   const [sheet, setSheet] = useState(false);
+  // What you picked in the sheet: it replaces the guess on the confirm button, and nothing is saved until you tap it.
+  const [chosen, setChosen] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ text: string; service: string } | null>(null);
   const [total, setTotal] = useState<number | null>(null);
@@ -23,6 +25,7 @@ export function Sorter({ byId, version, onChanged }: ScreenProps & { onChanged: 
   const left = (data?.items ?? []).filter((i) => !skipped.includes(i.service));
   const item = left[0];
   useEffect(() => { if (data && total == null) setTotal(data.items.length); }, [data, total]);
+  useEffect(() => setChosen(null), [item?.service]);
 
   // Ask Claude for this payment's guess, and the next one's while you read.
   useEffect(() => {
@@ -41,7 +44,7 @@ export function Sorter({ byId, version, onChanged }: ScreenProps & { onChanged: 
     if (!item) return;
     setBusy(true); setSheet(false);
     answerQuestion(item.service, category).then(() => {
-      setToast({ text: `${item.service} → ${byId[category]?.label ?? category}. Future payments there too.`, service: item.service });
+      setToast({ text: `Saved ${item.service} as ${byId[category]?.label ?? category}. Future payments there too.`, service: item.service });
       reload(); onChanged();
     }).finally(() => setBusy(false));
   };
@@ -58,6 +61,7 @@ export function Sorter({ byId, version, onChanged }: ScreenProps & { onChanged: 
   const done = (total ?? 0) - left.length;
   const g = item ? (item.guess ?? guesses[item.service]) : undefined;
   const guess = g && typeof g === "object" ? g : null;
+  const answer = chosen ?? guess?.category ?? null;
 
   return (
     <>
@@ -71,9 +75,13 @@ export function Sorter({ byId, version, onChanged }: ScreenProps & { onChanged: 
       {data && total != null && total > 0 && (
         <div className="so-dots">{Array.from({ length: total }, (_, k) => <i key={k} className={k < done ? "done" : k === done ? "cur" : ""} />)}</div>
       )}
-      {data && !item && (
+      {data && !item && (skipped.length === 0 ? (
         <Card><div className="so-done"><Icon icon="mdi:check" /><h2>All sorted</h2><p className="muted">Future payments to these places will go to the same categories.</p></div></Card>
-      )}
+      ) : (
+        <Card><div className="so-done"><Icon icon="mdi:check" /><h2>Done for now</h2>
+          <p className="muted">{skipped.length === 1 ? "You skipped one payment. It" : `You skipped ${skipped.length} payments. They`}'ll be here next time.</p>
+          <button className="chip" onClick={() => setSkipped([])}><Icon icon="mdi:history" />Go back to {skipped.length === 1 ? "it" : "them"}</button></div></Card>
+      ))}
       {item && (
         <Card>
           <div className="so-amt num">{euro(item.amount)}{item.count > 1 && <small> × {item.count}</small>}</div>
@@ -93,19 +101,26 @@ export function Sorter({ byId, version, onChanged }: ScreenProps & { onChanged: 
           {data?.ai && (
             <div className="so-guess">
               <div className="so-gh"><Icon icon="mdi:creation-outline" />Assistant's guess</div>
-              {guess ? (
-                <>
-                  <p>{guess.reason}</p>
-                  <button className="so-big" disabled={busy} onClick={() => pick(guess.category)}>
-                    <Icon icon={byId[guess.category]?.icon ?? "mdi:dots-horizontal"} />{byId[guess.category]?.label ?? guess.category}
-                  </button>
-                </>
-              ) : g === "failed" ? <p className="muted">The assistant couldn't guess this one. Pick it below.</p>
+              {guess ? <p>{guess.reason}</p>
+                : g === "failed" ? <p className="muted">The assistant couldn't guess this one. Pick it below.</p>
                 : <><div className="sp-skel" /><div className="sp-skel short" /></>}
             </div>
           )}
+          {answer && (
+            <div className="so-confirm">
+              <button className="so-big" disabled={busy} onClick={() => pick(answer)}>
+                <Icon icon={byId[answer]?.icon ?? "mdi:dots-horizontal"} />
+                <span>{byId[answer]?.label ?? answer}</span>
+                <span className="so-next">{busy ? "Saving…" : <>Save &amp; next<Icon icon="mdi:arrow-right" /></>}</span>
+              </button>
+              {chosen && guess && chosen !== guess.category && (
+                <p className="muted small">Changed from {byId[guess.category]?.label ?? guess.category}.{" "}
+                  <button className="link" onClick={() => setChosen(null)}>Use the guess</button></p>
+              )}
+            </div>
+          )}
           <div className="so-row3">
-            <button onClick={() => setSheet(true)} disabled={busy}><Icon icon="mdi:chart-donut" />{data?.ai ? "Other" : "Pick"}</button>
+            <button onClick={() => setSheet(true)} disabled={busy}><Icon icon="mdi:pencil-outline" />{answer ? "Change" : "Pick"}</button>
             {data?.ai && <button onClick={ask}><Icon icon="mdi:message-text-outline" />Ask</button>}
             <button onClick={() => setSkipped([...skipped, item.service])}><Icon icon="mdi:chevron-right" />Skip</button>
           </div>
@@ -114,14 +129,14 @@ export function Sorter({ byId, version, onChanged }: ScreenProps & { onChanged: 
       {sheet && item && (
         <div className="so-sheet-bg" onClick={() => setSheet(false)}>
           <div className="so-sheet" role="dialog" aria-label="What was it?" onClick={(e) => e.stopPropagation()}>
-            <div className="so-sh">What was it?<button className="chip icon-only" aria-label="Close" onClick={() => setSheet(false)}><Icon icon="mdi:close" /></button></div>
+            <div className="so-sh"><span>What was it?<span className="muted small so-shh">Pick one, then Save &amp; next.</span></span><button className="chip icon-only" aria-label="Close" onClick={() => setSheet(false)}><Icon icon="mdi:close" /></button></div>
             <div className="so-grid">
               {SPENDING_ORDER.filter((c) => byId[c]).map((c) => (
-                <button key={c} className={guess?.category === c ? "sug" : ""} disabled={busy} onClick={() => pick(c)}><Icon icon={byId[c].icon} />{byId[c].label}</button>
+                <button key={c} className={answer === c ? "sug" : ""} onClick={() => { setChosen(c); setSheet(false); }}><Icon icon={byId[c].icon} />{byId[c].label}</button>
               ))}
               <div className="so-sep">Not spending</div>
               {NOT_SPENDING.filter((c) => byId[c]).map((c) => (
-                <button key={c} disabled={busy} onClick={() => pick(c)}><Icon icon={byId[c].icon} />{byId[c].label}</button>
+                <button key={c} className={answer === c ? "sug" : ""} onClick={() => { setChosen(c); setSheet(false); }}><Icon icon={byId[c].icon} />{byId[c].label}</button>
               ))}
             </div>
           </div>
