@@ -87,6 +87,8 @@ export interface MetaDocuments {
   last_live_sync: string;
   /** The categories.VERSION this person's history was last sorted with. */
   categories_version: number;
+  /** The ingest.DATES_VERSION this person's payments were last dated with. */
+  dates_version: number;
   /** Accounts chosen as savings; unset means the ones named like savings. */
   savings_accounts: string[];
   assistant_conversation: number;

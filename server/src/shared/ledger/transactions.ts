@@ -410,6 +410,14 @@ export async function allRaw(conn: Conn): Promise<{ id: string; account: string;
   return (await conn.execute<{ id: string; account: string; raw: string; mcc: string | null }>("SELECT id, account, raw, mcc FROM transactions")).rows;
 }
 
+export async function datesAndRaw(conn: Conn): Promise<{ id: string; date: string; raw: string }[]> {
+  return (await conn.execute<{ id: string; date: string; raw: string }>("SELECT id, date, raw FROM transactions ORDER BY id")).rows;
+}
+
+export async function setDate(conn: Conn, id: string, date: string): Promise<number> {
+  return (await conn.execute("UPDATE transactions SET date = ? WHERE id = ?", [date, id])).rowCount;
+}
+
 export async function setMerchantAndCategory(conn: Conn, id: string, merchant: string, category: string) {
   await conn.execute("UPDATE transactions SET merchant = ?, category = ? WHERE id = ?", [merchant, category, id]);
 }

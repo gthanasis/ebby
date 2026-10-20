@@ -75,6 +75,22 @@ export async function saveWindow(conn: Conn, account: string, isCard: boolean, s
   return changed;
 }
 
+// Bump when the rule for a payment's day changes: each person's stored payments are dated again from what the bank
+// sent, which is kept with every row (raw), so no sync is needed and history outside the sync window is fixed too.
+export const DATES_VERSION = 1;
+
+/** Dates every stored payment again from what the bank sent: the day you paid (paidOn). An account row paired with a
+ * debit card's row then takes the card's day, as dedupe() leaves it. Returns rows that moved. */
+export async function redate(conn: Conn): Promise<number> {
+  let moved = 0;
+  for (const r of await transactionsRepo.datesAndRaw(conn)) {
+    const day = paidOn(JSON.parse(r.raw));  // rows logged by hand (cash) carry no bank dates: kept as they are
+    if (day && day !== r.date) moved += await transactionsRepo.setDate(conn, r.id, day);
+  }
+  await transactionsRepo.datePairsByCard(conn);
+  return moved;
+}
+
 /** Re-runs the rules over every stored row (after changing rules or categories). */
 export async function recategorize(conn: Conn) {
   const rules = await rulesRepo.all(conn);
