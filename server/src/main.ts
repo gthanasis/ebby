@@ -10,13 +10,14 @@ import { serve } from "@hono/node-server";
 
 import { config, ConfigError, validateConfig } from "./config.js";
 import * as db from "./data/db.js";
-import * as demo from "./data/demo.js";
+import * as users from "./data/users.js";
+import * as demo from "./jobs/demo.js";
 import * as sync from "./jobs/sync.js";
 import { createApp } from "./server.js";
 
 async function startup() {
   await db.init();
-  if (config.ADMIN_EMAIL && (await db.adminId()) == null) await demo.ensureUser(config.ADMIN_EMAIL, true);
+  if (config.ADMIN_EMAIL && (await db.adminId()) == null) await users.ensureUser(config.ADMIN_EMAIL, true);
 }
 
 async function main(args: string[]) {
@@ -34,7 +35,7 @@ async function main(args: string[]) {
   } else if (cmd === "add-user") {
     if (!rest[0]) throw new Error("usage: ebby add-user EMAIL [--admin]");
     await db.init();
-    console.info(`user ${await demo.ensureUser(rest[0], rest.includes("--admin"))}`);
+    console.info(`user ${await users.ensureUser(rest[0], rest.includes("--admin"))}`);
   } else {
     console.error(`unknown command: ${cmd}`);
     process.exitCode = 2;

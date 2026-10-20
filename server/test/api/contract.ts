@@ -9,9 +9,9 @@
 import type { Hono } from "hono";
 import pg from "pg";
 
-import * as credentials from "../../src/data/credentials.js";
+import * as credentials from "../../src/integrations/credentials.js";
 import * as db from "../../src/data/db.js";
-import * as demo from "../../src/data/demo.js";
+import * as demo from "../../src/jobs/demo.js";
 import * as banks from "../../src/integrations/banks.js";
 import { createApp } from "../../src/server.js";
 import { _paydays } from "../../src/domain/months.js";

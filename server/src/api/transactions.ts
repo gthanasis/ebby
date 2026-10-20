@@ -6,11 +6,12 @@ import { z } from "zod";
 import * as db from "../data/db.js";
 import * as rulesRepo from "../data/repos/rules.js";
 import * as tx from "../data/repos/transactions.js";
-import { CATEGORIES } from "../domain/categories.js";
+import { CATEGORIES } from "../core/categories.js";
 import { localToday, monthBounds, monthOf, shift, thisMonth } from "../domain/months.js";
 import { serviceTransactionIds } from "../domain/services.js";
 import { PyDate, pyRound, sorted } from "../py.js";
 import { body, fail, int } from "./http.js";
+import * as ingest from "../domain/ingest.js";
 
 // Totals only add up euros; rows in other currencies (Revolut pockets) still show in the list.
 
@@ -92,7 +93,7 @@ export function routes(app: Hono) {
         // Payments whose own rule now matches the payee's follow the payee again.
         await rulesRepo.dropPaymentRulesMatching(conn, merchant, b.category);
       }
-      await db.recategorize(conn);
+      await ingest.recategorize(conn);
       const others = merchant ? await tx.othersElsewhere(conn, merchant, txId, b.category) : 0;
       return { ok: true, rule: key, merchant: merchant || null, others };
     }));

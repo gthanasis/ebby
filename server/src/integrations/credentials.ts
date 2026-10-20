@@ -9,11 +9,13 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import * as clock from "../clock.js";
 import { config } from "../config.js";
-import { Client, EnableBankingError } from "../integrations/enable_banking.js";
+import * as db from "../data/db.js";
+import type { Conn } from "../data/db.js";
+import * as connectionsRepo from "../data/repos/connections.js";
+import * as credentialsRepo from "../data/repos/credentials.js";
+import * as vault from "../data/vault.js";
 import { isoUtc, pyDumps } from "../py.js";
-import * as db from "./db.js";
-import type { Conn } from "./db.js";
-import * as vault from "./vault.js";
+import { Client, EnableBankingError } from "./enable_banking.js";
 
 export const _clients = new Map<number, Client>();  // per person; dropped whenever their keys change
 
@@ -23,15 +25,11 @@ export class MissingCredential extends Error {}
 /** Seals and keeps a key for the current person. Callers check it works first. */
 export async function store(conn: Conn, kind: string, secret: unknown, publicInfo: unknown) {
   const sealed = vault.encrypt(Buffer.from(pyDumps(secret)), db.currentUser()!, kind);
-  await conn.execute(`
-    INSERT INTO credentials(kind, key_id, nonce, ciphertext, public_info, verified_at) VALUES(?, ?, ?, ?, ?, now())
-    ON CONFLICT(user_id, kind) DO UPDATE SET key_id = excluded.key_id, nonce = excluded.nonce,
-      ciphertext = excluded.ciphertext, public_info = excluded.public_info, verified_at = excluded.verified_at
-  `, [kind, sealed.keyId, sealed.nonce, sealed.ciphertext, JSON.stringify(publicInfo)]);
+  await credentialsRepo.upsert(conn, kind, sealed.keyId, sealed.nonce, sealed.ciphertext, JSON.stringify(publicInfo));
 }
 
 async function load(conn: Conn, kind: string): Promise<any | null> {
-  const row = (await conn.execute("SELECT key_id, nonce, ciphertext FROM credentials WHERE kind = ?", [kind])).one();
+  const row = await credentialsRepo.sealed(conn, kind);
   if (!row) return null;
   const sealed = { keyId: row.key_id, nonce: row.nonce, ciphertext: row.ciphertext };
   const secret = JSON.parse(vault.decrypt(sealed, db.currentUser()!, kind).toString());
@@ -41,7 +39,7 @@ async function load(conn: Conn, kind: string): Promise<any | null> {
 
 /** What's safe to show: {kind: public_info + verified_at}. */
 export async function publicInfo(conn: Conn): Promise<Record<string, any>> {
-  return Object.fromEntries((await conn.execute("SELECT kind, public_info, verified_at FROM credentials")).rows
+  return Object.fromEntries((await credentialsRepo.publicInfo(conn))
     .map((r) => [r.kind, { ...r.public_info, verified_at: r.verified_at ?? null }]));
 }
 
@@ -85,11 +83,10 @@ export async function anthropicKey(): Promise<string | null> {
 
 export async function remove(kind: string) {
   await db.connect(async (conn) => {
-    await conn.execute("DELETE FROM credentials WHERE kind = ?", [kind]);
+    await credentialsRepo.remove(conn, kind);
     if (kind === "enable_banking") {
       // Sessions were made with that app; they won't work with another one.
-      await conn.execute(`UPDATE connections SET session_id = NULL,
-                          last_error = '{"message": "Bank access was removed", "reconnect": true}'`);
+      await connectionsRepo.dropSessions(conn);
     }
   });
   forgetClient();

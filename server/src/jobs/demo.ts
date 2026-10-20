@@ -11,11 +11,17 @@ import * as clock from "../clock.js";
 import * as habits from "../domain/habits.js";
 import { fmt2, isoUtc, PyDate, pyRound } from "../py.js";
 import { PyRandom } from "../pyrandom.js";
-import * as db from "./db.js";
-import type { Row } from "./db.js";
+import * as db from "../data/db.js";
+import type { Row } from "../data/db.js";
+import * as accountsRepo from "../data/repos/accounts.js";
+import * as commitmentsRepo from "../data/repos/commitments.js";
+import * as goalsRepo from "../data/repos/goals.js";
+import * as seedRepo from "../data/repos/seed.js";
+import { ensureUser } from "../data/users.js";
 import { _paydays, localToday, setPayday } from "../domain/months.js";
 import { assignCommitments } from "../domain/commitments.js";
 import { autofill, getPlan } from "../domain/plan.js";
+import * as ingest from "../domain/ingest.js";
 
 export const EMAIL = "demo@spending.local";
 const DAYS = 185;
@@ -102,14 +108,6 @@ export function history(today: PyDate): Record<string, Row[]> {
   return b.rows;
 }
 
-/** Adds someone to the allow list (or makes them admin), active at once. */
-export async function ensureUser(email: string, admin = false): Promise<number> {
-  return db.connectSystem(async (conn) => (await conn.execute(`
-    INSERT INTO users(email, is_admin, status, created_at) VALUES(?, ?, 'active', ?)
-    ON CONFLICT(email) DO UPDATE SET is_admin = users.is_admin OR excluded.is_admin RETURNING id
-  `, [email.toLowerCase(), admin, clock.now()])).one()!.id);
-}
-
 /** Replaces the demo user's data with a fresh made-up history. Returns counts. */
 export async function seed(email = EMAIL): Promise<Row> {
   const userId = await ensureUser(email, true);
@@ -119,7 +117,7 @@ export async function seed(email = EMAIL): Promise<Row> {
     return db.connect(async (conn) => {
       for (const table of ["transactions", "accounts", "rules", "connections", "goals", "commitments", "habit_rules",
         "wishlist", "assistant_messages", "assistant_actions", "meta"]) {
-        await conn.execute(`DELETE FROM ${table}`);  // row-level security: only the demo user's own rows
+        await seedRepo.clearOwnRows(conn, table);  // row-level security: only the demo user's own rows
       }
       _paydays.delete(userId);
       setPayday(1);  // settings were just cleared
@@ -127,25 +125,23 @@ export async function seed(email = EMAIL): Promise<Row> {
       for (const [accId, bank, name, isCard, last4, balance] of [
         [CURRENT, "Alpha Bank", "Alpha Μισθοδοσία", 0, "4417", 1842.37], [CARD, "Alpha Bank", "Alpha Bank Bonus Visa", 1, "9021", -386.12],
         [REVOLUT, "Revolut", "Revolut EUR", 0, null, 96.55]] as const) {
-        await conn.execute(`INSERT INTO accounts(id, uid, name, is_card, last4, bank, balance, balance_at, synced_at)
-                            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, [accId, accId, name, isCard, last4, bank, balance, now, now]);
+        await accountsRepo.addWithBalance(conn, { id: accId, uid: accId, name, is_card: isCard, last4, bank, balance, balance_at: now, synced_at: now });
       }
       await db.setMeta(conn, "settings", { owner_names: ["Maria Papadopoulou"] });
       for (const [accId, txs] of Object.entries(rows)) {
         const dates = txs.map((t) => t.booking_date).sort();
-        await db.saveWindow(conn, accId, accId === CARD, dates[0], dates[dates.length - 1], txs);
+        await ingest.saveWindow(conn, accId, accId === CARD, dates[0], dates[dates.length - 1], txs);
       }
-      await db.dedupe(conn);
+      await ingest.dedupe(conn);
       await assignCommitments(conn);
       await autofill(conn);
       const valid = isoUtc(new Date(clock.now().getTime() + 171 * 86_400_000), "seconds");
       for (const bank of ["Alpha Bank", "Revolut"]) await db.updateConnection(conn, bank, { session_id: `demo-${bank}`, valid_until: valid, last_sync: now });
-      await conn.execute("INSERT INTO goals(name, price, saved, target_date, created_at, kind) VALUES(?, ?, ?, ?, ?, ?)",
-        ["Lisbon in March", 900, 240, new PyDate(today.year + (today.month > 3 ? 1 : 0), 3, 15).isoformat(), now, "buy"]);
-      await conn.execute("INSERT INTO goals(name, price, saved, target_date, created_at, kind) VALUES(?, ?, ?, ?, ?, ?)",
-        ["Safety net", 4500, 1950, today.addDays(300).isoformat(), now, "save"]);
-      await conn.execute(`INSERT INTO commitments(name, kind, monthly_limit, note, services, created_at, every_months, amount, next_date)
-                          VALUES('Gym', 'chosen', 45, 'Three times a week, worth it', '[]', ?, 1, 45, NULL)`, [now]);
+      await goalsRepo.add(conn, { name: "Lisbon in March", price: 900, saved: 240,
+        target_date: new PyDate(today.year + (today.month > 3 ? 1 : 0), 3, 15).isoformat(), created_at: now, kind: "buy" });
+      await goalsRepo.add(conn, { name: "Safety net", price: 4500, saved: 1950, target_date: today.addDays(300).isoformat(), created_at: now, kind: "save" });
+      await commitmentsRepo.add(conn, { name: "Gym", kind: "chosen", monthly_limit: 45, note: "Three times a week, worth it", services: "[]",
+        created_at: now, every_months: 1, amount: 45, next_date: null });
       await habits.addRule(conn, "fewer", "delivery", 2);
       await db.setMeta(conn, "weekly_read", {
         headline: "Weekend delivery is most of the overspend",

@@ -2,7 +2,7 @@
  * count what the rest of the app counts as spending. */
 
 import { first, type Conn, type Row } from "../db.js";
-import { COMMITTED_SQL, SPEND_ARGS, SPEND_SQL } from "../../domain/spend_sql.js";
+import { COMMITTED_SQL, SPEND_ARGS, SPEND_SQL } from "../../core/spend_sql.js";
 
 // SPEND_SQL for queries that join accounts.
 let T = SPEND_SQL;
@@ -384,4 +384,74 @@ export async function dateAndAmount(conn: Conn, id: string): Promise<{ date: str
 export async function payeeOf(conn: Conn, id: string): Promise<(PayeeFields & { date: string; amount: number }) | undefined> {
   return (await conn.execute<PayeeFields & { date: string; amount: number }>(`SELECT t.date, t.amount, t.merchant, t.description, t.mcc, a.is_card FROM transactions t
                                  JOIN accounts a ON a.id = t.account WHERE t.id = ?`, [id])).one();
+}
+
+// ---------- storing what the bank sent ----------
+
+/** Pending rows get new ids once booked, so a fetched window replaces the ones it covers. */
+export async function deletePending(conn: Conn, account: string, start: string, end: string) {
+  await conn.execute("DELETE FROM transactions WHERE account = ? AND status = 'PDNG' AND date BETWEEN ? AND ?", [account, start, end]);
+}
+
+/** Stores a bank row [id, account, date, amount, currency, status, description, merchant, mcc, category, raw]; a row
+ * already stored keeps its merchant and category, and its date while a card row is paired with it. Returns rows changed. */
+export async function upsertBankRow(conn: Conn, row: unknown[]): Promise<number> {
+  return (await conn.execute(`
+    INSERT INTO transactions(id, account, date, amount, currency, status, description, merchant, mcc, category, raw)
+    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id, id) DO UPDATE SET amount = excluded.amount, status = excluded.status,
+      date = CASE WHEN EXISTS (SELECT 1 FROM transactions c WHERE c.duplicate_of = transactions.id
+                               AND c.user_id = transactions.user_id) THEN transactions.date ELSE excluded.date END,
+      raw = excluded.raw
+  `, row)).rowCount;
+}
+
+export async function allRaw(conn: Conn): Promise<{ id: string; account: string; raw: string; mcc: string | null }[]> {
+  return (await conn.execute<{ id: string; account: string; raw: string; mcc: string | null }>("SELECT id, account, raw, mcc FROM transactions")).rows;
+}
+
+export async function setMerchantAndCategory(conn: Conn, id: string, merchant: string, category: string) {
+  await conn.execute("UPDATE transactions SET merchant = ?, category = ? WHERE id = ?", [merchant, category, id]);
+}
+
+// ---------- pairing debit-card rows with their account copies ----------
+
+export async function clearOrphanDuplicates(conn: Conn) {
+  await conn.execute(`UPDATE transactions SET duplicate_of = NULL WHERE duplicate_of IS NOT NULL
+                      AND duplicate_of NOT IN (SELECT id FROM transactions)`);
+}
+
+export async function cardPurchases(conn: Conn, account: string): Promise<{ id: string; date: string; amount: number; mcc: string | null }[]> {
+  return (await conn.execute<{ id: string; date: string; amount: number; mcc: string | null }>(
+    "SELECT id, date, amount, mcc FROM transactions WHERE account = ? AND amount < 0 ORDER BY date", [account])).rows;
+}
+
+/** Account rows already paired with a card row. */
+export async function paired(conn: Conn): Promise<Set<string>> {
+  return new Set((await conn.execute<{ duplicate_of: string }>("SELECT duplicate_of FROM transactions WHERE duplicate_of IS NOT NULL")).rows.map((r) => r.duplicate_of));
+}
+
+/** Account rows at the same bank for the same amount, from a day before to six days after, nearest first. */
+export async function accountCopies(conn: Conn, bank: string, amount: number, date: string): Promise<{ id: string }[]> {
+  return (await conn.execute<{ id: string }>(`
+    SELECT t.id FROM transactions t JOIN accounts a ON a.id = t.account
+    WHERE a.is_card = 0 AND a.bank = ? AND t.amount = ? AND t.category NOT IN ('transfer', 'investments', 'card_payment', 'income')
+      AND t.date::date - ?::date BETWEEN -1 AND 6
+    ORDER BY abs(t.date::date - ?::date)
+  `, [bank, amount, date, date])).rows;
+}
+
+/** Marks a card row as the copy of an account row; 1 if it wasn't already paired. */
+export async function markDuplicate(conn: Conn, cardRow: string, accountRow: string): Promise<number> {
+  return (await conn.execute("UPDATE transactions SET duplicate_of = ? WHERE id = ? AND duplicate_of IS NULL", [accountRow, cardRow])).rowCount;
+}
+
+export async function fillMcc(conn: Conn, id: string, mcc: string) {
+  await conn.execute("UPDATE transactions SET mcc = ? WHERE id = ? AND (mcc IS NULL OR mcc = '')", [mcc, id]);
+}
+
+/** Paired account rows take the card row's date: the day you paid. */
+export async function datePairsByCard(conn: Conn) {
+  await conn.execute(`UPDATE transactions t SET date = c.date FROM transactions c
+                      WHERE c.duplicate_of = t.id AND c.user_id = t.user_id AND t.date <> c.date`);
 }

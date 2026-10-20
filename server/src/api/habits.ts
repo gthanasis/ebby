@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import * as clock from "../clock.js";
 import * as db from "../data/db.js";
-import { CATEGORIES } from "../domain/categories.js";
+import { CATEGORIES } from "../core/categories.js";
 import * as habits from "../domain/habits.js";
 import * as habitRules from "../data/repos/habit_rules.js";
 import * as yearlyCosts from "../data/repos/yearly_costs.js";

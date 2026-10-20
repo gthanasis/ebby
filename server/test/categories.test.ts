@@ -2,10 +2,11 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
 import * as db from "../src/data/db.js";
-import { ensureUser } from "../src/data/demo.js";
-import { CATEGORIES, categorize, merchantName, SPENDING } from "../src/domain/categories.js";
+import { ensureUser } from "../src/data/users.js";
+import { CATEGORIES, categorize, merchantName, SPENDING } from "../src/core/categories.js";
 import { pyDumps } from "../src/py.js";
 import { users } from "./fixtures.js";
+import * as ingest from "../src/domain/ingest.js";
 
 beforeAll(users);
 const out = (description: string, mcc: string | null = null, card = false) => categorize(description, mcc, true, card);
@@ -59,7 +60,7 @@ describe("categories", () => {
                             VALUES(?, 'acc-R', '2026-10-01', -80, 'EUR', 'BOOK', ?, ?, 'bills', ?)`, [`acc-R:${i}`, text, merchantName(text), tx(text)]);
       }
       await conn.execute("INSERT INTO rules(merchant, category) VALUES(?, 'health')", [merchantName("INTERAMERICAN ΥΓΕΙΑΣ")]);
-      await db.recategorize(conn);
+      await ingest.recategorize(conn);
       return Object.fromEntries((await conn.execute("SELECT id, category FROM transactions")).rows.map((r) => [r.id, r.category]));
     }));
     expect(cats).toEqual({ "acc-R:0": "insurance", "acc-R:1": "health" });

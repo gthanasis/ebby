@@ -4,18 +4,23 @@ import { randomUUID } from "node:crypto";
 
 import * as clock from "../clock.js";
 import { config } from "../config.js";
-import * as credentials from "../data/credentials.js";
+import * as credentials from "../integrations/credentials.js";
 import * as db from "../data/db.js";
 import type { Row } from "../data/db.js";
 import * as accountsRepo from "../data/repos/accounts.js";
 import * as connectionsRepo from "../data/repos/connections.js";
-import * as categories from "../domain/categories.js";
+import * as ai from "../domain/ai.js";
+import * as aiUsage from "../domain/ai_usage.js";
+import * as alerts from "../domain/alerts.js";
+import * as categories from "../core/categories.js";
 import * as banks from "../integrations/banks.js";
+import * as push from "../integrations/push.js";
 import { type Client, EnableBankingError, MAX_HISTORY_DAYS, type Psu } from "../integrations/enable_banking.js";
 import { isoUtc, parseIso } from "../py.js";
 import { assignCommitments } from "../domain/commitments.js";
 import { autofill } from "../domain/plan.js";
 import { loadPayday } from "../domain/months.js";
+import * as ingest from "../domain/ingest.js";
 
 export const nowIso = () => isoUtc(clock.now(), "seconds");
 
@@ -49,7 +54,7 @@ export async function completeAuth(address: string): Promise<[string, number]> {
   const bank = row.bank;
   const session = await (await credentials.client()).createSession(query.get("code")!);
   await db.connect(async (conn) => {
-    for (const acc of session.accounts ?? []) await db.upsertAccount(conn, acc, bank);
+    for (const acc of session.accounts ?? []) await ingest.upsertAccount(conn, acc, bank);
     // Full history is usually only served in the first hour after authorising, so backfill now.
     await db.updateConnection(conn, bank, {
       session_id: session.session_id, valid_until: session.access?.valid_until ?? null, auth_state: null, last_error: null, backfill: 1,
@@ -89,13 +94,13 @@ export async function syncBank(client: Client, connRow: Row, psu: Psu = null): P
     let changed = 0;
     for (const acc of accounts) {
       for await (const [start, end, rows] of client.transactions(acc.uid, days, psu)) {
-        changed += await db.connect((conn) => db.saveWindow(conn, acc.id, Boolean(acc.is_card), start.isoformat(), end.isoformat(), rows));
+        changed += await db.connect((conn) => ingest.saveWindow(conn, acc.id, Boolean(acc.is_card), start.isoformat(), end.isoformat(), rows));
       }
       const balance = pickBalance(await client.balances(acc.uid, psu));
       await db.connect((conn) => accountsRepo.setBalance(conn, acc.id, balance, nowIso(), nowIso()));
     }
     const pairs = await db.connect(async (conn) => {
-      const made = await db.dedupe(conn);
+      const made = await ingest.dedupe(conn);
       await assignCommitments(conn);  // new rows from this sync
       await autofill(conn);  // first import: set the plan up from the transactions
       await db.updateConnection(conn, bank, { last_sync: nowIso(), last_error: null, backfill: 0 });
@@ -130,7 +135,6 @@ export function pickBalance(balances: Row[]): number | null {
 
 /** Mondays from 09:00 local time, once per ISO week. */
 async function weeklyReadDue(): Promise<boolean> {
-  const ai = await import("../domain/ai.js");
   const now = clock.localNow();
   if (!(await ai.available()) || now.weekday !== 0 || now.hour < 9) return false;
   return db.connect(async (conn) => {
@@ -155,14 +159,10 @@ export function runScheduler() {
   started = true;
 
   const forUser = async () => {
-    const alerts = await import("../domain/alerts.js");
-    const ai = await import("../domain/ai.js");
-    const aiUsage = await import("../domain/ai_usage.js");
-    const push = await import("../integrations/push.js");
     await loadPayday();
     const last = await db.connect(async (conn) => {
       if ((await db.getMeta(conn, "categories_version")) !== categories.VERSION) {
-        await db.recategorize(conn);  // categories changed since this history was sorted
+        await ingest.recategorize(conn);  // categories changed since this history was sorted
         await db.setMeta(conn, "categories_version", categories.VERSION);
       }
       return db.getMeta(conn, "last_attempt");

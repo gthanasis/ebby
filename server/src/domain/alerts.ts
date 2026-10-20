@@ -6,7 +6,7 @@ import type { Conn, Row } from "../data/db.js";
 import * as wishlistRepo from "../data/repos/wishlist.js";
 import * as push from "../integrations/push.js";
 import { fmt0, sorted } from "../py.js";
-import { CATEGORIES } from "./categories.js";
+import { CATEGORIES } from "../core/categories.js";
 import * as habits from "./habits.js";
 import { commitmentsView } from "./commitments.js";
 import { getPlan } from "./plan.js";

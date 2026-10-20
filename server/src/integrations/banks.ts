@@ -7,7 +7,7 @@
  */
 
 import { config } from "../config.js";
-import * as credentials from "../data/credentials.js";
+import * as credentials from "./credentials.js";
 import { floorDiv, sorted } from "../py.js";
 
 const DAY_MS = 24 * 3600 * 1000;

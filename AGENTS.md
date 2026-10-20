@@ -29,26 +29,29 @@ server/
   src/py.ts           Python's rounding, json.dumps and dates, exactly (see "Numbers" below)
   src/api/            the HTTP routes, one module per area (account, banks, transactions, spending, plan, goals…);
                       http.ts holds errors ({"detail": ...}), body checking and query parsing
+  src/jobs/           bank sync, the scheduler, the demo seed
   src/domain/         the logic, one module per idea: months (pay months, payday), plan, pace, services,
-                      subscriptions, commitments, goals, today, year, category, cash, extra_pay, questions;
-                      categories, habits, spending, the sorter, alerts, the assistant and its AI allowance
-    constants.ts      values several modules share (PAYDAY_MIN, CASH_ACCOUNT, the assistant's models)
+                      subscriptions, commitments, goals, today, year, category, cash, extra_pay, questions, savings,
+                      ingest (bank rows → stored rows), habits, spending, the sorter, alerts, the assistant, AI allowance
     prompts/          each Claude system prompt, one module apiece
-    reference/        fixed reference data: what merchant category codes mean
-  src/integrations/   Enable Banking, its bank list, web push
-  src/data/           the database, encryption, credentials, users, the demo seed
-    repos/            one module per table (goals, commitments, rules, transactions…): the routes, the domain and the
-                      jobs read and write through these; SQL lives nowhere else
+  src/integrations/   Enable Banking, its bank list, people's own keys (credentials), web push
+  src/data/           the database, encryption, users (ensureUser)
+    repos/            one module per table (goals, commitments, rules, transactions…): SQL lives nowhere else
+  src/core/           the vocabulary every layer shares: categories, what counts as spending (spend_sql),
+                      constants (PAYDAY_MIN, CASH_ACCOUNT, the assistant's models), reference/ (merchant codes)
   src/types/          db.ts: the tables, generated from migrations/ (npm run db:types after adding one; CI checks);
                       entities.ts: rows as the app reads them, and the JSON documents kept in meta
-  src/jobs/           bank sync and the scheduler
   migrations/         numbered SQL files, applied at startup
   test/               unit tests, and test/api/: the API as a black box (below)
 ```
 
+Imports point one way: api → jobs → domain → integrations → data → core → py/clock/config → types
+(main.ts and server.ts wire everything). No dynamic `import()`, no cycles, no SQL outside `src/data`;
+`npm run check:layers` enforces it and CI runs it. Something two modules both need goes down a layer, not sideways.
+
 Routes stay thin: they check input and call the domain. Logic that needs testing lives in `src/domain/`.
-Queries are SQL with `?` placeholders through `db.connect(conn => conn.execute(...))`; Kysely runs the
-connections and transactions, and its typed builder is there for new queries.
+Queries live in `src/data/repos/`: Kysely's typed builder for single-table reads and writes, SQL with `?`
+placeholders (`conn.execute`) for the rest. Callers open the transaction (`db.connect(conn => ...)`).
 
 ## Tests
 
@@ -90,7 +93,7 @@ connections and transactions, and its typed builder is there for new queries.
   and the snapshots hold its numbers. Round money with `pyRound` (halves to even), format with `fmt0`/`fmt2`,
   and build stored JSON and ids with `pyDumps`. A plain `Math.round` or `JSON.stringify` there changes totals
   or makes a sync store a payment twice.
-- **Categories:** rules live in `server/src/domain/categories.ts`. After changing them, bump `VERSION` so stored
+- **Categories:** rules live in `server/src/core/categories.ts`. After changing them, bump `VERSION` so stored
   history is sorted again. A new category also goes in the web sorter's order (`web/src/components/Sorter.tsx`),
   and its icon in the registry (`web/src/components/ui.tsx`), or it renders as "•••".
 - **Banks are rate-limited:** about four unattended fetches a day per connection. Don't add calls to Enable

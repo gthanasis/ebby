@@ -1,12 +1,10 @@
 /** Services: one name per merchant however the bank writes it, a category's services, one service in detail,
  * and moving a service's payments to another category. */
 
-import * as db from "../data/db.js";
 import { type Conn, type Row } from "../data/db.js";
-import * as rulesRepo from "../data/repos/rules.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
 import { PyDate, pyRound, sorted, sum } from "../py.js";
-import { MCC_NAMES } from "./reference/mcc.js";
+import { MCC_NAMES } from "../core/reference/mcc.js";
 import { monthBounds, shift } from "./months.js";
 
 const SERVICE_ALIASES: [RegExp, string][] = [
@@ -76,22 +74,4 @@ export async function serviceTransactionIds(conn: Conn, category: string, name: 
 
 export async function serviceIdsAnywhere(conn: Conn, name: string): Promise<Row[]> {
   return (await transactionsRepo.payees(conn)).filter((r) => sn(r) === name);
-}
-
-/** All payments to a service go to category, now and in future (rules keyed by merchant). */
-export async function setServiceCategory(conn: Conn, name: string, category: string): Promise<number> {
-  const rows = await serviceIdsAnywhere(conn, name);
-  for (const r of rows) {
-    await rulesRepo.set(conn, r.merchant || `tx:${r.id}`, category);
-  }
-  await db.recategorize(conn);
-  return rows.length;
-}
-
-/** Undo setServiceCategory: drop the service's rules so its payments go back to being worked out. */
-export async function clearServiceCategory(conn: Conn, name: string): Promise<number> {
-  const rows = await serviceIdsAnywhere(conn, name);
-  for (const r of rows) await rulesRepo.remove(conn, r.merchant || `tx:${r.id}`);
-  await db.recategorize(conn);
-  return rows.length;
 }

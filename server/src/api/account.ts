@@ -4,7 +4,7 @@ import type { Hono } from "hono";
 import { z } from "zod";
 
 import { config } from "../config.js";
-import * as credentials from "../data/credentials.js";
+import * as credentials from "../integrations/credentials.js";
 import * as db from "../data/db.js";
 import * as aiUsageRepo from "../data/repos/ai_usage.js";
 import type { Conn } from "../data/db.js";

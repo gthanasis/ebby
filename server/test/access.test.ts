@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { hashToken } from "../src/api/auth.js";
 import * as db from "../src/data/db.js";
-import { ensureUser } from "../src/data/demo.js";
+import { ensureUser } from "../src/data/users.js";
 import * as people from "../src/data/users.js";
 import { createApp } from "../src/server.js";
 import { users } from "./fixtures.js";

@@ -91,3 +91,11 @@ export async function update(userId: number, fields: { status?: string | null; a
     if (fields.aiBudgetUsd != null) await conn.execute("UPDATE users SET ai_budget_usd = ? WHERE id = ?", [fields.aiBudgetUsd, userId]);
   });
 }
+
+/** Adds someone to the allow list (or makes them admin), active at once. */
+export async function ensureUser(email: string, admin = false): Promise<number> {
+  return db.connectSystem(async (conn) => (await conn.execute(`
+    INSERT INTO users(email, is_admin, status, created_at) VALUES(?, ?, 'active', ?)
+    ON CONFLICT(email) DO UPDATE SET is_admin = users.is_admin OR excluded.is_admin RETURNING id
+  `, [email.toLowerCase(), admin, clock.now()])).one()!.id);
+}

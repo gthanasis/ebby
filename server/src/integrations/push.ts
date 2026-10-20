@@ -9,7 +9,7 @@ import webpush from "web-push";
 import * as clock from "../clock.js";
 import { config, secrets } from "../config.js";
 import * as db from "../data/db.js";
-import { first } from "../data/db.js";
+import * as pushRepo from "../data/repos/push_subscriptions.js";
 import { isoUtc, pyDumps } from "../py.js";
 
 const keyFile = () => join(config.DATA_DIR, "vapid.pem");
@@ -39,23 +39,20 @@ function vapidKeys(): { publicKey: string; privateKey: string } {
 export const publicKey = () => vapidKeys().publicKey;
 
 export async function subscribe(subscription: { endpoint: string }) {
-  await db.connect((conn) => conn.execute(`
-    INSERT INTO push_subscriptions(endpoint, subscription, created_at) VALUES(?, ?, ?)
-    ON CONFLICT(user_id, endpoint) DO UPDATE SET subscription = excluded.subscription
-  `, [subscription.endpoint, pyDumps(subscription), isoUtc(clock.now())]));
+  await db.connect((conn) => pushRepo.upsert(conn, subscription.endpoint, pyDumps(subscription), isoUtc(clock.now())));
 }
 
 export async function unsubscribe(endpoint: string) {
-  await db.connect((conn) => conn.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", [endpoint]));
+  await db.connect((conn) => pushRepo.remove(conn, endpoint));
 }
 
 export async function count(): Promise<number> {
-  return db.connect(async (conn) => first((await conn.execute("SELECT COUNT(*) FROM push_subscriptions")).one()));
+  return db.connect((conn) => pushRepo.count(conn));
 }
 
 /** Sends to every subscribed device; drops subscriptions the push service says are gone. */
 export async function send(title: string, body: string, url = "/", tag: string | null = null): Promise<number> {
-  const subs = await db.connect(async (conn) => (await conn.execute("SELECT subscription FROM push_subscriptions")).rows.map((r) => JSON.parse(r.subscription)));
+  const subs = (await db.connect((conn) => pushRepo.all(conn))).map((s) => JSON.parse(s));
   if (!subs.length) return 0;
   const { publicKey: pub, privateKey } = vapidKeys();
   const payload = pyDumps({ title, body, url, tag });

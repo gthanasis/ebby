@@ -126,7 +126,7 @@ function pyString(s: string, asciiOnly: boolean): string {
 /**
  * Python's json.dumps: ", " and ": " separators, non-ASCII escaped unless ensureAscii is false, floats as
  * Python writes them. Numbers that are whole in JS are written as ints unless listed in `floats`. Stored ids
- * are built from this (db.txKey), so it must match byte for byte.
+ * are built from this (ingest.txKey), so it must match byte for byte.
  */
 export function pyDumps(value: unknown, opts: { sortKeys?: boolean; ensureAscii?: boolean } = {}): string {
   const { sortKeys = false, ensureAscii = true } = opts;
