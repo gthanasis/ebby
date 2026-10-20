@@ -1,4 +1,5 @@
-# Tests and the web build on every pull request and push; the image on main and on version tags.
+# Tests and the web build on every pull request and push; the image on main and on version tags. Version tags
+# come from release.yml, which starts this workflow on the new tag itself (its token's tag push starts nothing).
 #
 # GitHub-hosted runners only: pull requests come from anyone's fork, and their code must never run on a
 # machine of ours. Nothing here deploys. Deployments pull a published image (ghcr.io/gthanasis/ebby) and
@@ -10,6 +11,7 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -51,7 +53,7 @@ jobs:
 
   image:
     needs: test
-    if: github.event_name == 'push'
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -71,14 +73,15 @@ jobs:
           IMAGE: ghcr.io/${{ github.repository }}
           REF: ${{ github.ref }}
           SHA: ${{ github.sha }}
-        # main: the commit and `edge`. A tag v1.2.3: `1.2.3`, `1.2` and `latest`, what deployments pin to.
+        # main: the commit and `edge`. A tag v1.2.3: `1.2.3`, `1.2`, `1` and `latest`. Installs follow `1` (compose.yaml)
+        # and so never cross a major version, which may need them to act, without choosing to.
         run: |
           tags=(-t "$IMAGE:sha-${SHA:0:12}")
           case "$REF" in
             refs/heads/main) tags+=(-t "$IMAGE:edge") ;;
             refs/tags/v*)
               v=${REF#refs/tags/v}
-              tags+=(-t "$IMAGE:$v" -t "$IMAGE:${v%.*}" -t "$IMAGE:latest") ;;
+              tags+=(-t "$IMAGE:$v" -t "$IMAGE:${v%.*}" -t "$IMAGE:${v%%.*}" -t "$IMAGE:latest") ;;
           esac
           docker buildx build --platform linux/amd64,linux/arm64 \
             --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
