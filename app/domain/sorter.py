@@ -7,11 +7,12 @@ made once. Answering moves every payment to that payee, now and later.
 """
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 
 import anthropic
 from pydantic import BaseModel, Field
 
+from app import clock
 from app.data import db
 from app.domain import ai, ai_usage, insights, spending
 from app.domain.categories import CATEGORIES
@@ -137,7 +138,7 @@ def guess(conn, service: str) -> dict | None:
     g = response.parsed_output
     if response.stop_reason == "refusal" or g is None or g.category not in CATEGORIES:
         return None
-    result = {"category": g.category, "reason": g.reason, "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    result = {"category": g.category, "reason": g.reason, "at": clock.now().isoformat(timespec="seconds")}
     guesses[service] = result
     db.set_meta(conn, GUESS_KEY, guesses)
     return result

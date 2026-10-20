@@ -1,12 +1,12 @@
 """Thin Enable Banking API client (restricted mode: each person's own app reaches only their own accounts)."""
 
 import time
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 
 import jwt
 import requests
 
-from app import config
+from app import clock, config
 
 API = "https://api.enablebanking.com"
 
@@ -62,7 +62,7 @@ class Client:
 
     def start_auth(self, bank: str, state: str, days: int = config.CONSENT_DAYS) -> str:
         """days: how long access lasts, at most what the bank allows (banks.available()'s consent_days)."""
-        valid_until = datetime.now(timezone.utc) + timedelta(days=days)
+        valid_until = clock.now() + timedelta(days=days)
         return self.call("POST", "/auth", json={
             "access": {"valid_until": valid_until.isoformat()},
             "aspsp": {"name": bank, "country": config.COUNTRY},
@@ -94,7 +94,7 @@ class Client:
 
     def transactions(self, uid: str, days: int, psu: dict | None = None):
         """Yields (start, end, rows) per window, newest first, covering the last `days` days."""
-        today = date.today()
+        today = clock.server_today()
         oldest = today - timedelta(days=min(days, MAX_HISTORY_DAYS))
         end = today
         while end >= oldest:

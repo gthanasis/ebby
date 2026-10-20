@@ -3,13 +3,12 @@
 import base64
 import json
 import logging
-from datetime import datetime, timezone
 
 from cryptography.hazmat.primitives import serialization
 from py_vapid import Vapid
 from pywebpush import WebPushException, webpush
 
-from app import config
+from app import clock, config
 from app.data import db
 
 log = logging.getLogger("bank-sync")
@@ -39,7 +38,7 @@ def subscribe(subscription: dict):
         conn.execute("""
             INSERT INTO push_subscriptions(endpoint, subscription, created_at) VALUES(?, ?, ?)
             ON CONFLICT(user_id, endpoint) DO UPDATE SET subscription = excluded.subscription
-        """, (subscription["endpoint"], json.dumps(subscription), datetime.now(timezone.utc).isoformat()))
+        """, (subscription["endpoint"], json.dumps(subscription), clock.now().isoformat()))
 
 
 def unsubscribe(endpoint: str):

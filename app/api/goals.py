@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app import clock
 from app.api import common
 from app.data import db
 from app.domain import habits, insights, spending
@@ -36,11 +37,11 @@ def goals():
 
 @router.post("/api/goals")
 def add_goal(body: GoalIn):
-    if not body.name.strip() or body.price <= 0 or body.target_date <= date.today():
+    if not body.name.strip() or body.price <= 0 or body.target_date <= clock.server_today():
         raise HTTPException(400, "A goal needs a name, a price and a date in the future")
     with db.connect() as conn:
         conn.execute("INSERT INTO goals(name, price, saved, target_date, created_at, kind) VALUES(?, ?, ?, ?, ?, ?)",
-                     (body.name.strip(), body.price, max(0, body.saved), body.target_date.isoformat(), date.today().isoformat(),
+                     (body.name.strip(), body.price, max(0, body.saved), body.target_date.isoformat(), clock.server_today().isoformat(),
                       body.kind if body.kind in ("buy", "save") else "buy"))
         return common.goals(conn)
 

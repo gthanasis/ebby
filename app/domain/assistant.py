@@ -9,10 +9,11 @@ import hashlib
 import json
 import logging
 from collections.abc import Iterator
-from datetime import date, datetime, timezone
+from datetime import date
 
 import anthropic
 
+from app import clock
 from app.data import db
 from app.domain import ai, ai_usage, insights, spending
 from app.domain.categories import CATEGORIES, SPENDING
@@ -260,10 +261,10 @@ def run_action(action_id: int) -> str:
             insights.save_plan(conn, p["take_home"], p["keep"], current["budgets"] if current else None)
             result = f"Plan updated: take-home €{p['take_home']:,.0f}, keep €{p['keep']:,.0f}."
         elif kind == "goal":
-            if date.fromisoformat(p["target_date"]) <= date.today():
+            if date.fromisoformat(p["target_date"]) <= clock.server_today():
                 raise ValueError("The goal date has to be in the future.")
             conn.execute("INSERT INTO goals(name, price, saved, target_date, created_at) VALUES(?, ?, 0, ?, ?)",
-                         (p["name"], p["price"], p["target_date"], date.today().isoformat()))
+                         (p["name"], p["price"], p["target_date"], clock.server_today().isoformat()))
             result = f"Added {p['name']}: €{p['price']:,.0f} by {p['target_date']}."
         elif kind == "goal_saved":
             conn.execute("UPDATE goals SET saved = MAX(0, saved + ?) WHERE id = ?", (p["add"], p["goal_id"]))
@@ -294,7 +295,7 @@ def cancel_action(action_id: int):
 # ---------- conversation ----------
 
 def _now():
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return clock.now().isoformat(timespec="seconds")
 
 
 def _store(conn, conversation, role, content):

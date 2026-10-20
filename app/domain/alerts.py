@@ -2,9 +2,8 @@
 
 import logging
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
-from app import config
+from app import clock
 from app.data import db
 from app.domain import habits, insights
 from app.domain.categories import CATEGORIES
@@ -15,7 +14,7 @@ LEVELS = {"ahead": 1, "over": 2}
 
 
 def local_now() -> datetime:
-    return datetime.now(ZoneInfo(config.TIMEZONE))
+    return clock.local_now()
 
 
 def quiet_hours() -> bool:

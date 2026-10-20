@@ -12,6 +12,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from app.data import db
 from app.domain import habits, insights
+from app import clock
 
 EMAIL = "demo@spending.local"
 DAYS = 185
@@ -107,7 +108,7 @@ def seed(email: str = EMAIL) -> dict:
         for table in ("transactions", "accounts", "rules", "connections", "goals", "commitments", "habit_rules",
                       "wishlist", "assistant_messages", "assistant_actions", "meta"):
             conn.execute(f"DELETE FROM {table}")  # row-level security: only the demo user's own rows
-        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        now = clock.now().isoformat(timespec="seconds")
         for acc_id, bank, name, is_card, last4, balance in [
                 (CURRENT, "Alpha Bank", "Alpha Μισθοδοσία", 0, "4417", 1842.37), (CARD, "Alpha Bank", "Alpha Bank Bonus Visa", 1, "9021", -386.12),
                 (REVOLUT, "Revolut", "Revolut EUR", 0, None, 96.55)]:
@@ -120,7 +121,7 @@ def seed(email: str = EMAIL) -> dict:
         db.dedupe(conn)
         insights.assign_commitments(conn)
         insights.autofill(conn)
-        valid = (datetime.now(timezone.utc) + timedelta(days=171)).isoformat(timespec="seconds")
+        valid = (clock.now() + timedelta(days=171)).isoformat(timespec="seconds")
         for bank in ("Alpha Bank", "Revolut"):
             db.update_connection(conn, bank, session_id=f"demo-{bank}", valid_until=valid, last_sync=now)
         conn.execute("INSERT INTO goals(name, price, saved, target_date, created_at, kind) VALUES(?, ?, ?, ?, ?, ?)",
