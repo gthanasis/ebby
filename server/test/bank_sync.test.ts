@@ -137,6 +137,25 @@ describe("syncing a bank", () => {
   });
 });
 
+describe("payments stored before the day-you-paid rule", () => {
+  it("are dated again from what the bank sent, without a sync", async () => {
+    const user = await ensureUser("redate@example.com");
+    const raw = (fields: Record<string, string>) => JSON.stringify({ status: "BOOK", credit_debit_indicator: "DBIT", ...fields });
+    await db.asUser(user, () => db.connect(async (conn) => {
+      await conn.execute("INSERT INTO accounts(id, uid, name, is_card, bank) VALUES('acc', 'u', 'Current', 0, 'Alpha Bank')");
+      const add = (id: string, date: string, r: string) => conn.execute(`INSERT INTO transactions(id, account, date, amount, currency, status,
+        description, merchant, category, raw) VALUES(?, 'acc', ?, -50, 'EUR', 'BOOK', 'x', 'x', 'people', ?)`, [id, date, r]);
+      await add("acc:old", "2026-09-22", raw({ booking_date: "2026-09-22", value_date: "2026-09-17" }));  // stored by booking day
+      await add("acc:fine", "2026-09-10", raw({ booking_date: "2026-09-10", value_date: "2026-09-12" }));
+      await add("cash:1", "2026-09-05", JSON.stringify({ logged_by_hand: true, note: "bakery" }));
+      expect(await ingest.redate(conn)).toBe(1);
+      const dates = Object.fromEntries((await conn.execute("SELECT id, date FROM transactions ORDER BY id")).rows.map((r) => [r.id, r.date]));
+      expect(dates).toEqual({ "acc:fine": "2026-09-10", "acc:old": "2026-09-17", "cash:1": "2026-09-05" });
+      expect(await ingest.redate(conn)).toBe(0);  // once is enough
+    }));
+  });
+});
+
 describe("debit cards", () => {
   it("a paired purchase keeps the day you paid, across syncs", async () => {
     const t = (entry: string, amount: number, booked: string, value: string, text: string, mcc: string | null = null) => ({
@@ -156,6 +175,9 @@ describe("debit cards", () => {
         const counted = (await conn.execute("SELECT date, amount FROM transactions WHERE duplicate_of IS NULL AND amount < 0 ORDER BY date")).rows;
         expect(counted).toEqual([{ date: "2026-10-15", amount: -66.91 }, { date: "2026-10-17", amount: -23.1 }]);
       }
+      await ingest.redate(conn);  // dating stored rows again keeps the pairs on the card's day
+      expect((await conn.execute("SELECT date, amount FROM transactions WHERE duplicate_of IS NULL AND amount < 0 ORDER BY date")).rows)
+        .toEqual([{ date: "2026-10-15", amount: -66.91 }, { date: "2026-10-17", amount: -23.1 }]);
       expect(JSON.parse((await conn.execute("SELECT raw FROM transactions WHERE id LIKE '%a1'")).one()!.raw).booking_date).toBe("2026-10-19");
       // The list shows the day you paid, and the bank's booking day beside it.
       const listed = (await transactionsRepo.list(conn, {}, 10, 0)).rows.map((r) => [r.date, r.booked]);

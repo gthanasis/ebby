@@ -39,6 +39,15 @@ async function recategorizeIfStale() {
   });
 }
 
+async function redateIfStale() {
+  await db.connect(async (conn) => {
+    if ((await db.getMeta(conn, "dates_version")) === ingest.DATES_VERSION) return;
+    const moved = await ingest.redate(conn);
+    await db.setMeta(conn, "dates_version", ingest.DATES_VERSION);
+    if (moved) console.info(`user ${db.currentUser()}: ${moved} payments dated again by the day they were paid`);
+  });
+}
+
 async function syncIfDue() {
   const last = await db.connect((conn) => db.getMeta(conn, "last_attempt"));
   const due = !last || parseIso(last).getTime() < clock.now().getTime() - config.SYNC_HOURS * 3600_000;
@@ -63,7 +72,7 @@ async function sendWeeklyRead() {
 }
 
 /** One person's scheduled work, in order. A step that throws skips the rest for that person this round. */
-const STEPS = [recategorizeIfStale, syncIfDue, sendAlerts, sendWeeklyRead];
+const STEPS = [recategorizeIfStale, redateIfStale, syncIfDue, sendAlerts, sendWeeklyRead];
 
 async function forUser() {
   for (const step of STEPS) await step();
