@@ -9,7 +9,6 @@
  */
 
 import * as clock from "../../shared/clock.js";
-import * as db from "../../shared/db.js";
 import { type Conn, type Row } from "../../shared/db.js";
 import * as goalsRepo from "../goals/repo.js";
 import * as habitRulesRepo from "./repo.js";
@@ -22,11 +21,11 @@ import { PAYDAY_MIN } from "../../shared/constants.js";
 import type { HabitRule } from "../../types/entities.js";
 import { getPlan } from "../plan/service.js";
 import { localToday, monthBounds, thisMonth } from "../../shared/months.js";
+import { readSettings } from "../../shared/settings.js";
 import { accounts, savingsAccountIds } from "../plan/savings.js";
 import * as spending from "../spending/service.js";
 import { spentBetween } from "../plan/today.js";
 
-const DEFAULT_WORK_HOURS = 160;
 const WAIT_MS = 48 * 3600 * 1000;
 
 const now = () => clock.now();
@@ -78,7 +77,7 @@ export async function noSpend(conn: Conn): Promise<Row> {
 
 export async function hourlyRate(conn: Conn): Promise<number | null> {
   const plan = await getPlan(conn);
-  const hours = (await db.getMeta(conn, "settings"))?.work_hours ?? DEFAULT_WORK_HOURS;
+  const hours = (await readSettings(conn)).work_hours;
   return plan && hours ? pyRound(plan.take_home / hours, 2) : null;
 }
 

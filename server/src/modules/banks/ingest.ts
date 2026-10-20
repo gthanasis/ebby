@@ -1,12 +1,12 @@
 /** Turning what a bank sends into stored rows: accounts, transactions with their payee and category, and debit-card
  * purchases paired with their current-account copies. */
 
-import * as db from "../../shared/db.js";
 import { type Conn, type Row } from "../../shared/db.js";
 import * as accountsRepo from "../../shared/ledger/accounts.js";
 import * as rulesRepo from "../../shared/ledger/rules.js";
 import * as transactionsRepo from "../../shared/ledger/transactions.js";
 import { pyDumps } from "../../shared/utils/python.js";
+import { readSettings } from "../../shared/settings.js";
 import { categorize, merchantName } from "../../shared/categories.js";
 import { assignCommitments } from "../commitments/service.js";
 import { serviceIdsAnywhere } from "../spending/services.js";
@@ -27,7 +27,7 @@ export function txKey(tx: Row): string {
 }
 
 export async function ownerNames(conn: Conn): Promise<string[]> {
-  return (await db.getMeta(conn, "settings"))?.owner_names || [];
+  return (await readSettings(conn)).owner_names;
 }
 
 export type TxRow = [string, string, string | null, number, string, string, string, string, string | null, string, string];

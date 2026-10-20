@@ -4,10 +4,10 @@ import { type Conn, type Row } from "../../shared/db.js";
 import * as goalsRepo from "../goals/repo.js";
 import * as transactionsRepo from "../../shared/ledger/transactions.js";
 import { PyDate, pyRound, sorted, sum } from "../../shared/utils/python.js";
-import { budgetsFor, getPlan, roundTo } from "./service.js";
+import { getPlan } from "./service.js";
 import { categoryRows } from "./pace.js";
 import { committedTotal } from "../commitments/service.js";
-import { localToday, monthBounds, shift, thisMonth } from "../../shared/months.js";
+import { localToday, monthBounds, thisMonth } from "../../shared/months.js";
 
 /** Spending from start up to and including end. */
 export async function spentBetween(conn: Conn, start: PyDate, end: PyDate): Promise<number> {
@@ -57,78 +57,5 @@ async function ideal(conn: Conn, length: number): Promise<Row | null> {
     income: plan.take_home, savings: plan.keep, fixed, goals,
     budget: pyRound(budget, 2), day: pyRound(budget / length, 2),
     targets: total ? Object.fromEntries(Object.entries(shares).map(([c, v]) => [c, pyRound(v * budget / total, 2)])) : {},
-  };
-}
-
-/**
- * What's left today, this week and this month. None without a plan.
- *
- * Day: what's left of the month shared over the days to go (today included) - mode "share". When that's out of
- * reach (the plan is used up, or staying on it would take under 60% of the recent daily pace) a plan day would just
- * be ignored, so mode "catch_up" sets a realistic day instead: three quarters of the recent pace, never below a plan
- * day, never above the pace itself. finish is where the month lands at that rate, and suggest_limit offers a working
- * limit for next month on the way back down to the plan (or for this month, early in it, after a bad one).
- * Week: Monday to Sunday, limit = a normal plan day x 7.
- * Month: every day's spending so far (None for days still to come), for the day strip.
- */
-export async function periods(conn: Conn): Promise<Row | null> {
-  const plan = await getPlan(conn);
-  if (!plan) return null;
-  const today = localToday();
-  const month = thisMonth();
-  const [firstDay, end] = monthBounds(month).map(PyDate.fromisoformat);
-  const days = end.diffDays(firstDay);
-  const goal = sum(Object.values<number>(plan.budgets));
-  const monthly = sum(Object.values(budgetsFor(plan, month)));
-  const perDay = monthly / days;
-  const monthSpent = await spentBetween(conn, firstDay, end.addDays(-1));
-  const beforeToday = today.n > firstDay.n ? await spentBetween(conn, firstDay, today.addDays(-1)) : 0.0;
-  const todaySpent = await spentBetween(conn, today, today);
-  const daysLeft = end.diffDays(today);
-  const leftForMonth = monthly - beforeToday;
-  const gone = today.diffDays(firstDay);
-  const paceDaily = gone >= 3 ? beforeToday / gone : null;
-  const need = leftForMonth / daysLeft;
-  let dayLimit: number, mode: string;
-  if (paceDaily && (need <= 0 || need < 0.6 * paceDaily) && paceDaily > perDay) {
-    dayLimit = Math.min(paceDaily, Math.max(perDay, need, roundTo(0.75 * paceDaily, 5))); mode = "catch_up";
-  } else if (need > 0) {
-    dayLimit = need; mode = "share";
-  } else {
-    dayLimit = perDay; mode = "catch_up";
-  }
-  const finish = beforeToday + dayLimit * daysLeft;
-
-  const limits = plan.limits || {};
-  let suggest: Row | null = null;
-  if (mode === "catch_up" && !(shift(month, 1) in limits)) {
-    suggest = { month: shift(month, 1), limit: Math.max(goal, roundTo(0.9 * finish, 50)), goal };
-  } else if (!(month in limits) && gone <= 5) {
-    const [ps, pe] = monthBounds(shift(month, -1));
-    const last = await spentBetween(conn, PyDate.fromisoformat(ps), PyDate.fromisoformat(pe).addDays(-1));
-    if (last > goal * 1.05) suggest = { month, limit: Math.max(goal, roundTo(0.9 * last, 50)), goal, last };
-  }
-
-  const monday = today.addDays(-today.weekday());
-  const weekDays = [];
-  for (let i = 0; i < 7; i++) {
-    const d = monday.addDays(i);
-    weekDays.push({ date: d.isoformat(), spent: d.n <= today.n ? await spentBetween(conn, d, d) : null });
-  }
-  const weekSpent = pyRound(sum(weekDays.map((d) => d.spent || 0)), 2);
-  const monthDaysList = [];
-  for (let i = 0; i < days; i++) {
-    const d = firstDay.addDays(i);
-    monthDaysList.push({ date: d.isoformat(), spent: d.n <= today.n ? await spentBetween(conn, d, d) : null });
-  }
-  return {
-    today: today.isoformat(),
-    day: {
-      spent: todaySpent, limit: pyRound(dayLimit, 2), mode, days_left: daysLeft,
-      left_for_month: pyRound(leftForMonth, 2), pace: paceDaily ? pyRound(paceDaily, 2) : null, finish: pyRound(finish, 2),
-    },
-    week: { spent: weekSpent, limit: pyRound(perDay * 7, 2), daily_limit: pyRound(perDay, 2), start: monday.isoformat(), days: weekDays },
-    month: { key: month, spent: monthSpent, limit: pyRound(monthly, 2), goal, days_left: daysLeft - 1, daily_limit: pyRound(perDay, 2), days: monthDaysList },
-    suggest_limit: suggest,
   };
 }

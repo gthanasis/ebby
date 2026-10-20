@@ -12,8 +12,23 @@ import { commitmentsView } from "../commitments/service.js";
 import { getPlan } from "../plan/service.js";
 import { pace } from "../plan/pace.js";
 import { thisMonth } from "../../shared/months.js";
+import { readSettings } from "../../shared/settings.js";
+import type { MetaDocuments } from "../../types/entities.js";
 
 const LEVELS: Record<string, number> = { ahead: 1, over: 2 };
+
+/** A push's title and body: one item in its own words, or several together. */
+function message(items: Row[], one: (item: Row) => [string, string], many: (items: Row[]) => [string, string]): [string, string] {
+  return items.length === 1 ? one(items[0]) : many(items);
+}
+
+/** Adds what was just delivered to this month's record. The document keeps only the current month. */
+async function markSent<K extends "alerts_sent" | "commitment_alerts">(
+  conn: Conn, key: K, month: string, add: (sent: MetaDocuments[K][string] | undefined) => MetaDocuments[K][string],
+) {
+  const state = ((await db.getMeta(conn, key)) || {}) as Record<string, MetaDocuments[K][string]>;
+  await db.setMeta(conn, key, { [month]: add(state[month]) } as MetaDocuments[K]);
+}
 
 export const localNow = () => clock.localNow();
 export const quietHours = () => { const h = localNow().hour; return !(9 <= h && h < 22); };
@@ -34,20 +49,11 @@ export async function checkCommitments(conn: Conn, month: string): Promise<numbe
   const sent: number[] = ((await db.getMeta(conn, "commitment_alerts")) || {})[month] || [];
   const over = (await commitmentsView(conn, month)).items.filter((c: Row) => c.over && !sent.includes(c.id));
   if (!over.length) return 0;
-  let title: string, body: string;
-  if (over.length === 1) {
-    const c = over[0];
-    title = `${c.name} is past its limit`;
-    body = `€${fmt0(c.spent)} this month, your limit is €${fmt0(c.monthly_limit)}.`;
-  } else {
-    title = "Commitments past their limits";
-    body = over.slice(0, 3).map((c: Row) => `${c.name} €${fmt0(c.spent)} of €${fmt0(c.monthly_limit)}`).join(", ");
-  }
+  const [title, body] = message(over,
+    (c) => [`${c.name} is past its limit`, `€${fmt0(c.spent)} this month, your limit is €${fmt0(c.monthly_limit)}.`],
+    (cs) => ["Commitments past their limits", cs.slice(0, 3).map((c) => `${c.name} €${fmt0(c.spent)} of €${fmt0(c.monthly_limit)}`).join(", ")]);
   const delivered = await push.send(title, body, "/#/committed/", `committed-${month}`);
-  if (delivered) {
-    const state = (await db.getMeta(conn, "commitment_alerts")) || {};
-    await db.setMeta(conn, "commitment_alerts", { [month]: [...(state[month] || []), ...over.map((c: Row) => c.id)] });
-  }
+  if (delivered) await markSent(conn, "commitment_alerts", month, (ids) => [...(ids || []), ...over.map((c: Row) => c.id)]);
   return delivered;
 }
 
@@ -68,28 +74,24 @@ export async function check(): Promise<number> {
   if (quietHours()) return 0;  // left pending; the next check after 09:00 sends them
   const month = thisMonth();
   return db.connect(async (conn) => {
-    const settings = (await db.getMeta(conn, "settings")) || {};
-    if (settings.alerts ?? true) await checkCommitments(conn, month);
+    const { alerts } = await readSettings(conn);
+    if (alerts) await checkCommitments(conn, month);
     await checkWishlist(conn);
-    if (!(await getPlan(conn)) || !(settings.alerts ?? true)) return 0;
+    if (!(await getPlan(conn)) || !alerts) return 0;
     const due = sorted(await pending(conn, month), (c) => -(c.spent - (c.budget || 0)));
     if (!due.length) return 0;
     const top = due[0];
     const label = CATEGORIES[top.category][0].toLowerCase();
-    let title: string, body: string;
-    if (due.length === 1) {
-      title = top.level === 2 ? `Time to cool down on ${label}` : `${CATEGORIES[top.category][0]} is running ahead`;
-      body = `€${fmt0(top.spent)} this month. ${top.habit}`;
-    } else {
-      const names = due.slice(0, 3).map((c) => CATEGORIES[c.category][0].toLowerCase()).join(", ");
-      title = "Time to cool down";
-      body = `Ahead of plan on ${names}. Biggest: ${label}, €${fmt0(top.spent)} this month.`;
-    }
+    const [title, body] = message(due,
+      (c) => [c.level === 2 ? `Time to cool down on ${label}` : `${CATEGORIES[c.category][0]} is running ahead`, `€${fmt0(c.spent)} this month. ${c.habit}`],
+      (cs) => {
+        const names = cs.slice(0, 3).map((c) => CATEGORIES[c.category][0].toLowerCase()).join(", ");
+        return ["Time to cool down", `Ahead of plan on ${names}. Biggest: ${label}, €${fmt0(top.spent)} this month.`];
+      });
     const sent = await push.send(title, body, `/#/spending/category=${top.category}`, `cooldown-${month}`);
     if (!sent) return 0;  // no device subscribed yet; keep it pending rather than mark it seen
     console.info(`cool-down alert for ${due.map((c) => c.category).join(", ")}: ${sent} device(s)`);
-    const state = (await db.getMeta(conn, "alerts_sent")) || {};
-    await db.setMeta(conn, "alerts_sent", { [month]: { ...(state[month] || {}), ...Object.fromEntries(due.map((c) => [c.category, c.level])) } });
+    await markSent(conn, "alerts_sent", month, (levels) => ({ ...(levels || {}), ...Object.fromEntries(due.map((c) => [c.category, c.level])) }));
     return sent;
   });
 }

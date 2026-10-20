@@ -81,7 +81,6 @@ export async function syncAll(psu: Psu): Promise<boolean> {
 
 export async function syncBank(client: Client, connRow: Row, psu: Psu = null): Promise<boolean> {
   const bank = connRow.bank;
-  let error: Row;
   try {
     const accounts = await db.connect((conn) => accountsRepo.syncable(conn, bank));
     const days = connRow.backfill || !connRow.last_sync ? MAX_HISTORY_DAYS : psu ? LIVE_LOOKBACK_DAYS : config.SYNC_LOOKBACK_DAYS;
@@ -104,17 +103,19 @@ export async function syncBank(client: Client, connRow: Row, psu: Psu = null): P
     console.info(`${bank}: sync done, ${changed} rows changed across ${accounts.length} accounts`);
     return true;
   } catch (e) {
-    if (e instanceof EnableBankingError) {
-      console.warn(`${bank}: sync failed: ${e}`);
-      error = { at: nowIso(), code: e.code, message: e.message, reconnect: e.sessionExpired };
-    } else {  // keep the scheduler alive on network hiccups
-      console.error(`${bank}: sync failed`, e);
-      const err = e as Error;
-      error = { at: nowIso(), code: err?.constructor?.name ?? "Error", message: String(err?.message ?? e), reconnect: false };
-    }
+    if (e instanceof EnableBankingError) console.warn(`${bank}: sync failed: ${e}`);
+    else console.error(`${bank}: sync failed`, e);  // keep the scheduler alive on network hiccups
+    const error = toConnectionError(e);
+    await db.connect((conn) => db.updateConnection(conn, bank, { last_error: error }));
+    return false;
   }
-  await db.connect((conn) => db.updateConnection(conn, bank, { last_error: error }));
-  return false;
+}
+
+/** A failed sync as kept on the connection: reconnect is set when only signing in to the bank again will help. */
+export function toConnectionError(e: unknown): Row {
+  if (e instanceof EnableBankingError) return { at: nowIso(), code: e.code, message: e.message, reconnect: e.sessionExpired };
+  const err = e as Error;
+  return { at: nowIso(), code: err?.constructor?.name ?? "Error", message: String(err?.message ?? e), reconnect: false };
 }
 
 export function pickBalance(balances: Row[]): number | null {
