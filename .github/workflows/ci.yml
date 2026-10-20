@@ -1,4 +1,4 @@
-# Tests and the web build on every pull request and push; the image on main and on version tags. Version tags
+# Tests, the server's types and the web build on every pull request and push; the image on main and on version tags. Version tags
 # come from release.yml, which starts this workflow on the new tag itself (its token's tag push starts nothing).
 #
 # GitHub-hosted runners only: pull requests come from anyone's fork, and their code must never run on a
@@ -45,13 +45,13 @@ jobs:
       - name: Typecheck and build the web app
         working-directory: web
         run: npm ci && npm run build
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
-      - name: Lint
-        run: |
-          uv sync --frozen
-          uv run ruff check app tests scripts
+      - name: Typecheck the server
+        working-directory: server
+        run: npm ci && npm run typecheck
+      # Unit tests and the API contract (every read against its snapshot, every write through the reads).
       - name: Tests
-        run: uv run pytest -q
+        working-directory: server
+        run: npm test
 
   image:
     needs: test

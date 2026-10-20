@@ -20,7 +20,7 @@ You need [Docker](https://docs.docker.com/get-docker/). This fills the app with 
 git clone https://github.com/gthanasis/ebby && cd ebby
 cp .env.example .env && echo DEMO=1 >> .env
 docker compose up -d
-docker compose exec ebby bank-sync demo-seed
+docker compose exec ebby ebby demo-seed
 ```
 
 Open http://localhost:8000.

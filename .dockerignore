@@ -2,6 +2,8 @@
 data
 web/node_modules
 web/dist
+server/node_modules
+server/dist
+.design
 .venv
 **/__pycache__
-.design
