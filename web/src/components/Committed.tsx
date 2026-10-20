@@ -1,6 +1,6 @@
-import { useState } from "react";
 import { MonthlyChart } from "../charts/charts";
 import { addCommitment, useApi, type Commitments, type CommitmentSuggestion } from "../lib/api";
+import { useAction } from "../lib/action";
 import { euroRound, monthLabel } from "../lib/format";
 import { hrefFor, type ScreenProps } from "./App";
 import { MonthNav } from "./Spending";
@@ -92,18 +92,15 @@ export function CommittedView({ version, go, month, onChanged }: ScreenProps & {
 }
 
 function Suggestion({ s, onAdded }: { s: CommitmentSuggestion; onAdded: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run } = useAction();
   return (
     <div className="part">
       <span className="ricon"><Icon icon="mdi:repeat" /></span>
       <span className="t"><b>{s.service}</b><span className="muted small num">about {euroRound(s.monthly)} a month · limit {euroRound(s.limit)}</span>
         {error && <span className="error small">{error}</span>}</span>
-      <button className="chip" disabled={busy} onClick={() => {
-        setBusy(true); setError(null);
-        addCommitment({ name: s.service, kind: "chosen", monthly_limit: s.limit, note: "", services: [s.service], off_bank: 0 })
-          .then(onAdded).catch((e: Error) => setError(e.message)).finally(() => setBusy(false));
-      }}><Icon icon="mdi:plus" />Commit</button>
+      <button className="chip" disabled={busy} onClick={() => run(() =>
+        addCommitment({ name: s.service, kind: "chosen", monthly_limit: s.limit, note: "", services: [s.service], off_bank: 0 }).then(onAdded))}>
+        <Icon icon="mdi:plus" />Commit</button>
     </div>
   );
 }

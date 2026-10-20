@@ -1,6 +1,6 @@
-import { useState } from "react";
 import { MonthlyChart } from "../charts/charts";
 import { moveService, useApi, type Category, type ServiceDetail } from "../lib/api";
+import { useAction } from "../lib/action";
 import { euro, euroRound, monthLabel } from "../lib/format";
 import { hrefFor, type ScreenProps } from "./App";
 import { MonthNav } from "./Spending";
@@ -90,8 +90,7 @@ export function ServiceView({ byId, version, go, month, category, service }: Scr
 function MoveService({ category, service, byId, onMoved }: {
   category: string; service: string; byId: Record<string, Category>; onMoved: (to: string) => void;
 }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run } = useAction();
   return (
     <div className="part move">
       <span className="t"><b>Wrong category?</b><span className="muted small">Moves every {service} payment, now and later</span></span>
@@ -99,8 +98,7 @@ function MoveService({ category, service, byId, onMoved }: {
         onChange={(e) => {
           const to = e.target.value;
           if (!to) return;
-          setBusy(true); setError(null);
-          moveService(category, service, to).then(() => onMoved(to)).catch((err: Error) => setError(err.message)).finally(() => setBusy(false));
+          run(() => moveService(category, service, to).then(() => onMoved(to)));
         }}>
         <option value="">Move to…</option>
         {Object.values(byId).filter((c) => c.id !== category).map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}

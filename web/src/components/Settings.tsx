@@ -3,13 +3,39 @@ import {
   addCommitment, deleteCommitment, editCommitment, savePlan, saveSettings, useApi,
   type AssistantModel, type Commitment, type Commitments, type Me, type Payday, type Plan, type PlanView, type Status,
 } from "../lib/api";
-import { AccountCard, AiScreen, aiValue, BankAccessScreen, NamesScreen, PeopleScreen } from "./Account";
+import { AccountCard, AiScreen, aiValue, BankAccessScreen, NamesScreen, PeopleScreen, SubPage } from "./Account";
+import { useAction } from "../lib/action";
 import { euroRound, ordinal, parseAmount } from "../lib/format";
 import { currentSubscription, disablePush, enablePush, pushSupport } from "../lib/push";
 import { hrefFor, type ScreenProps } from "./App";
 import { Card, Icon, Select } from "./ui";
 
-type Section = "income" | "payday" | "savings" | "fixed" | "budgets" | "assistant" | "bank-access" | "ai" | "names" | "people";
+// "savings" isn't one: it moved to Goals, and SettingsScreen sends old links there.
+type Section = "income" | "payday" | "fixed" | "budgets" | "assistant" | "bank-access" | "ai" | "names" | "people";
+
+/** What a section's screen can draw from. */
+interface SectionProps {
+  view: PlanView; commitments?: Commitments; commitment?: number; byId: ScreenProps["byId"]; me?: Me;
+  changed: () => void; meChanged: () => void;
+}
+
+/** Each section's screen. `needsMe`: only with a signed-in person; on a server without /api/me the link shows the list. */
+const SECTIONS: Record<Section, { needsMe?: boolean; render(p: SectionProps): ReactNode }> = {
+  income: { render: ({ view, changed }) => <IncomeScreen view={view} onChanged={changed} /> },
+  payday: { render: ({ view, changed }) => <PaydayScreen view={view} onChanged={changed} /> },
+  fixed: {
+    render: ({ commitments, commitment, changed }) => commitment != null
+      ? <FixedCostScreen id={commitment} commitments={commitments} onChanged={changed} />
+      : <FixedScreen commitments={commitments} onChanged={changed} />,
+  },
+  budgets: { render: ({ view, byId, changed }) => <BudgetsScreen view={view} onChanged={changed} byId={byId} /> },
+  assistant: { render: ({ view, changed }) => <AssistantModelScreen view={view} onChanged={changed} /> },
+  names: { render: ({ view, changed }) => <NamesScreen names={view.settings.owner_names ?? []} onChanged={changed} /> },
+  "bank-access": { needsMe: true, render: ({ me, meChanged }) => <BankAccessScreen me={me!} onChanged={meChanged} /> },
+  ai: { needsMe: true, render: ({ me, meChanged }) => <AiScreen me={me!} onChanged={meChanged} /> },
+  people: { needsMe: true, render: ({ me }) => <PeopleScreen me={me!} /> },
+};
+
 const BANK_DATE = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
 /** Plain settings: one row per setting, each opening a screen that asks one thing. */
@@ -27,24 +53,9 @@ export function SettingsScreen({ byId, version, section, commitment, status, me,
 
   if (plan.error) return <div className="error">{plan.error}</div>;
   if (!view) return <div className="skeleton" />;
-  const props = { view, onChanged: changed };
-  switch (section as Section | undefined) {
-    case "income": return <IncomeScreen {...props} />;
-    case "payday": return <PaydayScreen {...props} />;
-    case "fixed": return commitment != null
-      ? <FixedCostScreen id={commitment} commitments={commitments.data} onChanged={changed} />
-      : <FixedScreen commitments={commitments.data} onChanged={changed} />;
-    case "budgets": return <BudgetsScreen {...props} byId={byId} />;
-    case "assistant": return <AssistantModelScreen {...props} />;
-    case "names": return <NamesScreen names={view.settings.owner_names ?? []} onChanged={changed} />;
-  }
-  if (me) {
-    const meChanged = () => { reloadMe(); changed(); };
-    switch (section as Section | undefined) {
-      case "bank-access": return <BankAccessScreen me={me} onChanged={meChanged} />;
-      case "ai": return <AiScreen me={me} onChanged={meChanged} />;
-      case "people": return <PeopleScreen me={me} />;
-    }
+  const screen = section && Object.hasOwn(SECTIONS, section) ? SECTIONS[section as Section] : undefined;
+  if (screen && (!screen.needsMe || me)) {
+    return screen.render({ view, commitments: commitments.data, commitment, byId, me, changed, meChanged: () => { reloadMe(); changed(); } });
   }
 
   const p = view.plan;
@@ -109,16 +120,6 @@ function Row({ icon, title, value, section }: { icon: string; title: string; val
       <span className="val num">{value}</span>
       <Icon icon="mdi:chevron-right" />
     </a>
-  );
-}
-
-function SubPage({ title, help, children }: { title: string; help?: string; children: ReactNode }) {
-  return (
-    <>
-      <a className="back" href={hrefFor({ page: "settings" })}><Icon icon="mdi:chevron-left" />Settings</a>
-      <header className="hello"><h1>{title}</h1>{help && <p>{help}</p>}</header>
-      <div className="col">{children}</div>
-    </>
   );
 }
 
@@ -256,8 +257,7 @@ const dayLong = (d: string) => DAY_LONG.format(new Date(`${d}T12:00:00`));
 
 function FixedScreen({ commitments, onChanged }: { commitments?: Commitments | null; onChanged: () => void }) {
   const [adding, setAdding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const run = (p: Promise<unknown>) => { setError(null); p.then(onChanged).catch((e: Error) => setError(e.message)); };
+  const { error, run } = useAction();
   const items = commitments?.items ?? [];
   const suggestions = commitments?.suggestions ?? [];
   return (
@@ -283,7 +283,7 @@ function FixedScreen({ commitments, onChanged }: { commitments?: Commitments | n
               {suggestions.map((s) => (
                 <div key={s.service} className="part">
                   <span className="t"><b>{s.service}</b><span className="muted small num">About {euroRound(s.monthly)} a month</span></span>
-                  <button className="chip" onClick={() => run(addCommitment({ name: s.service, kind: "fixed", monthly_limit: s.limit, note: "", services: [s.service], off_bank: 0 }))}>Add</button>
+                  <button className="chip" onClick={() => run(() => addCommitment({ name: s.service, kind: "fixed", monthly_limit: s.limit, note: "", services: [s.service], off_bank: 0 }).then(onChanged))}>Add</button>
                 </div>
               ))}
             </Card>
@@ -304,31 +304,47 @@ function FixedCostScreen({ id, commitments, onChanged }: { id: number; commitmen
   return <FixedCostForm key={id} c={c} onChanged={onChanged} />;
 }
 
+/** What the form says, for a cost paid every month or one paid every few months. */
+const COPY = {
+  monthly: { per: "a month", recognised: "The payments it covers", noService: "Pick one" },
+  periodic: { per: "each time", recognised: "If it's paid by card or direct debit. Transfers never count as spending.", noService: "Not needed" },
+};
+
+/** What you pay each time: the monthly limit, or for a cost every few months the amount paid then. */
+const paidEachTime = (c: Commitment) => Math.round(c.every_months > 1 ? c.amount ?? 0 : c.monthly_limit);
+
+/** The saved cost. One paid every few months counts as its share each month, to the cent; a monthly one has no
+ * separate amount or next date. */
+function toBody(c: Commitment | undefined, { name, every, v, next, service }: { name: string; every: number; v: number; next: string; service: string }) {
+  const periodic = every > 1;
+  return {
+    name, kind: c?.kind ?? ("fixed" as const), note: c?.note ?? "", off_bank: c?.off_bank ?? 0,
+    services: service ? [service, ...(c?.services.slice(1) ?? [])] : (c?.services.slice(1) ?? []),
+    monthly_limit: periodic ? Math.round((v / every) * 100) / 100 : v, every_months: every, amount: periodic ? v : null, next_date: periodic ? next : null,
+  };
+}
+
 function FixedCostForm({ c, onChanged }: { c?: Commitment; onChanged: () => void }) {
   const services = useApi<{ service: string; monthly: number; months: number; category: string }[]>("/api/commitments/services");
   const [name, setName] = useState(c?.name ?? "");
   const [every, setEvery] = useState(c?.every_months ?? 1);
-  const [amount, setAmount] = useState(c ? Math.round(c.every_months > 1 ? c.amount ?? 0 : c.monthly_limit).toLocaleString("en-GB") : "");
+  const [amount, setAmount] = useState(c ? paidEachTime(c).toLocaleString("en-GB") : "");
   const [next, setNext] = useState(c?.next_date ?? "");
   const [service, setService] = useState(c?.services[0] ?? "");
-  const [error, setError] = useState<string | null>(null);
+  const { error, run } = useAction();
   const [saved, setSaved] = useState(false);
   const v = parseAmount(amount);
-  const monthly = every > 1 ? v / every : v;
+  const periodic = every > 1;
+  const copy = periodic ? COPY.periodic : COPY.monthly;
+  const monthly = periodic ? v / every : v;
   const back = () => { location.hash = hrefFor({ page: "settings", section: "fixed" }); };
   const save = () => {
-    setError(null);
-    const body = {
-      name, kind: c?.kind ?? ("fixed" as const), note: c?.note ?? "", off_bank: c?.off_bank ?? 0,
-      services: service ? [service, ...(c?.services.slice(1) ?? [])] : (c?.services.slice(1) ?? []),
-      monthly_limit: every > 1 ? Math.round((v / every) * 100) / 100 : v, every_months: every, amount: every > 1 ? v : null, next_date: every > 1 ? next : null,
-    };
-    (c ? editCommitment(c.id, body) : addCommitment(body))
-      .then(() => { onChanged(); if (c) { setSaved(true); setTimeout(() => setSaved(false), 1500); } else back(); })
-      .catch((e: Error) => setError(e.message));
+    const body = toBody(c, { name, every, v, next, service });
+    run(() => (c ? editCommitment(c.id, body) : addCommitment(body))
+      .then(() => { onChanged(); if (c) { setSaved(true); setTimeout(() => setSaved(false), 1500); } else back(); }));
   };
   const changedSomething = !c || name !== c.name || every !== c.every_months || next !== (c.next_date ?? "") || service !== (c.services[0] ?? "")
-    || v !== Math.round(c.every_months > 1 ? c.amount ?? 0 : c.monthly_limit);
+    || v !== paidEachTime(c);
   return (
     <>
       <nav className="crumbs" aria-label="Breadcrumb">
@@ -345,25 +361,25 @@ function FixedCostForm({ c, onChanged }: { c?: Commitment; onChanged: () => void
         <label className="money-field">
           <span>€</span>
           <input className="num" inputMode="decimal" aria-label="Amount" value={amount} placeholder="0" onChange={(e) => setAmount(e.target.value)} />
-          <em>{every > 1 ? "each time" : "a month"}</em>
+          <em>{copy.per}</em>
         </label>
         <div className="group-label">How often</div>
         <div className="sp-seg" role="tablist" aria-label="How often">
           {OFTEN.map((o) => <button key={o.months} role="tab" aria-selected={every === o.months} onClick={() => setEvery(o.months)}>{o.label}</button>)}
         </div>
         <Card className="list">
-          {every > 1 && (
+          {periodic && (
             <label className="part"><span className="t"><b>Next payment</b></span>
               <input className="input" type="date" value={next} onChange={(e) => setNext(e.target.value)} aria-label="Next payment" style={{ width: 160 }} /></label>
           )}
-          <label className="part"><span className="t"><b>Recognised as</b><span className="muted small gl-wrap">{every > 1 ? "If it's paid by card or direct debit. Transfers never count as spending." : "The payments it covers"}</span></span>
+          <label className="part"><span className="t"><b>Recognised as</b><span className="muted small gl-wrap">{copy.recognised}</span></span>
             <Select variant="sm" aria-label="Recognised as" value={service} onChange={(e) => setService(e.target.value)} style={{ maxWidth: 160 }}>
-              <option value="">{every > 1 ? "Not needed" : "Pick one"}</option>
+              <option value="">{copy.noService}</option>
               {service && !services.data?.some((s) => s.service === service) && <option value={service}>{service}</option>}
               {services.data?.map((s) => <option key={s.service} value={s.service}>{s.service}</option>)}
             </Select></label>
         </Card>
-        {every > 1 && v > 0 && (
+        {periodic && v > 0 && (
           <Card>
             <div className="label" style={{ marginTop: 0 }}>Counts as</div>
             <div className="sp-total num">{euroRound(monthly)}<small>a month</small></div>
@@ -376,7 +392,7 @@ function FixedCostForm({ c, onChanged }: { c?: Commitment; onChanged: () => void
             <p className="hint">Your budget takes {euroRound(monthly)} each month{next ? `. When the ${euroRound(v)} goes out on ${dayLong(next)}, it won't count as that month's spending.` : "."}</p>
           </Card>
         )}
-        <button className="btn block" disabled={!changedSomething || !name.trim() || !v || (every > 1 && !next)} onClick={save}>{saved ? "Saved" : c ? "Save" : "Add cost"}</button>
+        <button className="btn block" disabled={!changedSomething || !name.trim() || !v || (periodic && !next)} onClick={save}>{saved ? "Saved" : c ? "Save" : "Add cost"}</button>
         {c && (
           <button className="btn ghost block gl-stop" onClick={() => { if (confirm(`Remove ${c.name}?`)) deleteCommitment(c.id).then(() => { onChanged(); back(); }); }}>Remove {c.name}</button>
         )}
@@ -445,16 +461,13 @@ function BudgetsScreen({ view, byId, onChanged }: { view: PlanView; byId: Screen
 function Notifications({ view, onChanged }: { view: PlanView; onChanged: () => void }) {
   const support = pushSupport();
   const [device, setDevice] = useState<boolean | null>(support === "ok" ? null : false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run } = useAction();
   useEffect(() => { if (support === "ok") currentSubscription().then((s) => setDevice(!!s)).catch(() => setDevice(false)); }, [support]);
   const on = view.settings.alerts && (support !== "ok" || !!device);
-  const toggle = () => {
-    setBusy(true); setError(null);
+  const toggle = () => run(() => {
     const push = support === "ok" ? (on ? disablePush().then(() => setDevice(false)) : enablePush().then(() => setDevice(true))) : Promise.resolve();
-    push.then(() => saveSettings({ alerts: !on, weekly_read: !on && view.ai })).then(onChanged)
-      .catch((e: Error) => setError(e.message)).finally(() => setBusy(false));
-  };
+    return push.then(() => saveSettings({ alerts: !on, weekly_read: !on && view.ai })).then(onChanged);
+  });
   return (
     <Card className="list">
       <div className="part">

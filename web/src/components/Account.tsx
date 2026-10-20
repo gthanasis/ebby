@@ -3,6 +3,7 @@ import {
   invitePerson, removeCredential, saveAnthropicKey, saveSettings, signOut, updatePerson, useApi,
   type Me, type Person, type PersonStatus,
 } from "../lib/api";
+import { useAction } from "../lib/action";
 import { hrefFor } from "./App";
 import { EnableBankingSteps, KeyForm } from "./Onboarding";
 import { Card, CardHeader, Icon } from "./ui";
@@ -43,7 +44,8 @@ export function AccountCard({ me }: { me: Me }) {
 export const aiValue = (me: Me) => me.credentials?.anthropic ? `Your key ${me.credentials.anthropic.masked}`
   : me.is_admin ? "No limit" : me.ai_spent_usd != null && me.ai_budget_usd != null ? `${usd(me.ai_spent_usd)} of ${usd(me.ai_budget_usd)}` : "Monthly allowance";
 
-function SubPage({ title, help, children }: { title: string; help?: string; children: ReactNode }) {
+/** A screen inside Settings: the way back, its title and what it's for. */
+export function SubPage({ title, help, children }: { title: string; help?: string; children: ReactNode }) {
   return (
     <>
       <a className="back" href={hrefFor({ page: "settings" })}><Icon icon="mdi:chevron-left" />Settings</a>
@@ -57,8 +59,7 @@ function SubPage({ title, help, children }: { title: string; help?: string; chil
 function Confirm({ title, children, action, onConfirm, onCancel }: {
   title: string; children: ReactNode; action: string; onConfirm: () => Promise<unknown>; onCancel: () => void;
 }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run } = useAction();
   return (
     <div className="notice warn confirm" role="alertdialog" aria-label={title}>
       <Icon icon="mdi:alert-circle-outline" />
@@ -67,7 +68,7 @@ function Confirm({ title, children, action, onConfirm, onCancel }: {
         <p className="muted">{children}</p>
         {error && <div className="error small">{error}</div>}
         <div className="row-actions">
-          <button className="btn danger" disabled={busy} onClick={() => { setBusy(true); setError(null); onConfirm().catch((e: Error) => { setError(e.message); setBusy(false); }); }}>
+          <button className="btn danger" disabled={busy} onClick={() => run(onConfirm, { keepBusy: true })}>
             {busy ? <><Icon icon="mdi:sync" className="spin" />Removing…</> : action}
           </button>
           <button className="btn ghost" disabled={busy} onClick={onCancel}>Cancel</button>
@@ -129,12 +130,10 @@ export function AiScreen({ me, onChanged }: { me: Me; onChanged: () => void }) {
   const own = me.credentials?.anthropic;
   const [removing, setRemoving] = useState(false);
   const [key, setKey] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run } = useAction();
   const save = (e: FormEvent) => {
     e.preventDefault();
-    setBusy(true); setError(null);
-    saveAnthropicKey(key.trim()).then(() => { setKey(""); onChanged(); }).catch((err: Error) => setError(err.message)).finally(() => setBusy(false));
+    run(() => saveAnthropicKey(key.trim()).then(() => { setKey(""); onChanged(); }));
   };
 
   const budget = me.ai_budget_usd ?? 0, spent = me.ai_spent_usd;
@@ -198,12 +197,8 @@ export function AiScreen({ me, onChanged }: { me: Me; onChanged: () => void }) {
 /* ---------- Your names, as banks print them ---------- */
 export function NamesScreen({ names, onChanged }: { names: string[]; onChanged: () => void }) {
   const [draft, setDraft] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const save = (next: string[]) => {
-    setBusy(true); setError(null);
-    saveSettings({ owner_names: next }).then(() => { setDraft(""); onChanged(); }).catch((e: Error) => setError(e.message)).finally(() => setBusy(false));
-  };
+  const { busy, error, run } = useAction();
+  const save = (next: string[]) => run(() => saveSettings({ owner_names: next }).then(() => { setDraft(""); onChanged(); }));
   const add = (e: FormEvent) => {
     e.preventDefault();
     const n = draft.trim();
@@ -269,14 +264,12 @@ export function PeopleScreen({ me }: { me: Me }) {
 
 function InviteCard({ onInvited }: { onInvited: () => void }) {
   const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run } = useAction();
   const [done, setDone] = useState<string | null>(null);
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    setBusy(true); setError(null); setDone(null);
-    invitePerson(email.trim()).then((p) => { setDone(p.email); setEmail(""); onInvited(); })
-      .catch((err: Error) => setError(err.message)).finally(() => setBusy(false));
+    setDone(null);
+    run(() => invitePerson(email.trim()).then((p) => { setDone(p.email); setEmail(""); onInvited(); }));
   };
   return (
     <Card>
@@ -296,12 +289,8 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
 
 function PersonRow({ p, open, onToggle, onList }: { p: Person; open: boolean; onToggle: () => void; onList: (list: Person[]) => void }) {
   const [budget, setBudget] = useState(String(p.ai_budget_usd));
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const change = (c: { status?: "active" | "disabled"; ai_budget_usd?: number }) => {
-    setBusy(true); setError(null);
-    updatePerson(p.id, c).then(onList).catch((e: Error) => setError(e.message)).finally(() => setBusy(false));
-  };
+  const { busy, error, run } = useAction();
+  const change = (c: { status?: "active" | "disabled"; ai_budget_usd?: number }) => run(() => updatePerson(p.id, c).then(onList));
   const value = Number(budget.replace(",", "."));
   const valid = budget.trim() !== "" && Number.isFinite(value) && value >= 0 && value <= 1000;
   const used = p.ai_budget_usd > 0 ? Math.min(p.ai_spent_usd / p.ai_budget_usd, 1) : 0;

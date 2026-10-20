@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { completeAuth, startAuth, type Account, type Connection, type Status } from "../lib/api";
+import { useAction } from "../lib/action";
 import { ago, daysUntil, euro } from "../lib/format";
 import { BankPicker } from "./BankPicker";
 import { Card, CardHeader, Icon } from "./ui";
@@ -102,8 +103,7 @@ function Reconnect({ bank, primary, connected, inApp, onDone }: {
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [address, setAddress] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run } = useAction();
   const [done, setDone] = useState<number | null>(null);
 
   if (done != null) {
@@ -112,12 +112,9 @@ function Reconnect({ bank, primary, connected, inApp, onDone }: {
   if (!url) {
     return (
       <div className="field">
-        <button className={primary ? "btn" : "chip"} disabled={busy} onClick={() => {
-          setBusy(true); setError(null);
-          startAuth(bank)
-            .then((r) => { if (inApp) location.href = r.url; else { setUrl(r.url); setBusy(false); } })
-            .catch((e: Error) => { setError(e.message); setBusy(false); });
-        }}>
+        {/* In the app the bank's page replaces this one, so the button stays busy until it does. */}
+        <button className={primary ? "btn" : "chip"} disabled={busy}
+          onClick={() => run(() => startAuth(bank).then((r) => { if (inApp) location.href = r.url; else setUrl(r.url); }), { keepBusy: inApp })}>
           <Icon icon="mdi:link-variant" />{connected ? (primary ? `Reconnect ${bank}` : "Renew access now") : `Connect ${bank}`}
         </button>
         {error && <div className="error">{error}</div>}
@@ -133,8 +130,7 @@ function Reconnect({ bank, primary, connected, inApp, onDone }: {
         You'll land on a page that can't load. Copy its address from the address bar and paste it here.
         <form className="field" onSubmit={(e) => {
           e.preventDefault();
-          setBusy(true); setError(null);
-          completeAuth(address).then((r) => { setDone(r.accounts); onDone(); }).catch((err: Error) => setError(err.message)).finally(() => setBusy(false));
+          run(() => completeAuth(address).then((r) => { setDone(r.accounts); onDone(); }));
         }}>
           <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="https://localhost/eb-callback?state=…" aria-label="Address you landed on" />
           <button className="btn" type="submit" disabled={busy || !address.includes("code=")}>Finish</button>

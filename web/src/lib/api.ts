@@ -34,7 +34,8 @@ export class ApiError extends Error {
 export const isAllowanceError = (e: unknown) =>
   e instanceof ApiError ? e.status === 429 : typeof e === "string" && /AI allowance|Anthropic key/i.test(e);
 
-export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/** The response, once it's known to be a success: a 401 goes to sign-in, any failure throws its `detail`. */
+async function send(path: string, init?: RequestInit): Promise<Response> {
   // A FormData body sets its own multipart Content-Type, boundary included.
   const headers = init?.body instanceof FormData ? init.headers : { "Content-Type": "application/json", ...init?.headers };
   const r = await fetch(path, { ...init, headers });
@@ -43,6 +44,11 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await r.json().catch(() => ({}));
     throw new ApiError(body.detail ?? `Request failed (${r.status})`, r.status);
   }
+  return r;
+}
+
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const r = await send(path, init);
   return r.status === 204 ? (undefined as T) : r.json();
 }
 
@@ -215,12 +221,8 @@ export type ChatEvent = { type: "text"; text: string } | { type: "status"; text:
   | { type: "done"; conversation: number; items: ChatItem[] };
 /** The reply as it's written: each server-sent event is passed on as it arrives. */
 export async function streamChat(text: string, onEvent: (e: ChatEvent) => void): Promise<void> {
-  const r = await fetch("/api/assistant/chat/stream", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
-  if (!r.ok || !r.body) {
-    const body = await r.json().catch(() => ({}));
-    if (r.status === 401) location.hash = "#/login";
-    throw new ApiError(body.detail ?? `Request failed (${r.status})`, r.status);
-  }
+  const r = await send("/api/assistant/chat/stream", { method: "POST", body: JSON.stringify({ text }) });
+  if (!r.body) throw new ApiError(`Request failed (${r.status})`, r.status);
   const reader = r.body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
