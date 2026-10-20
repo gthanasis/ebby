@@ -3,7 +3,7 @@
 import { config } from "../config.js";
 import * as db from "../data/db.js";
 import type { Conn, Row } from "../data/db.js";
-import { ASSISTANT_MODELS } from "../domain/constants.js";
+import { ASSISTANT_MODELS } from "../core/constants.js";
 import * as goalsRepo from "../data/repos/goals.js";
 import { goalView } from "../domain/goals.js";
 

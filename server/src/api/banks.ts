@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import * as clock from "../clock.js";
 import { config } from "../config.js";
-import * as credentials from "../data/credentials.js";
+import * as credentials from "../integrations/credentials.js";
 import * as db from "../data/db.js";
 import * as accountsRepo from "../data/repos/accounts.js";
 import * as alerts from "../domain/alerts.js";
@@ -17,7 +17,7 @@ import { EnableBankingError } from "../integrations/enable_banking.js";
 import * as sync from "../jobs/sync.js";
 import { parseIso } from "../py.js";
 import { body, fail } from "./http.js";
-import { CASH_ACCOUNT } from "../domain/constants.js";
+import { CASH_ACCOUNT } from "../core/constants.js";
 import { questions } from "../domain/questions.js";
 import { thisMonth } from "../domain/months.js";
 

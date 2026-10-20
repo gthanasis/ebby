@@ -18,3 +18,8 @@ export async function dropPaymentRulesMatching(conn: Conn, merchant: string, cat
 export async function remove(conn: Conn, merchant: string) {
   await conn.db.deleteFrom("rules").where("merchant", "=", merchant).execute();
 }
+
+/** Every rule, as key → category. */
+export async function all(conn: Conn): Promise<Record<string, string>> {
+  return Object.fromEntries((await conn.execute<{ merchant: string; category: string }>("SELECT merchant, category FROM rules")).rows.map((r) => [r.merchant, r.category]));
+}

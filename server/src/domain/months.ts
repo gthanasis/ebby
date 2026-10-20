@@ -8,7 +8,7 @@ import { type Conn, type Row } from "../data/db.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
 import { maxBy, median, monthDays, PyDate, pyMod, pyRound } from "../py.js";
 import type { Payday } from "../types/entities.js";
-import { PAYDAY_MIN } from "./constants.js";
+import { PAYDAY_MIN } from "../core/constants.js";
 
 // A "month" is a pay month: from one payday up to the day before the next. It's keyed YYYY-MM by the calendar
 // month it mostly covers, so with pay on the 25th "2026-10" runs 25 Sep to 24 Oct. Payday 1 (the default) makes

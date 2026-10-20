@@ -13,6 +13,7 @@ import { averages, getPlan, planView, savePlan, setLimit, suggestBudgets } from 
 import { committedTotal } from "../domain/commitments.js";
 import { detectPayday, setPayday } from "../domain/months.js";
 import { extraPay } from "../domain/extra_pay.js";
+import * as ingest from "../domain/ingest.js";
 
 const PlanIn = z.object({
   take_home: num, keep: num, budgets: z.record(z.string(), num).nullable().default(null),
@@ -71,7 +72,7 @@ export function routes(app: Hono) {
       const out = { ...before, ...given };
       await db.setMeta(conn, "settings", out);
       // transfers to yourself stop (or start) counting as spending
-      if (pyDumps(out.owner_names ?? null) !== pyDumps(before.owner_names ?? null)) await db.recategorize(conn);
+      if (pyDumps(out.owner_names ?? null) !== pyDumps(before.owner_names ?? null)) await ingest.recategorize(conn);
       return out;
     });
     if (b.payday) setPayday(b.payday);

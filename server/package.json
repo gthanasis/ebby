@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:types": "tsx scripts/db-types.ts"
+    "db:types": "tsx scripts/db-types.ts",
+    "check:layers": "tsx scripts/check-layers.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",

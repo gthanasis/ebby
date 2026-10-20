@@ -3,7 +3,7 @@
 import pg from "pg";
 
 import * as db from "../src/data/db.js";
-import { ensureUser } from "../src/data/demo.js";
+import { ensureUser } from "../src/data/users.js";
 
 let ready: Promise<{ a: number; b: number }> | null = null;
 

@@ -7,12 +7,12 @@ import { z } from "zod";
 import * as db from "../data/db.js";
 import * as ai from "../domain/ai.js";
 import * as assistant from "../domain/assistant.js";
-import { CATEGORIES } from "../domain/categories.js";
+import { CATEGORIES } from "../core/categories.js";
 import * as sorter from "../domain/sorter.js";
 import { pyDumps } from "../py.js";
 import { body, fail, int } from "./http.js";
 import { cashView } from "../domain/cash.js";
-import { clearServiceCategory, setServiceCategory } from "../domain/services.js";
+import { clearServiceCategory, setServiceCategory } from "../domain/ingest.js";
 import { questions } from "../domain/questions.js";
 import { thisMonth } from "../domain/months.js";
 

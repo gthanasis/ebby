@@ -21,7 +21,7 @@ import * as transactionsRepo from "../data/repos/transactions.js";
 import { dayMonth, fmt0, fmt2, fmt2c, isoUtc, PyDate, pyDumps, pyRound, sorted, sum } from "../py.js";
 import * as ai from "./ai.js";
 import * as aiUsage from "./ai_usage.js";
-import { CATEGORIES, SPENDING } from "./categories.js";
+import { CATEGORIES, SPENDING } from "../core/categories.js";
 import { ASSISTANT } from "./prompts/assistant.js";
 import * as spending from "./spending.js";
 import { assignCommitments, commitmentsView, committedTotal } from "./commitments.js";
@@ -31,7 +31,10 @@ import { getPlan, savePlan } from "./plan.js";
 import { goalView } from "./goals.js";
 import { localToday, monthBounds, monthOf, thisMonth } from "./months.js";
 import { pace } from "./pace.js";
-import { serviceName, setServiceCategory } from "./services.js";
+import { setServiceCategory } from "./ingest.js";
+import { serviceName } from "./services.js";
+import * as ingest from "./ingest.js";
+import * as habits from "./habits.js";
 
 const MAX_TOOL_ROUNDS = 6;
 const CATEGORY_IDS = Object.keys(CATEGORIES);
@@ -208,7 +211,7 @@ export async function runAction(actionId: number): Promise<string> {
       const tx = await transactionsRepo.dateAndAmount(conn, p.transaction_id);
       if (!tx) throw new Error("That payment is no longer there.");
       await rulesRepo.set(conn, `tx:${p.transaction_id}`, p.category);
-      await db.recategorize(conn);
+      await ingest.recategorize(conn);
       result = `Moved the €${fmt2c(Math.abs(tx.amount))} payment on ${dayMonth(PyDate.fromisoformat(tx.date.slice(0, 10)))} to ${CATEGORIES[p.category][0]}.`;
     } else if (kind === "commitment") {
       await commitmentsRepo.add(conn, {
@@ -235,7 +238,6 @@ export async function runAction(actionId: number): Promise<string> {
       await goalsRepo.addSaved(conn, p.goal_id, p.add);
       result = "Goal updated.";
     } else if (kind === "wish") {
-      const habits = await import("./habits.js");
       await habits.addWish(conn, p.name, p.price);
       result = `${p.name} is on the thinking-about-it list. I'll ask again in two days.`;
     } else if (kind === "log_cash") {

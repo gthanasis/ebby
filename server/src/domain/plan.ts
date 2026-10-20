@@ -5,9 +5,10 @@ import { type Conn, type Row } from "../data/db.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
 import { maxBy, median, pyRound, sum } from "../py.js";
 import type { Payday, Plan } from "../types/entities.js";
-import { SPENDING } from "./categories.js";
+import { SPENDING } from "../core/categories.js";
 import { committedTotal } from "./commitments.js";
 import { detectPayday, monthBounds, setPayday, shift, thisMonth } from "./months.js";
+import { savingsAccountIds } from "./savings.js";
 
 // Trimmed harder when income doesn't cover habits; essentials barely move.
 const DISCRETIONARY: Record<string, number> = {
@@ -89,12 +90,11 @@ export async function autofill(conn: Conn): Promise<boolean> {
   if (await getPlan(conn)) return false;
   const pay = await detectPayday(conn);
   if (!pay) return false;
-  const habits = await import("./habits.js");
   const day: Payday = pay.day <= 28 ? pay.day : "last";
   await db.setMeta(conn, "settings", { ...((await db.getMeta(conn, "settings")) || {}), payday: day, autofilled: true });
   setPayday(day);
   const takeHome = pyRound(pay.amount);
-  const ids = await habits.savingsAccountIds(conn);
+  const ids = await savingsAccountIds(conn);
   let keep = 0.0;
   if (ids.length) {
     // What goes into savings each month. Money comes back out between paydays, so the net swings wildly; the

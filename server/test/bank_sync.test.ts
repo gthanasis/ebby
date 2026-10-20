@@ -2,11 +2,12 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import * as db from "../src/data/db.js";
-import { ensureUser } from "../src/data/demo.js";
+import { ensureUser } from "../src/data/users.js";
 import { Client, EnableBankingError, SUSPECT_FULL, WINDOW_DAYS } from "../src/integrations/enable_banking.js";
 import * as sync from "../src/jobs/sync.js";
 import { PyDate } from "../src/py.js";
 import { users } from "./fixtures.js";
+import * as ingest from "../src/domain/ingest.js";
 
 type Row = Record<string, any>;
 const tx = (day: string, amount: number, text: string, out = true, extra: Row = {}): Row => ({
@@ -66,19 +67,19 @@ describe("fetching from the bank", () => {
   });
 
   it("a bank row becomes a transaction", () => {
-    const row = db.txRow("acc", false, tx("2026-10-02", 18.5, "WΟLΤ ΔΕΛΙΒΕΡΥ", true, { creditor: { name: "WΟLΤ" } }), { Wolt: "eating_out" });
+    const row = ingest.txRow("acc", false, tx("2026-10-02", 18.5, "WΟLΤ ΔΕΛΙΒΕΡΥ", true, { creditor: { name: "WΟLΤ" } }), { Wolt: "eating_out" });
     expect(row.slice(2, 8)).toEqual(["2026-10-02", -18.5, "EUR", "BOOK", "WΟLΤ ΔΕΛΙΒΕΡΥ", "Wolt"]);
     expect(row[9]).toBe("eating_out");  // their rule for the payee beats the built-in one
-    const pay = db.txRow("acc", false, tx("2026-10-25", 2400, "ΜΙΣΘΟΔΟΣΙΑ", false), {});
+    const pay = ingest.txRow("acc", false, tx("2026-10-25", 2400, "ΜΙΣΘΟΔΟΣΙΑ", false), {});
     expect([pay[3], pay[9]]).toEqual([2400, "income"]);
-    const card = db.txRow("card", true, tx("2026-10-03", 9.9, "Αγορά", true, { merchant_category_code: "5812" }), {});
+    const card = ingest.txRow("card", true, tx("2026-10-03", 9.9, "Αγορά", true, { merchant_category_code: "5812" }), {});
     expect([card[7], card[8], card[9]]).toEqual(["", "5812", "eating_out"]);  // no name on card rows, only the code
-    expect(db.txRow("card", true, tx("2026-10-03", 9.9, "Αγορά", true, { merchant_category_code: "5812" }), { [`tx:${card[0]}`]: "leisure" })[9]).toBe("leisure");
+    expect(ingest.txRow("card", true, tx("2026-10-03", 9.9, "Αγορά", true, { merchant_category_code: "5812" }), { [`tx:${card[0]}`]: "leisure" })[9]).toBe("leisure");
   });
 
   it("a row without the bank's reference gets the same id the Python app gave it", () => {
     const row = { booking_date: "2026-10-01", transaction_amount: { amount: "18.50", currency: "EUR" }, remittance_information: ["WΟLΤ ΔΕΛΙΒΕΡΥ", 'x"y'] };
-    expect(db.txKey(row)).toBe('["2026-10-01", {"amount": "18.50", "currency": "EUR"}, ["W\\u039fL\\u03a4 \\u0394\\u0395\\u039b\\u0399\\u0392\\u0395\\u03a1\\u03a5", "x\\"y"]]');
+    expect(ingest.txKey(row)).toBe('["2026-10-01", {"amount": "18.50", "currency": "EUR"}, ["W\\u039fL\\u03a4 \\u0394\\u0395\\u039b\\u0399\\u0392\\u0395\\u03a1\\u03a5", "x\\"y"]]');
   });
 });
 
@@ -138,9 +139,9 @@ describe("debit cards", () => {
       await conn.execute("INSERT INTO accounts(id, uid, name, is_card, bank) VALUES('card', 'u1', 'Enter Visa', 1, 'Alpha Bank')");
       await conn.execute("INSERT INTO accounts(id, uid, name, is_card, bank) VALUES('current', 'u2', 'Savings', 0, 'Alpha Bank')");
       for (let i = 0; i < 2; i++) {  // the second sync must not move them back to the booking date
-        await db.saveWindow(conn, "card", true, "2026-10-01", "2026-10-19", card);
-        await db.saveWindow(conn, "current", false, "2026-10-01", "2026-10-19", account);
-        await db.dedupe(conn);
+        await ingest.saveWindow(conn, "card", true, "2026-10-01", "2026-10-19", card);
+        await ingest.saveWindow(conn, "current", false, "2026-10-01", "2026-10-19", account);
+        await ingest.dedupe(conn);
         const counted = (await conn.execute("SELECT date, amount FROM transactions WHERE duplicate_of IS NULL AND amount < 0 ORDER BY date")).rows;
         expect(counted).toEqual([{ date: "2026-10-15", amount: -66.91 }, { date: "2026-10-17", amount: -23.1 }]);
       }

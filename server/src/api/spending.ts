@@ -9,7 +9,7 @@ import * as rulesRepo from "../data/repos/rules.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
 import * as ai from "../domain/ai.js";
 import * as aiUsage from "../domain/ai_usage.js";
-import { CATEGORIES } from "../domain/categories.js";
+import { CATEGORIES } from "../core/categories.js";
 import * as spending from "../domain/spending.js";
 import * as common from "./common.js";
 import { body, fail, int, integer, required } from "./http.js";
@@ -20,6 +20,7 @@ import { pace } from "../domain/pace.js";
 import { subscriptions } from "../domain/subscriptions.js";
 import { todayView } from "../domain/today.js";
 import { year } from "../domain/year.js";
+import * as ingest from "../domain/ingest.js";
 
 const RANGE_ERROR = "range is day, week, month or year; off is 0 or less";
 
@@ -93,7 +94,7 @@ export function routes(app: Hono) {
       const ids = await serviceTransactionIds(conn, b.category, b.name);
       const rows = await transactionsRepo.merchantsOf(conn, ids);
       for (const r of rows) await rulesRepo.set(conn, r.merchant || `tx:${r.id}`, b.to);
-      await db.recategorize(conn);
+      await ingest.recategorize(conn);
       return rows.length;
     });
     return c.json({ moved });

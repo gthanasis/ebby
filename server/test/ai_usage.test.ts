@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import { config } from "../src/config.js";
-import { ASSISTANT_MODELS } from "../src/domain/constants.js";
+import { ASSISTANT_MODELS } from "../src/core/constants.js";
 import { BudgetExceeded, chooseKey, costUsd, NoAPIKey, PRICES } from "../src/domain/ai_usage.js";
 import { PyDate } from "../src/py.js";
 

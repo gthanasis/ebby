@@ -11,40 +11,27 @@
 import * as clock from "../clock.js";
 import * as db from "../data/db.js";
 import { type Conn, type Row } from "../data/db.js";
-import * as accountsRepo from "../data/repos/accounts.js";
 import * as goalsRepo from "../data/repos/goals.js";
 import * as habitRulesRepo from "../data/repos/habit_rules.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
 import * as wishlistRepo from "../data/repos/wishlist.js";
 import * as yearlyCostsRepo from "../data/repos/yearly_costs.js";
-import type { SpendRow } from "./spending.js";
 import { fmt0, fmtG, isoUtc, maxBy, parseIso, PyDate, pyRound, sorted, sum } from "../py.js";
-import { CATEGORIES } from "./categories.js";
-import { CASH_ACCOUNT, PAYDAY_MIN } from "./constants.js";
+import { CATEGORIES } from "../core/categories.js";
+import { PAYDAY_MIN } from "../core/constants.js";
 import type { HabitRule } from "../types/entities.js";
 import { getPlan } from "./plan.js";
 import { localToday, monthBounds, thisMonth } from "./months.js";
+import { accounts, savingsAccountIds } from "./savings.js";
+import * as spending from "./spending.js";
 import { spentBetween } from "./today.js";
 
-const SAVINGS_HINTS = ["αποταμίευση", "saving", "spare", "fund", "pocket"];
 const DEFAULT_WORK_HOURS = 160;
 const WAIT_MS = 48 * 3600 * 1000;
 
 const now = () => clock.now();
 
 // ---------- pay yourself first ----------
-
-const accounts = (conn: Conn) => accountsRepo.own(conn, CASH_ACCOUNT);
-
-export async function savingsAccountIds(conn: Conn): Promise<string[]> {
-  const chosen = await db.getMeta(conn, "savings_accounts");
-  if (chosen != null) return chosen;
-  // Default: accounts named like savings, and Revolut pockets (named by you, not "Revolut EUR").
-  return (await accounts(conn)).filter((a) => {
-    const n = a.name.toLowerCase();
-    return SAVINGS_HINTS.some((h) => n.includes(h)) || (a.bank === "Revolut" && !a.name.startsWith("Revolut"));
-  }).map((a) => a.id);
-}
 
 export async function lastPayday(conn: Conn): Promise<Row | null> {
   const r = await transactionsRepo.lastPay(conn, PAYDAY_MIN);
@@ -208,7 +195,7 @@ async function boughtWishes(conn: Conn, a: PyDate, b: PyDate): Promise<number[]>
 }
 
 /** The habit's number for the days a..b: payments, euros, no-spend days or wishlist skips. */
-async function measure(conn: Conn, r: HabitRule, a: PyDate, b: PyDate, rows: SpendRow[]): Promise<{ value: number; spent: number | null }> {
+async function measure(conn: Conn, r: HabitRule, a: PyDate, b: PyDate, rows: spending.SpendRow[]): Promise<{ value: number; spent: number | null }> {
   const today = localToday();
   const mine = rows.filter((x) => x.category === r.category);
   if (r.type === "fewer") return { value: mine.length, spent: pyRound(sum(mine.map((x) => x.amount)), 2) };
@@ -260,7 +247,6 @@ export async function ruleRows(conn: Conn): Promise<HabitRule[]> {
 }
 
 export async function habitView(conn: Conn, r: HabitRule, detail = false): Promise<Row> {
-  const spending = await import("./spending.js");
   const today = localToday();
   const monday = mondayOf(today);
   const sunday = monday.addDays(6);
@@ -309,7 +295,6 @@ export async function habitView(conn: Conn, r: HabitRule, detail = false): Promi
 
 /** The last WEEKS finished weeks: payments and euros per category, no-spend days, buys over €50. */
 async function weeklyStats(conn: Conn): Promise<{ cats: Map<string, [number, number, number[]]>; nospend: number; enough: boolean }> {
-  const spending = await import("./spending.js");
   const monday = mondayOf(localToday());
   const a = monday.addDays(-7 * WEEKS);
   const rows = await spending.rows(conn, a, monday.addDays(-1));

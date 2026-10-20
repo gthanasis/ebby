@@ -18,10 +18,10 @@ import * as transactionsRepo from "../data/repos/transactions.js";
 import { fmt2, isoUtc, PyDate, pyRound } from "../py.js";
 import * as ai from "./ai.js";
 import * as aiUsage from "./ai_usage.js";
-import { CATEGORIES } from "./categories.js";
+import { CATEGORIES } from "../core/categories.js";
 import { SORTER_GUESS } from "./prompts/sorter.js";
 import * as spending from "./spending.js";
-import { SHOP_TYPES } from "./reference/mcc.js";
+import { SHOP_TYPES } from "../core/reference/mcc.js";
 import { localToday } from "./months.js";
 import { questions } from "./questions.js";
 
