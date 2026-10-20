@@ -18,7 +18,7 @@ import * as commitmentsRepo from "../data/repos/commitments.js";
 import * as goalsRepo from "../data/repos/goals.js";
 import * as seedRepo from "../data/repos/seed.js";
 import { ensureUser } from "../data/users.js";
-import { _paydays, localToday, setPayday } from "../domain/months.js";
+import { localToday, withPayday } from "../domain/months.js";
 import { assignCommitments } from "../domain/commitments.js";
 import { autofill, getPlan } from "../domain/plan.js";
 import * as ingest from "../domain/ingest.js";
@@ -111,7 +111,8 @@ export function history(today: PyDate): Record<string, Row[]> {
 /** Replaces the demo user's data with a fresh made-up history. Returns counts. */
 export async function seed(email = EMAIL): Promise<Row> {
   const userId = await ensureUser(email, true);
-  return db.asUser(userId, async () => {
+  // Settings are cleared below, so the seed starts on calendar months.
+  return db.asUser(userId, () => withPayday(1, async () => {
     const today = localToday();
     const rows = history(today);
     return db.connect(async (conn) => {
@@ -119,8 +120,6 @@ export async function seed(email = EMAIL): Promise<Row> {
         "wishlist", "assistant_messages", "assistant_actions", "meta"]) {
         await seedRepo.clearOwnRows(conn, table);  // row-level security: only the demo user's own rows
       }
-      _paydays.delete(userId);
-      setPayday(1);  // settings were just cleared
       const now = isoUtc(clock.now(), "seconds");
       for (const [accId, bank, name, isCard, last4, balance] of [
         [CURRENT, "Alpha Bank", "Alpha Μισθοδοσία", 0, "4417", 1842.37], [CARD, "Alpha Bank", "Alpha Bank Bonus Visa", 1, "9021", -386.12],
@@ -161,5 +160,5 @@ export async function seed(email = EMAIL): Promise<Row> {
       await db.setMeta(conn, "onboarded", true);
       return { user_id: userId, transactions: Object.fromEntries(Object.entries(rows).map(([a, t]) => [a, t.length])) };
     });
-  });
+  }));
 }

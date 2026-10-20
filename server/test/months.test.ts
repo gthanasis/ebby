@@ -1,17 +1,16 @@
 // Pay months: what every total, budget and pace is counted over. The dates are real 2026 weekdays.
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import * as db from "../src/data/db.js";
 import type { Payday } from "../src/types/entities.js";
 import { users } from "./fixtures.js";
-import { _paydays, monthBounds, monthOf, setPayday, shift } from "../src/domain/months.js";
+import { monthBounds, monthOf, PayCalendar, setPayday, shift, withPayday } from "../src/domain/months.js";
 import { budgetsFor } from "../src/domain/plan.js";
 import { orthodoxEaster } from "../src/domain/extra_pay.js";
 
 let a: number;
 beforeAll(async () => { a = (await users()).a; });
-afterEach(() => _paydays.clear());
-const paidOn = (day: Payday, fn: () => void) => db.asUser(a, () => { setPayday(day); fn(); });
+const paidOn = (day: Payday, fn: () => void) => db.asUser(a, () => withPayday(day, fn));
 
 describe("pay months", () => {
   it("payday 1 is the calendar month", () => paidOn(1, () => {
@@ -38,8 +37,20 @@ describe("pay months", () => {
     expect(shift("2026-12", 1)).toBe("2027-01");
     expect(shift("2026-10", -18)).toBe("2025-04");
   });
+  it("a pay calendar needs no person or database", () => {
+    const cal = new PayCalendar(25);
+    expect(cal.monthBounds("2026-10")).toEqual(["2026-09-25", "2026-10-23"]);
+    expect(cal.monthOf("2026-10-23")).toBe("2026-11");
+  });
+  it("a payday saved mid-request applies to the rest of it, and only to it", () => paidOn(1, () => {
+    withPayday(1, () => {
+      setPayday(25);
+      expect(monthBounds("2026-10")[0]).toBe("2026-09-25");
+    });
+    expect(monthBounds("2026-10")[0]).toBe("2026-10-01");
+  }));
   it("pay months need the payday read first, rather than guessing the 1st", () =>
-    db.asUser(a, () => expect(() => monthBounds("2026-10")).toThrow(/payday not loaded/)));
+    db.asUser(a, () => expect(() => monthBounds("2026-10")).toThrow(/no pay calendar/)));
   it("a month's limit scales the budgets and adds up to it", () => {
     const plan = { budgets: { groceries: 400, eating_out: 200, delivery: 100 }, limits: { "2026-10": 1000 / 3 } };
     const scaled = budgetsFor(plan, "2026-10");

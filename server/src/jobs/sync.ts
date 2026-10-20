@@ -19,7 +19,7 @@ import { type Client, EnableBankingError, MAX_HISTORY_DAYS, type Psu } from "../
 import { isoUtc, parseIso } from "../py.js";
 import { assignCommitments } from "../domain/commitments.js";
 import { autofill } from "../domain/plan.js";
-import { loadPayday } from "../domain/months.js";
+import { withPayCalendar } from "../domain/months.js";
 import * as ingest from "../domain/ingest.js";
 
 export const nowIso = () => isoUtc(clock.now(), "seconds");
@@ -159,7 +159,6 @@ export function runScheduler() {
   started = true;
 
   const forUser = async () => {
-    await loadPayday();
     const last = await db.connect(async (conn) => {
       if ((await db.getMeta(conn, "categories_version")) !== categories.VERSION) {
         await ingest.recategorize(conn);  // categories changed since this history was sorted
@@ -188,7 +187,7 @@ export function runScheduler() {
     try { users = await db.activeUsers(); } catch (e) { console.error("couldn't list users", e); }
     for (const userId of users) {
       try {
-        await db.asUser(userId, forUser);
+        await db.asUser(userId, () => withPayCalendar(forUser));
       } catch (e) {  // e.g. the key file is missing; log it and keep the loop alive
         console.error(`scheduled work failed for user ${userId}`, e);
       }
