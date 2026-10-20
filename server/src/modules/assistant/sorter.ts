@@ -15,45 +15,31 @@ import * as clock from "../../shared/clock.js";
 import * as db from "../../shared/db.js";
 import type { Conn, Row } from "../../shared/db.js";
 import * as transactionsRepo from "../../shared/ledger/transactions.js";
-import { fmt2, isoUtc, PyDate, pyRound } from "../../shared/utils/python.js";
+import { fmt2, isoUtc, PyDate } from "../../shared/utils/python.js";
 import * as ai from "./ai.js";
+import { type SortItem, toSortItem } from "./converters.js";
 import * as aiUsage from "./ai_usage.js";
 import { CATEGORIES } from "../../shared/categories.js";
 import { SORTER_GUESS } from "./prompts/sorter.js";
 import * as spending from "../spending/service.js";
-import { SHOP_TYPES } from "../../shared/reference/mcc.js";
 import { localToday } from "../../shared/months.js";
 import { questions } from "../spending/questions.js";
 
 
 const GUESS_KEY = "sorter_guesses";
 
-function how(row: Row): string {
-  const bank = row.bank;
-  if (row.is_card) return `${bank} card`;
-  if (row.mcc) return `${bank} debit card`;  // a shop type means a card purchase, even when it's booked on the current account
-  if ((row.description || "").startsWith("ΕΝΤ")) return `${bank} payment order`;
-  return bank === "Revolut" ? `${bank} transfer` : `${bank} payment`;
-}
-
 /** Every payee waiting in Other, each with what can be told about its latest payment. */
-export async function items(conn: Conn): Promise<Row[]> {
-  const out = [];
+export async function items(conn: Conn): Promise<SortItem[]> {
+  const out: SortItem[] = [];
   const guesses = (await db.getMeta(conn, GUESS_KEY)) || {};
   const today = localToday();
   for (const q of await questions(conn, 50)) {
     const t = await transactionsRepo.withAccount(conn, q.tx_id);
     if (!t) continue;
     const d = PyDate.fromisoformat(t.date);
-    const sameDay = (await spending.rows(conn, d, d)).filter((r) => r.name !== q.service).map((r) => ({ name: r.name, amount: r.amount, category: r.category }));
-    const history = (await transactionsRepo.earlierToPayee(conn, t.merchant, t.description, t.id))
-      .map((r) => ({ date: r.date, amount: pyRound(-r.amount, 2) }));
-    out.push({
-      service: q.service, tx_id: t.id, date: t.date, days_ago: today.diffDays(d),
-      amount: pyRound(-t.amount, 2), count: q.count, total: q.amount,
-      how: how(t), shop: SHOP_TYPES[String(t.mcc || "")] ?? null, description: t.description,
-      same_day: sameDay.slice(0, 6), history, guess: guesses[q.service] ?? null,
-    });
+    const sameDay = await spending.rows(conn, d, d);
+    const history = await transactionsRepo.earlierToPayee(conn, t.merchant, t.description, t.id);
+    out.push(toSortItem(q, t, today, sameDay, history, guesses[q.service] ?? null));
   }
   return out;
 }

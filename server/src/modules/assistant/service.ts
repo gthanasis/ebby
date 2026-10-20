@@ -20,6 +20,7 @@ import * as rulesRepo from "../../shared/ledger/rules.js";
 import * as transactionsRepo from "../../shared/ledger/transactions.js";
 import { dayMonth, fmt0, fmt2, fmt2c, isoUtc, PyDate, pyDumps, pyRound, sorted, sum } from "../../shared/utils/python.js";
 import * as ai from "./ai.js";
+import { type ChatAction, type ChatItem, CONTEXT, type Conversation, toChatAction, toChatItem } from "./converters.js";
 import * as aiUsage from "./ai_usage.js";
 import { CATEGORIES, SPENDING } from "../../shared/categories.js";
 import { ASSISTANT } from "./prompts/assistant.js";
@@ -355,35 +356,16 @@ async function detail(conn: Conn, kind: string, params: string): Promise<string 
   return action?.detail ? action.detail(conn, JSON.parse(params)) : null;
 }
 
-const CONTEXT = "[Context";
-
-/** One stored content block as the tab shows it, or null when it isn't shown. */
-function blockToItem(role: string, block: Row, actions: Map<number, Row>): Row | null {
-  if (role === "assistant") return block.type === "text" && (block.text || "").trim() ? { type: "bot", text: block.text } : null;
-  if (role !== "user") return null;
-  if (block.type === "tool_result") {
-    let res: any = {};
-    try { res = typeof block.content === "string" ? JSON.parse(block.content) : {}; } catch { res = {}; }
-    return res && typeof res === "object" && actions.has(res.action_id) ? { type: "action", ...actions.get(res.action_id) } : null;
-  }
-  if (block.type !== "text" || block.text.startsWith(CONTEXT)) return null;
-  if (block.text.startsWith("[I ")) return { type: "note", text: block.text.replace(/^\[+|\]+$/g, "") };
-  return { type: "me", text: block.text };
-}
-
 /** What the Assistant tab shows: your messages, Claude's text, and change cards. */
-export async function display(conversation: number | null = null): Promise<Row> {
+export async function display(conversation: number | null = null): Promise<Conversation> {
   return db.connect(async (conn) => {
     const conv = conversation || await currentConversation(conn);
-    const actions = new Map<number, Row>();
-    for (const r of await assistantRepo.actions(conn, conv)) {
-      const { params, ...rest } = r;
-      actions.set(r.id, { ...rest, detail: await detail(conn, r.kind, params) });
-    }
-    const items: Row[] = [];
+    const actions = new Map<number, ChatAction>();
+    for (const r of await assistantRepo.actions(conn, conv)) actions.set(r.id, toChatAction(r, await detail(conn, r.kind, r.params)));
+    const items: ChatItem[] = [];
     for (const r of await assistantRepo.messages(conn, conv)) {
       for (const block of JSON.parse(r.content)) {
-        const item = blockToItem(r.role, block, actions);
+        const item = toChatItem(r.role, block, actions);
         if (item) items.push(item);
       }
     }
