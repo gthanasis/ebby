@@ -9,12 +9,6 @@ from . import banks, config, credentials, db
 from .enable_banking import MAX_HISTORY_DAYS, Client, EnableBankingError
 
 log = logging.getLogger("bank-sync")
-# One sync at a time per person; different people's banks sync independently.
-_locks: dict[int, threading.Lock] = {}
-
-
-def _lock() -> threading.Lock:
-    return _locks.setdefault(db.current_user(), threading.Lock())
 
 
 def now_iso():
@@ -22,7 +16,7 @@ def now_iso():
 
 
 def is_syncing() -> bool:
-    return _lock().locked()
+    return db.is_locked(db.LOCK_SYNC, db.current_user())
 
 
 def start_auth(bank: str) -> str:
@@ -67,20 +61,20 @@ LIVE_LOOKBACK_DAYS = 7
 def sync(psu: dict | None = None) -> bool:
     """Syncs every connected bank that doesn't need reconnecting. True if all of them succeeded.
     psu: the user's own request headers when they opened the app (a live sync); None for the schedule."""
-    lock = _lock()
-    if not lock.acquire(blocking=False):
-        return False
-    try:
-        with db.connect() as conn:
-            db.set_meta(conn, "last_live_sync" if psu else "last_attempt", now_iso())
-            todo = [c for c in db.connections(conn)
-                    if c["session_id"] and not (c["last_error"] or {}).get("reconnect")]
-        if not todo:
-            return True
-        client = credentials.client()
-        return all([_sync_bank(client, c, psu) for c in todo])
-    finally:
-        lock.release()
+    # One sync at a time per person, across every pod; different people's banks sync independently.
+    with db.advisory_lock(db.LOCK_SYNC, db.current_user()) as mine:
+        return _sync_all(psu) if mine else False
+
+
+def _sync_all(psu: dict | None) -> bool:
+    with db.connect() as conn:
+        db.set_meta(conn, "last_live_sync" if psu else "last_attempt", now_iso())
+        todo = [c for c in db.connections(conn)
+                if c["session_id"] and not (c["last_error"] or {}).get("reconnect")]
+    if not todo:
+        return True
+    client = credentials.client()
+    return all([_sync_bank(client, c, psu) for c in todo])
 
 
 def _sync_bank(client: Client, conn_row: dict, psu: dict | None = None) -> bool:
@@ -172,18 +166,28 @@ def run_scheduler():
             if read:
                 push.send("Your week", read["headline"], url="/", tag="weekly-read")
 
+    def one_round():
+        try:
+            users = db.active_users()
+        except Exception:
+            log.exception("couldn't list users")
+            users = []
+        for user_id in users:
+            try:
+                with db.as_user(user_id):
+                    for_user()
+            except Exception:  # e.g. the key file is missing; log it and keep the loop alive
+                log.exception("scheduled work failed for user %s", user_id)
+
     def loop():
         while True:
+            # Every pod runs this loop; one round at a time across them, so each sees what the last wrote
+            # (last_attempt, alerts sent) and nothing is fetched or sent twice.
             try:
-                users = db.active_users()
+                with db.advisory_lock(db.LOCK_SCHEDULER, 0) as mine:
+                    if mine:
+                        one_round()
             except Exception:
-                log.exception("couldn't list users")
-                users = []
-            for user_id in users:
-                try:
-                    with db.as_user(user_id):
-                        for_user()
-                except Exception:  # e.g. the key file is missing; log it and keep the loop alive
-                    log.exception("scheduled work failed for user %s", user_id)
+                log.exception("scheduler round failed")
             time.sleep(300)
     threading.Thread(target=loop, daemon=True, name="scheduler").start()

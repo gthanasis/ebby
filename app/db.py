@@ -82,6 +82,33 @@ def connect_system():
         yield Conn(pg)
 
 
+# Advisory lock namespaces: several pods share the database, so "only one at a time" has to live there.
+LOCK_SCHEDULER = 1  # the background round, with 0
+LOCK_SYNC = 2       # a person's bank sync, with their user id
+
+
+@contextmanager
+def advisory_lock(space: int, key: int):
+    """Yields True if this process now holds the lock (space, key), False if another one does. Held on a
+    connection of its own until the block ends; if the process dies, Postgres drops it with the connection."""
+    with pool().connection() as pg:
+        pg.autocommit = True  # a session lock, outside any transaction the block's own queries open
+        got = pg.execute("SELECT pg_try_advisory_lock(%s, %s)", (space, key)).fetchone()[0]
+        try:
+            yield got
+        finally:
+            if got:
+                pg.execute("SELECT pg_advisory_unlock(%s, %s)", (space, key))
+            pg.autocommit = False
+
+
+def is_locked(space: int, key: int) -> bool:
+    """Whether any process holds (space, key) right now."""
+    with pool().connection() as pg:
+        return pg.execute("""SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND granted
+                             AND classid = %s AND objid = %s AND objsubid = 2)""", (space, key)).fetchone()[0]
+
+
 @contextmanager
 def as_user(user_id: int):
     token = _user.set(user_id)
