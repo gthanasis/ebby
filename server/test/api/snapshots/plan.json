@@ -1,0 +1,65 @@
+{
+ "body": {
+  "ai": false,
+  "averages": {
+   "bills": 122.83333333333333,
+   "car": 77.515,
+   "cash": 41.666666666666664,
+   "coffee_bars": 89.2733333333333,
+   "delivery": 228.05833333333337,
+   "eating_out": 128.02166666666665,
+   "groceries": 312.9183333333332,
+   "health": 63.69833333333333,
+   "housing": 541.6666666666666,
+   "leisure": 8.836666666666666,
+   "people": 7.5,
+   "personal_care": 3.998333333333333,
+   "shopping": 133.75333333333336,
+   "subscriptions": 41.308333333333344,
+   "travel": 83.0
+  },
+  "committed": 45.0,
+  "devices": 0,
+  "extra_pay": [],
+  "payday_detected": {
+   "amount": 2400.0,
+   "day": 25,
+   "last": "2026-09-25",
+   "months": 6
+  },
+  "plan": {
+   "budgets": {
+    "bills": 154.0,
+    "car": 103.0,
+    "cash": 51.0,
+    "coffee_bars": 116.0,
+    "delivery": 295.0,
+    "eating_out": 167.0,
+    "groceries": 398.0,
+    "health": 77.0,
+    "housing": 692.0,
+    "leisure": 13.0,
+    "people": 13.0,
+    "shopping": 167.0,
+    "subscriptions": 51.0,
+    "travel": 103.0
+   },
+   "keep": 0.0,
+   "limits": {},
+   "split": "auto",
+   "take_home": 2400.0
+  },
+  "settings": {
+   "alerts": true,
+   "assistant_model": "haiku",
+   "autofilled": true,
+   "owner_names": [
+    "Maria Papadopoulou"
+   ],
+   "payday": 25,
+   "weekly_read": true
+  },
+  "total": 2400.0
+ },
+ "status": 200
+}

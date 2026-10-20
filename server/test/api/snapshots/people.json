@@ -1,0 +1,17 @@
+{
+ "body": [
+  {
+   "ai_budget_usd": 2.0,
+   "ai_spent_usd": 0.0,
+   "created_at": "2026-10-20T06:00:00+00:00",
+   "email": "demo@spending.local",
+   "id": 1,
+   "is_admin": true,
+   "last_login_at": null,
+   "name": null,
+   "picture": null,
+   "status": "active"
+  }
+ ],
+ "status": 200
+}

@@ -1,0 +1,65 @@
+{
+ "body": {
+  "accounts": [
+   {
+    "balance": 1842.37,
+    "balance_at": "2026-10-20T06:00:00+00:00",
+    "bank": "Alpha Bank",
+    "id": "demo-alpha-current",
+    "is_card": 0,
+    "last4": "4417",
+    "name": "Alpha Μισθοδοσία",
+    "since": "2026-04-18",
+    "synced_at": "2026-10-20T06:00:00+00:00",
+    "transactions": 325
+   },
+   {
+    "balance": -386.12,
+    "balance_at": "2026-10-20T06:00:00+00:00",
+    "bank": "Alpha Bank",
+    "id": "demo-alpha-card",
+    "is_card": 1,
+    "last4": "9021",
+    "name": "Alpha Bank Bonus Visa",
+    "since": "2026-04-19",
+    "synced_at": "2026-10-20T06:00:00+00:00",
+    "transactions": 144
+   },
+   {
+    "balance": 96.55,
+    "balance_at": "2026-10-20T06:00:00+00:00",
+    "bank": "Revolut",
+    "id": "demo-revolut",
+    "is_card": 0,
+    "last4": null,
+    "name": "Revolut EUR",
+    "since": "2026-04-23",
+    "synced_at": "2026-10-20T06:00:00+00:00",
+    "transactions": 44
+   }
+  ],
+  "callback_in_app": false,
+  "connections": [
+   {
+    "bank": "Alpha Bank",
+    "connected": true,
+    "last_error": null,
+    "last_sync": "2026-10-20T06:00:00+00:00",
+    "valid_until": "2027-04-09T06:00:00+00:00"
+   },
+   {
+    "bank": "Revolut",
+    "connected": true,
+    "last_error": null,
+    "last_sync": "2026-10-20T06:00:00+00:00",
+    "valid_until": "2027-04-09T06:00:00+00:00"
+   }
+  ],
+  "last_sync": "2026-10-20T06:00:00+00:00",
+  "month": "2026-10",
+  "questions": 0,
+  "sync_hours": 6.0,
+  "syncing": false
+ },
+ "status": 200
+}
