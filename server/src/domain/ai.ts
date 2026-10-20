@@ -12,25 +12,13 @@ import { type Conn, first, type Row } from "../data/db.js";
 import * as users from "../data/users.js";
 import { fmt0, fmt2, isoUtc, PyDate, sorted, sum } from "../py.js";
 import * as aiUsage from "./ai_usage.js";
+import { EXPLAIN } from "./prompts/explain.js";
+import { WEEKLY_READ } from "./prompts/weekly_read.js";
 import { CATEGORIES } from "./categories.js";
+import { ASSISTANT_MODELS } from "./constants.js";
 import * as insights from "./insights.js";
 
-const SYSTEM = `You review one person's spending each week and tell them, plainly, what is driving it.
 
-They asked for scrutiny: they know they overspend and want their habits named. Be direct and
-specific, never shaming. Use their real numbers (euros, counts, merchants, weekdays). Compare
-against their plan and their own recent months, not against generic advice. One idea per
-sentence; no markdown, no lists in the body, no greetings, no exclamation marks.
-
-It is read on a phone in a few seconds. Keep the headline, findings and actions short and
-concrete: a person should get the whole picture from those alone. Put nuance in the body.
-
-Committed costs (listed as such) are choices the person has made, like a meal plan or a tool they
-invest in. Never suggest cutting them; mention one only if it went past its limit.
-
-"Own transfers", "Card repayments" and "Income" are not spending; ignore them except to judge
-income. Cash withdrawals hide where money went; say so when they are large. Card rows marked
-"Card · ..." have no merchant name from the bank, only a merchant type.`;
 
 const Finding = z.object({
   title: z.string().describe("What happened, under 32 characters, e.g. 'Monday Wolt runs'"),
@@ -88,7 +76,7 @@ export async function record(claude: Claude, model: string, usage: aiUsage.Usage
 /** The model for the chat and the sorter: the one picked in Settings, else ASSISTANT_MODEL. */
 export async function assistantModel(conn: Conn): Promise<string> {
   const picked = (await db.getMeta<any>(conn, "settings"))?.assistant_model;
-  return config.ASSISTANT_MODELS[picked] ?? config.ASSISTANT_MODEL;
+  return ASSISTANT_MODELS[picked] ?? config.ASSISTANT_MODEL;
 }
 
 /** Request arguments that retry a declined request on another model. Haiku has no such fallback. */
@@ -163,7 +151,7 @@ export async function weeklyRead(): Promise<Row | null> {
     response = await claude.client.beta.messages.parse({
       model: config.ANTHROPIC_MODEL, max_tokens: 16000, ...FALLBACK(),
       output_config: { effort: "medium", format: betaZodOutputFormat(WeeklyRead) },
-      system: SYSTEM, messages: [{ role: "user", content: ctx }],
+      system: WEEKLY_READ, messages: [{ role: "user", content: ctx }],
     });
   } catch (e) {
     return failed("weekly read", e);
@@ -178,14 +166,7 @@ export async function weeklyRead(): Promise<Row | null> {
   return read;
 }
 
-const EXPLAIN_SYSTEM = `You explain one period of a person's spending (a day, week, pay month or year) in plain words.
 
-Say what was different about it and why, using their real numbers: amounts, counts, services, days.
-Compare with the period before and with their usual, as given. Be direct and specific, never shaming.
-No markdown, no greetings, no exclamation marks. It is read on a phone in a few seconds.
-
-Committed costs are not in these numbers. A category being low early in a period is often just a bill
-that hasn't been charged yet; don't present that as a saving.`;
 
 const Explanation = z.object({
   headline: z.string().describe("The one thing that defined the period, under 60 characters"),
@@ -202,7 +183,7 @@ export async function explain(ctx: string): Promise<Row | null> {
     response = await claude.client.beta.messages.parse({
       model: config.ANTHROPIC_MODEL, max_tokens: 4000, ...FALLBACK(),
       output_config: { effort: "low", format: betaZodOutputFormat(Explanation) },
-      system: EXPLAIN_SYSTEM, messages: [{ role: "user", content: ctx }],
+      system: EXPLAIN, messages: [{ role: "user", content: ctx }],
     });
   } catch (e) {
     return failed("explain", e);

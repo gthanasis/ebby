@@ -12,6 +12,8 @@ import * as db from "../data/db.js";
 import { type Conn, first, type Row } from "../data/db.js";
 import { fmt0, maxBy, median, monthDays, monthName, PyDate, pyDumps, pyMod, pyRound, sorted, sum } from "../py.js";
 import { CATEGORIES, SPENDING } from "./categories.js";
+import { CASH_ACCOUNT, PAYDAY_MIN } from "./constants.js";
+import { MCC_NAMES } from "./reference/mcc.js";
 
 // Debit-card copies (duplicate_of set) are left out: their current-account row is the one that counts.
 // Free spending: what the plan's budgets, alerts and cuts are about. Committed rows are kept apart.
@@ -34,7 +36,6 @@ const DISCRETIONARY: Record<string, number> = {
 // it the calendar month; "last" is the last working day. Pay that falls on a weekend arrives the Friday before,
 // so the month starts then.
 
-export const PAYDAY_MIN = 1000;  // an income deposit at least this big counts as pay
 // Per person, read from their settings and kept a minute: monthBounds runs many times a request, and a change
 // made on another pod reaches this one within that minute.
 export let PAYDAY_TTL = 60_000;
@@ -151,13 +152,7 @@ const SERVICE_ALIASES: [RegExp, string][] = [
   [/EFOOD/u, "efood"], [/UBR\*|UBER/u, "Uber"], [/AMAZON|AMZN/u, "Amazon"], [/SKROUTZ/u, "Skroutz"],
   [/YOUTUBE/u, "YouTube"], [/DISNEY/u, "Disney+"], [/STEAM/u, "Steam"],
 ];
-const MCC_NAMES: Record<string, string> = {
-  "5734": "software", "5815": "digital media", "5816": "games", "5817": "apps", "5818": "digital goods",
-  "4816": "online services", "5732": "electronics", "5812": "restaurants", "5813": "bars", "5814": "fast food",
-  "5411": "supermarkets", "5541": "fuel", "5542": "fuel", "4784": "tolls", "5499": "food shops",
-  "5462": "bakeries", "5912": "pharmacies", "5311": "department stores", "5999": "shops",
-  "7523": "parking", "4121": "taxis", "6011": "cash machines",
-};
+
 // Python's \s, \d and \w, which are Unicode-aware.
 const TRAILING_REF = /[\s*#_-]*[A-Z]?\p{Nd}[\p{L}\p{N}\p{Mn}_-]*$/u;
 
@@ -827,7 +822,7 @@ export const COMMITTABLE = new Set(["bills", "subscriptions", "health", "housing
 
 // ---------- cash entries: spending logged by hand, taken out of withdrawals ----------
 
-export const CASH_ACCOUNT = "cash";
+export { CASH_ACCOUNT };
 
 /** Withdrawn this month vs what has been logged against it. */
 export async function cashView(conn: Conn, month: string): Promise<Row> {

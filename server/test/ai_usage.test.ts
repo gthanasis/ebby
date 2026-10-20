@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import { config } from "../src/config.js";
+import { ASSISTANT_MODELS } from "../src/domain/constants.js";
 import { BudgetExceeded, chooseKey, costUsd, NoAPIKey, PRICES } from "../src/domain/ai_usage.js";
 import { PyDate } from "../src/py.js";
 
@@ -9,7 +10,7 @@ const today = new PyDate(2026, 10, 20);
 
 describe("costs", () => {
   it("every model the app can use has a price", () => {
-    for (const m of [config.ANTHROPIC_MODEL, config.ASSISTANT_MODEL, ...Object.values(config.ASSISTANT_MODELS)]) expect(PRICES[m]).toBeDefined();
+    for (const m of [config.ANTHROPIC_MODEL, config.ASSISTANT_MODEL, ...Object.values(ASSISTANT_MODELS)]) expect(PRICES[m]).toBeDefined();
   });
   it("counts every kind of token", () => {
     expect(costUsd("claude-opus-5-5", { input_tokens: 1e6, cache_creation_input_tokens: 1e6, cache_read_input_tokens: 1e6, output_tokens: 1e6 }))
