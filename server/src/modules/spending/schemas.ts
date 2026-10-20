@@ -2,6 +2,9 @@
 
 import { z } from "zod";
 
+import { Explanation, WeeklyRead } from "../assistant/schemas.js";
+import { CategoryDetail, Home, Pace, Year } from "../plan/schemas.js";
+
 export const Range = z.enum(["day", "week", "month", "year"]);
 
 export const SpendPayment = z.strictObject({ date: z.string(), amount: z.number(), category: z.string(), name: z.string() });
@@ -18,9 +21,6 @@ export const Highlight = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("trend"), category: z.string(), before: z.number(), after: z.number(), from: z.string(), to: z.string() }),
   z.strictObject({ kind: z.literal("heavy_months"), months: z.array(z.string()), of: z.number() }),
 ]);
-
-/** Claude's read of a period. */
-export const Explanation = z.strictObject({ headline: z.string(), points: z.array(z.string()), try: z.string(), created_at: z.string() });
 
 /** Any day, week, pay month or year. Day adds week and usual; week and month the comparison with the periods before;
  * year its months. */
@@ -49,40 +49,6 @@ export const SpendCategory = z.strictObject({
 });
 
 const MonthSpent = z.strictObject({ month: z.string(), spent: z.number() });
-const CategorySpent = z.strictObject({ category: z.string(), spent: z.number(), count: z.number() });
-
-/** When pay seems to arrive, read from the deposits. */
-export const PaydayGuess = z.strictObject({ day: z.number(), amount: z.number(), last: z.string(), months: z.number() });
-
-/** The budget this month should keep to. */
-export const Ideal = z.strictObject({
-  income: z.number(), savings: z.number(), fixed: z.number(),
-  goals: z.array(z.strictObject({ name: z.string(), price: z.number(), target_date: z.string(), monthly: z.number() })),
-  budget: z.number(), day: z.number(), targets: z.record(z.string(), z.number()),
-});
-
-/** This pay month so far. days covers the whole month; spent is null for days still to come. */
-export const TodayMonth = z.strictObject({
-  month: z.string(), start: z.string(), end: z.string(), today: z.string(), length: z.number(), elapsed: z.number(), spent: z.number(),
-  days: z.array(SpendDay), average: z.number(), projected: z.number(), categories: z.array(CategorySpent), ideal: Ideal.nullable(),
-});
-
-export const Home = z.strictObject({ month: TodayMonth, fresh_at: z.string().nullable(), payday_hint: PaydayGuess.nullable() });
-
-export const PaceCategory = z.strictObject({
-  category: z.string(), spent: z.number(), count: z.number(), budget: z.number().nullable(),
-  status: z.enum(["over", "ahead", "fine", "none"]), habit: z.string(),
-});
-
-export const Pace = z.strictObject({
-  month: z.string(), start: z.string(), end: z.string(), elapsed: z.number(), days: z.number(), total: z.number(), planned: z.number().nullable(),
-  expected_to_date: z.number().nullable(), projected: z.number(), take_home: z.number().nullable(), categories: z.array(PaceCategory),
-});
-
-export const CategoryDetail = z.strictObject({
-  category: z.string(), month: z.string(), budget: z.number().nullable(), history: z.array(MonthSpent), spent: z.number(),
-  services: z.array(z.strictObject({ name: z.string(), amount: z.number(), count: z.number(), accounts: z.array(z.string()) })),
-});
 
 export const ServiceDetail = z.strictObject({
   category: z.string(), name: z.string(), month: z.string(), spent: z.number(), count: z.number(), average: z.number(), share: z.number().nullable(),
@@ -96,21 +62,6 @@ export const Subscription = z.strictObject({
 
 export const Subscriptions = z.strictObject({ items: z.array(Subscription), monthly: z.number(), yearly: z.number(), count: z.number() });
 
-export const Year = z.strictObject({
-  year: z.number(), total: z.number(), months: z.array(MonthSpent), categories: z.array(CategorySpent),
-  monthly_average: z.number(), monthly_plan: z.number().nullable(), peak: MonthSpent.nullable(),
-  peak_category: z.strictObject({ category: z.string(), spent: z.number() }).nullable(), under_plan: z.array(z.string()),
-  committed: z.number(), years: z.array(z.string()),
-});
-
-/** This week's read from Claude. */
-export const WeeklyRead = z.strictObject({
-  headline: z.string(),
-  findings: z.array(z.strictObject({ title: z.string(), detail: z.string(), amount: z.number(), unit: z.string(), category: z.string() })),
-  actions: z.array(z.strictObject({ text: z.string(), saves_monthly: z.number() })),
-  body: z.string(), created_at: z.string(), model: z.string(), budgets: z.record(z.string(), z.number()).nullable(),
-});
-
 /** A payee left in Other, for the assistant to ask about. */
 export const Question = z.strictObject({
   service: z.string(), tx_id: z.string(), count: z.number(), amount: z.number(), date: z.string(), account: z.string(), has_merchant: z.boolean(),
@@ -120,8 +71,7 @@ export const Question = z.strictObject({
 export const Cash = z.strictObject({ withdrawn: z.number(), logged: z.number(), unaccounted: z.number() });
 
 export const schemas = {
-  Range, SpendPayment, SpendDay, Highlight, Explanation, SpendView, SpendCategory, PaydayGuess, Ideal, TodayMonth, Home,
-  PaceCategory, Pace, CategoryDetail, ServiceDetail, Subscription, Subscriptions, Year, WeeklyRead, Question, Cash,
+  Range, SpendPayment, SpendDay, Highlight, SpendView, SpendCategory, ServiceDetail, Subscription, Subscriptions, Question, Cash,
 };
 
 export const responses = {
