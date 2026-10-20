@@ -3,7 +3,7 @@
 
 import { wallClock } from "../clock.js";
 import { config } from "../config.js";
-import { monthName, PyDate } from "../py.js";
+import { monthName, PyDate } from "../utils/python.js";
 
 /** USD per million tokens. */
 interface Price { input: number; cache_write: number; cache_read: number; output: number }

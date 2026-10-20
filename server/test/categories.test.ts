@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import * as db from "../src/data/db.js";
 import { ensureUser } from "../src/data/users.js";
 import { CATEGORIES, categorize, merchantName, SPENDING } from "../src/core/categories.js";
-import { pyDumps } from "../src/py.js";
+import { pyDumps } from "../src/utils/python.js";
 import { users } from "./fixtures.js";
 import * as ingest from "../src/domain/ingest.js";
 

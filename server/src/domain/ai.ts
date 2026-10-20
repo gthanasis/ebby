@@ -13,7 +13,7 @@ import * as aiUsageRepo from "../data/repos/ai_usage.js";
 import * as goalsRepo from "../data/repos/goals.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
 import * as users from "../data/users.js";
-import { fmt0, fmt2, isoUtc, PyDate, sorted, sum } from "../py.js";
+import { fmt0, fmt2, isoUtc, PyDate, sorted, sum } from "../utils/python.js";
 import * as aiUsage from "./ai_usage.js";
 import { EXPLAIN } from "./prompts/explain.js";
 import { WEEKLY_READ } from "./prompts/weekly_read.js";

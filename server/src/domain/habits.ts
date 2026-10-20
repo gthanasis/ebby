@@ -16,7 +16,7 @@ import * as habitRulesRepo from "../data/repos/habit_rules.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
 import * as wishlistRepo from "../data/repos/wishlist.js";
 import * as yearlyCostsRepo from "../data/repos/yearly_costs.js";
-import { fmt0, fmtG, isoUtc, maxBy, parseIso, PyDate, pyRound, sorted, sum } from "../py.js";
+import { fmt0, fmtG, isoUtc, maxBy, parseIso, PyDate, pyRound, sorted, sum } from "../utils/python.js";
 import { CATEGORIES } from "../core/categories.js";
 import { PAYDAY_MIN } from "../core/constants.js";
 import type { HabitRule } from "../types/entities.js";

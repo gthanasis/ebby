@@ -4,7 +4,7 @@
  */
 
 import { config } from "./config.js";
-import { PyDate } from "./py.js";
+import { PyDate } from "./utils/python.js";
 
 /** Now, as an instant. */
 export function now(): Date {

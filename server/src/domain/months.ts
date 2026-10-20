@@ -9,7 +9,7 @@ import * as clock from "../clock.js";
 import * as db from "../data/db.js";
 import { type Conn, type Row } from "../data/db.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
-import { maxBy, median, monthDays, PyDate, pyMod, pyRound } from "../py.js";
+import { maxBy, median, monthDays, PyDate, pyMod, pyRound } from "../utils/python.js";
 import type { Payday } from "../types/entities.js";
 import { PAYDAY_MIN } from "../core/constants.js";
 

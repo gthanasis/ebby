@@ -2,7 +2,7 @@
 
 import * as db from "../data/db.js";
 import { type Conn, type Row } from "../data/db.js";
-import { monthName, PyDate, pyMod, pyRound, sorted } from "../py.js";
+import { monthName, PyDate, pyMod, pyRound, sorted } from "../utils/python.js";
 import { getPlan } from "./plan.js";
 import { localToday } from "./months.js";
 

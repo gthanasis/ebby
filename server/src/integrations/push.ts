@@ -10,7 +10,7 @@ import * as clock from "../clock.js";
 import { config, secrets } from "../config.js";
 import * as db from "../data/db.js";
 import * as pushRepo from "../data/repos/push_subscriptions.js";
-import { isoUtc, pyDumps } from "../py.js";
+import { isoUtc, pyDumps } from "../utils/python.js";
 
 const keyFile = () => join(config.DATA_DIR, "vapid.pem");
 

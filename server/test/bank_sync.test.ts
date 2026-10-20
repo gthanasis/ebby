@@ -5,7 +5,7 @@ import * as db from "../src/data/db.js";
 import { ensureUser } from "../src/data/users.js";
 import { Client, EnableBankingError, SUSPECT_FULL, WINDOW_DAYS } from "../src/integrations/enable_banking.js";
 import * as sync from "../src/jobs/sync.js";
-import { PyDate } from "../src/py.js";
+import { PyDate } from "../src/utils/python.js";
 import { users } from "./fixtures.js";
 import * as ingest from "../src/domain/ingest.js";
 

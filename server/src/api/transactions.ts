@@ -9,7 +9,7 @@ import * as tx from "../data/repos/transactions.js";
 import { CATEGORIES } from "../core/categories.js";
 import { localToday, monthBounds, monthOf, shift, thisMonth } from "../domain/months.js";
 import { serviceTransactionIds } from "../domain/services.js";
-import { PyDate, pyRound, sorted } from "../py.js";
+import { PyDate, pyRound, sorted } from "../utils/python.js";
 import { body, fail, int } from "./http.js";
 import * as ingest from "../domain/ingest.js";
 

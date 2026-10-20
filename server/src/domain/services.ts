@@ -3,7 +3,7 @@
 
 import { type Conn, type Row } from "../data/db.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
-import { PyDate, pyRound, sorted, sum } from "../py.js";
+import { PyDate, pyRound, sorted, sum } from "../utils/python.js";
 import { MCC_NAMES } from "../core/reference/mcc.js";
 import { monthBounds, shift } from "./months.js";
 

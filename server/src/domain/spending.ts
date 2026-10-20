@@ -8,7 +8,7 @@
 
 import type { Conn, Row } from "../data/db.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
-import { fmt0, fmt2, maxBy, median, PyDate, pyRound, sorted, sum } from "../py.js";
+import { fmt0, fmt2, maxBy, median, PyDate, pyRound, sorted, sum } from "../utils/python.js";
 import { localToday, monthBounds, monthOf, shift, thisMonth } from "./months.js";
 import { serviceName } from "./services.js";
 

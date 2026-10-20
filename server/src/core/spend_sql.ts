@@ -1,6 +1,6 @@
 /** The SQL that picks out free spending and committed costs, shared until repositories replace it. */
 
-import { sorted } from "../py.js";
+import { sorted } from "../utils/python.js";
 import { SPENDING } from "./categories.js";
 
 // Debit-card copies (duplicate_of set) are left out: their current-account row is the one that counts.

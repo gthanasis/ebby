@@ -15,7 +15,7 @@ import * as clock from "../clock.js";
 import * as db from "../data/db.js";
 import type { Conn, Row } from "../data/db.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
-import { fmt2, isoUtc, PyDate, pyRound } from "../py.js";
+import { fmt2, isoUtc, PyDate, pyRound } from "../utils/python.js";
 import * as ai from "./ai.js";
 import * as aiUsage from "./ai_usage.js";
 import { CATEGORIES } from "../core/categories.js";

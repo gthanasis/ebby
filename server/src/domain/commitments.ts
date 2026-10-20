@@ -3,7 +3,7 @@
 import { type Conn, type Row } from "../data/db.js";
 import * as commitmentsRepo from "../data/repos/commitments.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
-import { maxBy, monthDays, PyDate, pyMod, pyRound, sorted, sum } from "../py.js";
+import { maxBy, monthDays, PyDate, pyMod, pyRound, sorted, sum } from "../utils/python.js";
 import type { Commitment } from "../types/entities.js";
 import { localToday, monthBounds, monthOf, shift, thisMonth } from "./months.js";
 import { sn } from "./services.js";

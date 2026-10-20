@@ -2,7 +2,7 @@
 
 import { type Conn, type Row } from "../data/db.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
-import { fmt0, pyRound, sorted, sum } from "../py.js";
+import { fmt0, pyRound, sorted, sum } from "../utils/python.js";
 import { dayProgress, monthBounds, thisMonth } from "./months.js";
 import { budgetsFor, getPlan } from "./plan.js";
 
