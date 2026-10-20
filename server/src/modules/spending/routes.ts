@@ -58,7 +58,7 @@ export function routes(app: Hono) {
     try {
       read = await ai.explain(ctx);
     } catch (e) {
-      if (e instanceof aiUsage.BudgetExceeded || e instanceof aiUsage.NoAPIKey) return fail(429, e.message);
+      if (aiUsage.isAllowanceError(e)) return fail(429, e.message);
       throw e;
     }
     if (!read) fail(502, "The assistant couldn't read this period. Try again in a bit.");
@@ -114,7 +114,7 @@ export function routes(app: Hono) {
     try {
       read = await ai.weeklyRead();
     } catch (e) {
-      if (e instanceof aiUsage.BudgetExceeded || e instanceof aiUsage.NoAPIKey) return fail(429, e.message);
+      if (aiUsage.isAllowanceError(e)) return fail(429, e.message);
       throw e;
     }
     if (!read) fail(502, "The assistant couldn't write this week's read. Try again in a bit.");

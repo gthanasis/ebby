@@ -145,22 +145,30 @@ function failed(what: string, e: unknown): null {
   return null;
 }
 
+/** One request to ANTHROPIC_MODEL, its cost recorded; null when it failed (see `failed`). BudgetExceeded and
+ * NoAPIKey pass through: the caller decides how to say so. */
+async function withClaude<T extends { usage: aiUsage.Usage }>(feature: string, what: string, request: (client: Anthropic) => Promise<T>): Promise<T | null> {
+  const claude = await client(feature);
+  let response: T;
+  try {
+    response = await request(claude.client);
+  } catch (e) {
+    return failed(what, e);
+  }
+  await record(claude, config.ANTHROPIC_MODEL, response.usage);
+  return response;
+}
+
 /** Generates and stores this week's read. Returns it, or null when it couldn't be made. */
 export async function weeklyRead(): Promise<Row | null> {
   if (!(await available())) return null;
   const [ctx, plan] = await db.connect(async (conn) => [await context(conn), await getPlan(conn)] as const);
-  const claude = await client("weekly_read");  // BudgetExceeded / NoAPIKey: the caller decides how to say so
-  let response;
-  try {
-    response = await claude.client.beta.messages.parse({
-      model: config.ANTHROPIC_MODEL, max_tokens: 16000, ...FALLBACK(),
-      output_config: { effort: "medium", format: betaZodOutputFormat(WeeklyRead) },
-      system: WEEKLY_READ, messages: [{ role: "user", content: ctx }],
-    });
-  } catch (e) {
-    return failed("weekly read", e);
-  }
-  await record(claude, config.ANTHROPIC_MODEL, response.usage);
+  const response = await withClaude("weekly_read", "weekly read", (c) => c.beta.messages.parse({
+    model: config.ANTHROPIC_MODEL, max_tokens: 16000, ...FALLBACK(),
+    output_config: { effort: "medium", format: betaZodOutputFormat(WeeklyRead) },
+    system: WEEKLY_READ, messages: [{ role: "user", content: ctx }],
+  }));
+  if (!response) return null;
   if (response.stop_reason === "refusal" || response.parsed_output == null) {
     console.warn(`weekly read not produced (stop_reason=${response.stop_reason})`);
     return null;
@@ -181,18 +189,12 @@ const Explanation = z.object({
 /** Claude's read of one period. null when it couldn't be made. */
 export async function explain(ctx: string): Promise<Row | null> {
   if (!(await available())) return null;
-  const claude = await client("explain");
-  let response;
-  try {
-    response = await claude.client.beta.messages.parse({
-      model: config.ANTHROPIC_MODEL, max_tokens: 4000, ...FALLBACK(),
-      output_config: { effort: "low", format: betaZodOutputFormat(Explanation) },
-      system: EXPLAIN, messages: [{ role: "user", content: ctx }],
-    });
-  } catch (e) {
-    return failed("explain", e);
-  }
-  await record(claude, config.ANTHROPIC_MODEL, response.usage);
+  const response = await withClaude("explain", "explain", (c) => c.beta.messages.parse({
+    model: config.ANTHROPIC_MODEL, max_tokens: 4000, ...FALLBACK(),
+    output_config: { effort: "low", format: betaZodOutputFormat(Explanation) },
+    system: EXPLAIN, messages: [{ role: "user", content: ctx }],
+  }));
+  if (!response) return null;
   if (response.stop_reason === "refusal" || response.parsed_output == null) return null;
   return { ...response.parsed_output, created_at: isoUtc(clock.now(), "seconds") };
 }

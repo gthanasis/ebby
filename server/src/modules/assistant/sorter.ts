@@ -86,7 +86,7 @@ export async function guess(conn: Conn, service: string): Promise<Row | null> {
   try {
     claude = await ai.client("sorter");
   } catch (e) {
-    if (e instanceof aiUsage.BudgetExceeded || e instanceof aiUsage.NoAPIKey) { console.info(`sorter guess skipped: ${e.message}`); return null; }
+    if (aiUsage.isAllowanceError(e)) { console.info(`sorter guess skipped: ${e.message}`); return null; }
     throw e;
   }
   const model = await ai.assistantModel(conn);
