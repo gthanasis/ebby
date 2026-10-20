@@ -13,7 +13,6 @@ import anthropic
 from pydantic import BaseModel, Field
 
 from app.domain import ai, ai_usage, insights, spending
-from app import config
 from app.data import db
 from app.domain.categories import CATEGORIES
 
