@@ -13,10 +13,10 @@ import * as db from "../data/db.js";
 import { type Conn, first, type Row } from "../data/db.js";
 import { fmt0, fmtG, isoUtc, maxBy, parseIso, PyDate, pyRound, sorted, sum } from "../py.js";
 import { CATEGORIES } from "./categories.js";
+import { PAYDAY_MIN } from "./constants.js";
 import * as insights from "./insights.js";
 
 const SAVINGS_HINTS = ["αποταμίευση", "saving", "spare", "fund", "pocket"];
-const PAYDAY_MIN = 1000;  // an income deposit at least this big counts as pay
 const DEFAULT_WORK_HOURS = 160;
 const WAIT_MS = 48 * 3600 * 1000;
 

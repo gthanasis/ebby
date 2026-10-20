@@ -31,6 +31,9 @@ server/
                       http.ts holds errors ({"detail": ...}), body checking and query parsing
   src/domain/         the logic: categories, insights (pay months, plan, pace, goals, commitments), habits,
                       spending, the sorter, alerts, the assistant and its AI allowance
+    constants.ts      values several modules share (PAYDAY_MIN, CASH_ACCOUNT, the assistant's models)
+    prompts/          each Claude system prompt, one module apiece
+    reference/        fixed reference data: what merchant category codes mean
   src/integrations/   Enable Banking, its bank list, web push
   src/data/           the database, encryption, credentials, users, the demo seed
   src/jobs/           bank sync and the scheduler

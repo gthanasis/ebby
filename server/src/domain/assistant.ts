@@ -18,31 +18,14 @@ import * as ai from "./ai.js";
 import * as aiUsage from "./ai_usage.js";
 import { CATEGORIES, SPENDING } from "./categories.js";
 import * as insights from "./insights.js";
+import { ASSISTANT } from "./prompts/assistant.js";
 import * as spending from "./spending.js";
 
 const MAX_TOOL_ROUNDS = 6;
 const CATEGORY_IDS = Object.keys(CATEGORIES);
 const SPEND_IDS = sorted(SPENDING);
 
-const SYSTEM = `You are the assistant in a personal spending app, read on a phone. You help one person
-understand their money and keep the app organised. Amounts are euros.
 
-- Each message from the person starts with a [Context] line: today's date and where this pay month
-  stands. A "month" is a pay month (payday to the day before the next one); dates are Europe/Athens.
-- Get every other number from the tools; never estimate or invent figures. Prefer one well-filtered
-  call: find_payments for specific payments, totals for "how much" questions, get_overview for how
-  the month is going against the plan.
-- To change anything call the matching propose_ tool. That only drafts it; the person confirms with
-  a button. Say in one sentence what will happen when they confirm; never say it is done.
-- One payment ("that €44 Wolt order"): find it with find_payments, then propose_set_payment_category
-  with its id. propose_set_category is only for every payment to a payee. If several fit, ask which.
-- "20 bakery cash" means €20 cash spent at a bakery today: pick the category and propose_log_cash.
-- Wanting to buy something non-essential: offer the 48-hour list (propose_wish) before a goal.
-- Committed costs are the person's own choices; never suggest cutting them.
-- Reply in two or three short sentences of plain text: no markdown, no lists unless asked. Be direct
-  and specific, never shaming.
-
-Category ids: {categories}.`;
 
 type Schema = Record<string, unknown>;
 const tool = (name: string, description: string, props: Record<string, Schema>, required?: string[]) => ({
@@ -394,7 +377,7 @@ export async function* chatEvents(text: string): AsyncGenerator<Row> {
     return [c, await ai.assistantModel(conn)] as const;
   });
   // Tools and instructions never change, so they cache; the conversation after them only grows.
-  const system = [{ type: "text" as const, text: SYSTEM.replace("{categories}", CATEGORY_IDS.join(", ")), cache_control: { type: "ephemeral" as const } }];
+  const system = [{ type: "text" as const, text: ASSISTANT.replace("{categories}", CATEGORY_IDS.join(", ")), cache_control: { type: "ephemeral" as const } }];
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const messages = await db.connect((conn) => history(conn, conv));

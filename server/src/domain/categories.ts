@@ -125,36 +125,14 @@ const MERCHANT_RULES: [string[], string][] = [
   [keys("CAFE", "COFFEE", "KAFE", "FLAKE", "DOMINO", "PIZZA", "BAKERY", "BURGER"), "eating_out"],
 ];
 
-const MCC_RANGES: [number, number, string][] = [
-  [5411, 5411, "groceries"], [5422, 5462, "groceries"], [5499, 5499, "groceries"],
-  [5811, 5812, "eating_out"], [5814, 5814, "eating_out"],
-  [5813, 5813, "coffee_bars"],
-  [4784, 4784, "car"], [5541, 5542, "car"], [5983, 5983, "car"], [7523, 7523, "car"],
-  [7531, 7549, "car"], [5511, 5599, "car"], [4111, 4131, "car"], [4789, 4789, "car"],
-  [4121, 4121, "car"],
-  [4816, 4816, "subscriptions"], [5045, 5045, "subscriptions"], [5732, 5734, "subscriptions"],
-  [5815, 5818, "subscriptions"], [7372, 7372, "subscriptions"], [4899, 4899, "subscriptions"],
-  [4812, 4814, "bills"], [4900, 4900, "bills"],
-  [5912, 5912, "health"], [8011, 8099, "health"], [7997, 7997, "health"], [7941, 7941, "health"],
-  [7230, 7230, "personal_care"], [7298, 7298, "personal_care"], [5977, 5977, "personal_care"],
-  [3000, 3299, "travel"], [3501, 3999, "travel"], [4411, 4411, "travel"], [4511, 4511, "travel"],
-  [4722, 4722, "travel"], [7011, 7011, "travel"], [4112, 4112, "travel"],
-  [7832, 7832, "leisure"], [7922, 7922, "leisure"], [7991, 7996, "leisure"], [7999, 7999, "leisure"],
-  [5995, 5995, "pets"], [742, 742, "pets"],
-  [6010, 6011, "cash"],
-  [4829, 4829, "people"],
-  [9311, 9399, "fees"], [6012, 6012, "transfer"], [6300, 6399, "insurance"], [4214, 4215, "shopping"],
-  [6211, 6211, "investments"], [6051, 6051, "investments"],
-  [8211, 8299, "education"], [5942, 5943, "education"],
-  [8351, 8351, "kids"], [5641, 5641, "kids"],
-  [8398, 8398, "gifts"], [8661, 8661, "gifts"], [5992, 5992, "gifts"], [5947, 5947, "gifts"],
-  [5200, 5399, "shopping"], [5600, 5735, "shopping"], [5900, 5999, "shopping"], [5094, 5094, "shopping"],
-];
+
 
 export function mccCategory(mcc: number): string | null {
   for (const [lo, hi, category] of MCC_RANGES) if (lo <= mcc && mcc <= hi) return category;
   return null;
 }
+
+import { MCC_RANGES } from "./reference/mcc.js";
 
 // Revolut pockets and currency exchanges. Word ends as Python sees them: Greek letters are word characters too.
 const CURRENCY = /^(TO|EXCHANGED TO) [A-Z]{3}(?![\p{L}\p{N}_])/u;

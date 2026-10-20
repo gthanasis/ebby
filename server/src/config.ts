@@ -134,7 +134,6 @@ export const config = {
   get ANTHROPIC_WORKSPACE_ID() { return read("ANTHROPIC_WORKSPACE_ID"); },
   get ANTHROPIC_MODEL() { return read("ANTHROPIC_MODEL"); },
   get ASSISTANT_MODEL() { return read("ASSISTANT_MODEL"); },
-  ASSISTANT_MODELS: { haiku: "claude-haiku-5-5", sonnet: "claude-sonnet-5-5", opus: "claude-opus-5-5" } as Record<string, string>,
   get PORT() { return read("PORT"); },
 
   /** A pinned moment for tests (EBBY_NOW), or null for the real clock. */
