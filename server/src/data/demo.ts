@@ -9,11 +9,13 @@
 
 import * as clock from "../clock.js";
 import * as habits from "../domain/habits.js";
-import * as insights from "../domain/insights.js";
 import { fmt2, isoUtc, PyDate, pyRound } from "../py.js";
 import { PyRandom } from "../pyrandom.js";
 import * as db from "./db.js";
 import type { Row } from "./db.js";
+import { _paydays, localToday, setPayday } from "../domain/months.js";
+import { assignCommitments } from "../domain/commitments.js";
+import { autofill, getPlan } from "../domain/plan.js";
 
 export const EMAIL = "demo@spending.local";
 const DAYS = 185;
@@ -112,15 +114,15 @@ export async function ensureUser(email: string, admin = false): Promise<number> 
 export async function seed(email = EMAIL): Promise<Row> {
   const userId = await ensureUser(email, true);
   return db.asUser(userId, async () => {
-    const today = insights.localToday();
+    const today = localToday();
     const rows = history(today);
     return db.connect(async (conn) => {
       for (const table of ["transactions", "accounts", "rules", "connections", "goals", "commitments", "habit_rules",
         "wishlist", "assistant_messages", "assistant_actions", "meta"]) {
         await conn.execute(`DELETE FROM ${table}`);  // row-level security: only the demo user's own rows
       }
-      insights._paydays.delete(userId);
-      insights.setPayday(1);  // settings were just cleared
+      _paydays.delete(userId);
+      setPayday(1);  // settings were just cleared
       const now = isoUtc(clock.now(), "seconds");
       for (const [accId, bank, name, isCard, last4, balance] of [
         [CURRENT, "Alpha Bank", "Alpha Μισθοδοσία", 0, "4417", 1842.37], [CARD, "Alpha Bank", "Alpha Bank Bonus Visa", 1, "9021", -386.12],
@@ -134,8 +136,8 @@ export async function seed(email = EMAIL): Promise<Row> {
         await db.saveWindow(conn, accId, accId === CARD, dates[0], dates[dates.length - 1], txs);
       }
       await db.dedupe(conn);
-      await insights.assignCommitments(conn);
-      await insights.autofill(conn);
+      await assignCommitments(conn);
+      await autofill(conn);
       const valid = isoUtc(new Date(clock.now().getTime() + 171 * 86_400_000), "seconds");
       for (const bank of ["Alpha Bank", "Revolut"]) await db.updateConnection(conn, bank, { session_id: `demo-${bank}`, valid_until: valid, last_sync: now });
       await conn.execute("INSERT INTO goals(name, price, saved, target_date, created_at, kind) VALUES(?, ?, ?, ?, ?, ?)",
@@ -158,7 +160,7 @@ export async function seed(email = EMAIL): Promise<Row> {
         ],
         body: "Spending is running about 12% ahead of plan, almost all of it delivery on weekends. "
           + "Groceries and bills are on track. Holding delivery to two orders a week would bring the month back in line.",
-        created_at: now, model: "demo", budgets: (await insights.getPlan(conn))?.budgets ?? null,
+        created_at: now, model: "demo", budgets: (await getPlan(conn))?.budgets ?? null,
       });
       await db.setMeta(conn, "onboarded", true);
       return { user_id: userId, transactions: Object.fromEntries(Object.entries(rows).map(([a, t]) => [a, t.length])) };

@@ -6,9 +6,11 @@ import { z } from "zod";
 import * as clock from "../clock.js";
 import * as db from "../data/db.js";
 import type { Conn } from "../data/db.js";
-import * as insights from "../domain/insights.js";
 import { isoUtc, PyDate, pyDumps, pyRound } from "../py.js";
 import { body, bool, fail, int, integer, num } from "./http.js";
+import { assignCommitments, commitmentsView, servicesSeen } from "../domain/commitments.js";
+import { resplit } from "../domain/plan.js";
+import { thisMonth } from "../domain/months.js";
 
 const CommitmentIn = z.object({
   name: z.string(), kind: z.string().default("chosen"), monthly_limit: num, note: z.string().default(""),
@@ -36,18 +38,18 @@ function check(b: Commitment) {
 }
 
 async function after(conn: Conn) {
-  await insights.assignCommitments(conn);
-  await insights.resplit(conn);
-  return insights.commitmentsView(conn, insights.thisMonth());
+  await assignCommitments(conn);
+  await resplit(conn);
+  return commitmentsView(conn, thisMonth());
 }
 
 export function routes(app: Hono) {
-  app.get("/api/commitments", async (c) => c.json(await db.connect((conn) => insights.commitmentsView(conn, c.req.query("month") || insights.thisMonth()))));
+  app.get("/api/commitments", async (c) => c.json(await db.connect((conn) => commitmentsView(conn, c.req.query("month") || thisMonth()))));
 
   /** Services to pick from when creating a commitment; with transfers, big transfers over 13 months too. */
   app.get("/api/commitments/services", async (c) => {
     const transfers = bool(c.req.query("transfers"), "transfers", false);
-    return c.json(await db.connect((conn) => (transfers ? insights.servicesSeen(conn, 13, true) : insights.servicesSeen(conn))));
+    return c.json(await db.connect((conn) => (transfers ? servicesSeen(conn, 13, true) : servicesSeen(conn))));
   });
 
   app.post("/api/commitments", async (c) => {

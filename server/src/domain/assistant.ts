@@ -17,10 +17,17 @@ import { dayMonth, fmt0, fmt2, fmt2c, isoUtc, PyDate, pyDumps, pyRound, sorted, 
 import * as ai from "./ai.js";
 import * as aiUsage from "./ai_usage.js";
 import { CATEGORIES, SPENDING } from "./categories.js";
-import * as insights from "./insights.js";
 import { ASSISTANT } from "./prompts/assistant.js";
 import * as spending from "./spending.js";
 import type { Goal } from "../types/entities.js";
+import { assignCommitments, commitmentsView, committedTotal } from "./commitments.js";
+import { cashView, logCash } from "./cash.js";
+import { extraPay } from "./extra_pay.js";
+import { getPlan, savePlan } from "./plan.js";
+import { goalView } from "./goals.js";
+import { localToday, monthBounds, monthOf, thisMonth } from "./months.js";
+import { pace } from "./pace.js";
+import { serviceName, setServiceCategory } from "./services.js";
 
 const MAX_TOOL_ROUNDS = 6;
 const CATEGORY_IDS = Object.keys(CATEGORIES);
@@ -80,17 +87,17 @@ const TOOLS = [
 
 // ---------- read tools ----------
 
-const month = (m: string | null | undefined) => m || insights.thisMonth();
+const month = (m: string | null | undefined) => m || thisMonth();
 
 async function overview(conn: Conn, m: string): Promise<Row> {
-  const p = await insights.pace(conn, m);
-  const com = await insights.commitmentsView(conn, m);
+  const p = await pace(conn, m);
+  const com = await commitmentsView(conn, m);
   return {
     month: m, free_spent: p.total, free_plan: p.planned, projected: p.projected, day: p.elapsed, days: p.days,
     categories: p.categories.filter((c: Row) => c.spent || c.budget)
       .map((c: Row) => ({ category: c.category, spent: c.spent, budget: c.budget, status: c.status, count: c.count, habit: c.habit })),
     committed: com.items.map((c: Row) => ({ name: c.name, spent: c.spent, limit: c.monthly_limit, over: c.over })),
-    cash: await insights.cashView(conn, m),
+    cash: await cashView(conn, m),
   };
 }
 
@@ -99,7 +106,7 @@ async function payments(conn: Conn, args: Row): Promise<Row[]> {
   const where = ["t.duplicate_of IS NULL", "t.status != 'OFFSET'"];
   const params: unknown[] = [];
   if (args.month) {
-    const [start, end] = insights.monthBounds(args.month);
+    const [start, end] = monthBounds(args.month);
     where.push("t.date >= ? AND t.date < ?"); params.push(start, end);
   } else {
     if (args.from) { where.push("t.date >= ?"); params.push(args.from); }
@@ -112,7 +119,7 @@ async function payments(conn: Conn, args: Row): Promise<Row[]> {
   const text = (args.text || "").trim().toLowerCase();
   const out = [];
   for (const r of rows) {
-    const payee = insights.serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc);
+    const payee = serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc);
     if (text && !`${payee} ${r.merchant || ""} ${r.description || ""}`.toLowerCase().includes(text)) continue;
     out.push({ id: r.id, date: r.date, amount: r.amount, payee, category: r.category });
   }
@@ -131,7 +138,7 @@ async function totals(conn: Conn, args: Row): Promise<Row> {
   const groups = new Map<string, [number, number]>();
   for (const r of await payments(conn, args)) {
     if (!SPENDING.has(r.category) || r.amount >= 0) continue;
-    const key = args.by === "category" ? r.category : args.by === "payee" ? r.payee : insights.monthOf(r.date);
+    const key = args.by === "category" ? r.category : args.by === "payee" ? r.payee : monthOf(r.date);
     const g = groups.get(key) ?? [0.0, 0];
     g[0] -= r.amount; g[1] += 1;
     groups.set(key, g);
@@ -152,8 +159,8 @@ async function txFromRef(conn: Conn, r: string): Promise<string | null> {
 }
 
 async function plan(conn: Conn): Promise<Row> {
-  const p = await insights.getPlan(conn);
-  const committed = await insights.committedTotal(conn);
+  const p = await getPlan(conn);
+  const committed = await committedTotal(conn);
   if (!p) return { plan: null, committed_limits: committed };
   return { ...p, committed_limits: committed, free_to_spend: pyRound(p.take_home - p.keep - committed, 2) };
 }
@@ -161,7 +168,7 @@ async function plan(conn: Conn): Promise<Row> {
 async function goals(conn: Conn): Promise<Row[]> {
   const out = [];
   for (const r of await conn.execute<Goal>("SELECT * FROM goals ORDER BY target_date")) {
-    const g = await insights.goalView(conn, r);
+    const g = await goalView(conn, r);
     out.push({ id: g.id, name: g.name, price: g.price, saved: g.saved, target_date: g.target_date, weekly: g.weekly, monthly: g.monthly });
   }
   return out;
@@ -203,7 +210,7 @@ export async function runAction(actionId: number): Promise<string> {
     const kind: string = row.kind;
     let result: string;
     if (kind === "set_category") {
-      const n = await insights.setServiceCategory(conn, p.service, p.category);
+      const n = await setServiceCategory(conn, p.service, p.category);
       result = `Moved ${n} ${p.service} payments to ${CATEGORIES[p.category][0]}.`;
     } else if (kind === "set_payment_category") {
       // The same rule the Spending list saves when one payment's category is changed.
@@ -217,17 +224,17 @@ export async function runAction(actionId: number): Promise<string> {
       await conn.execute(`INSERT INTO commitments(name, kind, monthly_limit, note, services, off_bank, created_at)
                           VALUES(?, ?, ?, ?, ?, ?, ?)`,
       [p.name, p.kind, p.monthly_limit, p.note ?? "", pyDumps(p.services ?? []), Math.max(0, p.off_bank ?? 0), now()]);
-      await insights.assignCommitments(conn);
+      await assignCommitments(conn);
       result = `${p.name} is committed, limit €${fmt0(p.monthly_limit)} a month.`;
     } else if (kind === "budget") {
-      const current = await insights.getPlan(conn);
+      const current = await getPlan(conn);
       if (!current) throw new Error("Set up the plan first.");
       current.budgets[p.category] = Number(p.amount);
       await db.setMeta(conn, "plan", current);
       result = `${CATEGORIES[p.category][0]} budget is now €${fmt0(p.amount)} a month.`;
     } else if (kind === "plan") {
-      const current = await insights.getPlan(conn);
-      await insights.savePlan(conn, p.take_home, p.keep, current ? current.budgets : null);
+      const current = await getPlan(conn);
+      await savePlan(conn, p.take_home, p.keep, current ? current.budgets : null);
       result = `Plan updated: take-home €${fmt0(p.take_home)}, keep €${fmt0(p.keep)}.`;
     } else if (kind === "goal") {
       if (PyDate.fromisoformat(p.target_date).n <= clock.serverToday().n) throw new Error("The goal date has to be in the future.");
@@ -242,8 +249,8 @@ export async function runAction(actionId: number): Promise<string> {
       await habits.addWish(conn, p.name, p.price);
       result = `${p.name} is on the thinking-about-it list. I'll ask again in two days.`;
     } else if (kind === "log_cash") {
-      await insights.logCash(conn, p.amount, p.category, p.note ?? "", p.date || insights.localToday().isoformat());
-      const left = (await insights.cashView(conn, p.date ? insights.monthOf(p.date) : insights.thisMonth())).unaccounted;
+      await logCash(conn, p.amount, p.category, p.note ?? "", p.date || localToday().isoformat());
+      const left = (await cashView(conn, p.date ? monthOf(p.date) : thisMonth())).unaccounted;
       result = `Logged €${fmt2c(p.amount)} cash as ${CATEGORIES[p.category][0]}. €${fmt0(left)} of this month's cash is still unaccounted for.`;
     } else {
       throw new Error(`Unknown change: ${kind}`);
@@ -296,7 +303,7 @@ async function detail(conn: Conn, kind: string, params: string): Promise<string 
   const r = (await conn.execute(`SELECT t.date, t.amount, t.merchant, t.description, t.mcc, a.is_card FROM transactions t
                                  JOIN accounts a ON a.id = t.account WHERE t.id = ?`, [JSON.parse(params).transaction_id])).one();
   if (!r) return null;
-  const name = insights.serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc);
+  const name = serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc);
   return `${name} · €${fmt2c(Math.abs(r.amount))} · ${dayMonth(PyDate.fromisoformat(r.date.slice(0, 10)), true)}`;
 }
 
@@ -337,15 +344,15 @@ const TOOL_STATUS: Record<string, string> = {
 /** The little the assistant knows before any tool call, sent with each message. It goes into the message rather
  * than the system prompt so the conversation stays append-only and the prompt caches. */
 async function context(conn: Conn): Promise<string> {
-  const today = insights.localToday();
+  const today = localToday();
   const v = await spending.view(conn, "month", 0);
   let line = `${CONTEXT}: today ${today.isoformat()} (${ai.dayName(today)}); pay month ${v.key} runs ${v.start} to ${v.end}, `
     + `day ${v.elapsed} of ${v.length}; free spending so far ${fmt0(v.total, false)}, usual by now ${fmt0(v.usual || 0, false)}`;
   const p = await plan(conn);
   if (p.free_to_spend != null) line += `; free to spend a month ${fmt0(p.free_to_spend, false)}`;
-  const extra = await insights.extraPay(conn);
+  const extra = await extraPay(conn);
   if (extra.length) line += `; next extra pay ${extra[0].name.toLowerCase()} about ${fmt0(extra[0].amount, false)} on ${extra[0].date} (not in the monthly budget)`;
-  const cash = (await insights.cashView(conn, insights.thisMonth())).unaccounted;
+  const cash = (await cashView(conn, thisMonth())).unaccounted;
   return line + (cash ? `; cash not yet accounted for ${fmt0(cash, false)}]` : "]");
 }
 

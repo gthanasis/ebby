@@ -16,7 +16,12 @@ import { EXPLAIN } from "./prompts/explain.js";
 import { WEEKLY_READ } from "./prompts/weekly_read.js";
 import { CATEGORIES } from "./categories.js";
 import { ASSISTANT_MODELS } from "./constants.js";
-import * as insights from "./insights.js";
+import { averages, getPlan } from "./plan.js";
+import { commitmentsView } from "./commitments.js";
+import { pace } from "./pace.js";
+import { serviceName } from "./services.js";
+import { subscriptions } from "./subscriptions.js";
+import { thisMonth } from "./months.js";
 
 
 
@@ -90,9 +95,9 @@ export const dayName = (d: PyDate) => DAY_NAMES[d.weekday()];
 async function context(conn: Conn): Promise<string> {
   const today = clock.serverToday();
   const since = today.addDays(-90).isoformat();
-  const month = insights.thisMonth();
-  const p = await insights.pace(conn, month);
-  const plan = await insights.getPlan(conn);
+  const month = thisMonth();
+  const p = await pace(conn, month);
+  const plan = await getPlan(conn);
   const lines = [`Today: ${today.isoformat()} (${dayName(today)}). Day ${p.elapsed} of ${p.days} of the pay month `
     + `(${p.start} to the day before ${p.end}); 'this month' below means this pay month.`];
   if (plan) {
@@ -106,14 +111,14 @@ async function context(conn: Conn): Promise<string> {
     if (c.spent || c.budget) lines.push(`- ${CATEGORIES[c.category][0]}: €${fmt0(c.spent)} / ${c.budget ? `€${fmt0(c.budget)}` : "no budget"} / ${c.count}`);
   }
   lines.push("\nLast 6 complete months, average per month by category:");
-  for (const [cat, avg] of sorted(Object.entries(await insights.averages(conn)), ([, a]) => -a)) lines.push(`- ${CATEGORIES[cat][0]}: €${fmt0(avg)}`);
-  const com = await insights.commitmentsView(conn, month);
+  for (const [cat, avg] of sorted(Object.entries(await averages(conn)), ([, a]) => -a)) lines.push(`- ${CATEGORIES[cat][0]}: €${fmt0(avg)}`);
+  const com = await commitmentsView(conn, month);
   if (com.items.length) {
     lines.push("\nCommitted costs (chosen, not to be cut; this month / limit): " + com.items.map((c: Row) =>
       `${c.name} €${fmt0(c.spent)} / €${fmt0(c.monthly_limit)}${c.over ? " (over)" : ""}${c.note ? ` (${c.note})` : ""}`).join("; "));
     lines.push("Budgets and 'this month' above cover free spending only.");
   }
-  const subs = await insights.subscriptions(conn);
+  const subs = await subscriptions(conn);
   if (subs.items.length) {
     lines.push(`\nSubscriptions: ${subs.count} active, €${fmt0(subs.monthly)}/month: `
       + subs.items.map((s: Row) => `${s.name} €${fmt0(s.monthly)}${s.stale ? " (no charge recently)" : ""}`).join(", "));
@@ -125,7 +130,7 @@ async function context(conn: Conn): Promise<string> {
     SELECT t.date, t.amount, t.currency, t.category, t.merchant, t.description, t.mcc, t.commitment_id, a.name AS account, a.is_card
     FROM transactions t JOIN accounts a ON a.id = t.account WHERE t.date >= ? AND t.duplicate_of IS NULL ORDER BY t.date
   `, [since])) {
-    const name = insights.serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc).replaceAll(",", " ");
+    const name = serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc).replaceAll(",", " ");
     const cur = r.currency === "EUR" ? "" : ` ${r.currency}`;
     const label = r.commitment_id ? "Committed" : (CATEGORIES[r.category] ?? [r.category])[0];
     lines.push(`${r.date},${fmt2(r.amount)}${cur},${label},${name},${r.account}`);
@@ -144,7 +149,7 @@ function failed(what: string, e: unknown): null {
 /** Generates and stores this week's read. Returns it, or null when it couldn't be made. */
 export async function weeklyRead(): Promise<Row | null> {
   if (!(await available())) return null;
-  const [ctx, plan] = await db.connect(async (conn) => [await context(conn), await insights.getPlan(conn)] as const);
+  const [ctx, plan] = await db.connect(async (conn) => [await context(conn), await getPlan(conn)] as const);
   const claude = await client("weekly_read");  // BudgetExceeded / NoAPIKey: the caller decides how to say so
   let response;
   try {

@@ -11,12 +11,14 @@ import { config } from "../config.js";
 import * as credentials from "../data/credentials.js";
 import * as db from "../data/db.js";
 import * as alerts from "../domain/alerts.js";
-import * as insights from "../domain/insights.js";
 import * as banks from "../integrations/banks.js";
 import { EnableBankingError } from "../integrations/enable_banking.js";
 import * as sync from "../jobs/sync.js";
 import { parseIso } from "../py.js";
 import { body, fail } from "./http.js";
+import { CASH_ACCOUNT } from "../domain/constants.js";
+import { questions } from "../domain/questions.js";
+import { thisMonth } from "../domain/months.js";
 
 const LIVE_SYNC_MINUTES = 15;
 
@@ -67,7 +69,7 @@ export function routes(app: Hono) {
         + "FROM accounts a ORDER BY bank, is_card, name")).rows,
       // The banks you've connected or started to; the rest are offered from GET /api/banks.
       (await db.connections(conn)).map((x) => ({ bank: x.bank, connected: Boolean(x.session_id), valid_until: x.valid_until, last_sync: x.last_sync, last_error: x.last_error })),
-      (await insights.questions(conn)).length,
+      (await questions(conn)).length,
     ] as const);
     const synced = connections.map((x) => x.last_sync).filter(Boolean).sort();
     return c.json({
@@ -75,8 +77,8 @@ export function routes(app: Hono) {
       // True when the bank redirects back to this app, so connecting needs no copy-paste.
       callback_in_app: !config.REDIRECT_URL.includes("localhost"),
       questions: openQuestions,
-      month: insights.thisMonth(),  // the pay month today is in
-      accounts: accounts.filter((a) => a.id !== insights.CASH_ACCOUNT),
+      month: thisMonth(),  // the pay month today is in
+      accounts: accounts.filter((a) => a.id !== CASH_ACCOUNT),
     });
   });
 

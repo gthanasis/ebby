@@ -8,17 +8,20 @@ import * as db from "../data/db.js";
 import * as ai from "../domain/ai.js";
 import * as assistant from "../domain/assistant.js";
 import { CATEGORIES } from "../domain/categories.js";
-import * as insights from "../domain/insights.js";
 import * as sorter from "../domain/sorter.js";
 import { pyDumps } from "../py.js";
 import { body, fail, int } from "./http.js";
+import { cashView } from "../domain/cash.js";
+import { clearServiceCategory, setServiceCategory } from "../domain/services.js";
+import { questions } from "../domain/questions.js";
+import { thisMonth } from "../domain/months.js";
 
 const ChatIn = z.object({ text: z.string() });
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export function routes(app: Hono) {
   app.get("/api/assistant", async (c) => {
-    const [qs, cash] = await db.connect(async (conn) => [await insights.questions(conn), await insights.cashView(conn, insights.thisMonth())] as const);
+    const [qs, cash] = await db.connect(async (conn) => [await questions(conn), await cashView(conn, thisMonth())] as const);
     return c.json({ ...(await assistant.display()), questions: qs, cash, ai: await ai.available() });
   });
 
@@ -70,7 +73,7 @@ export function routes(app: Hono) {
   app.post("/api/assistant/answer", async (c) => {
     const b = await body(c, z.object({ service: z.string(), category: z.string() }));
     if (!(b.category in CATEGORIES)) fail(400, "Unknown category");
-    return c.json(await db.connect(async (conn) => ({ moved: await insights.setServiceCategory(conn, b.service, b.category), questions: await insights.questions(conn) })));
+    return c.json(await db.connect(async (conn) => ({ moved: await setServiceCategory(conn, b.service, b.category), questions: await questions(conn) })));
   });
 
   app.get("/api/sorter", async (c) => c.json({ items: await db.connect((conn) => sorter.items(conn)), ai: await ai.available() }));
@@ -78,7 +81,7 @@ export function routes(app: Hono) {
   /** Take back an answer: the payee's rules go, so its payments are worked out as before. */
   app.post("/api/sorter/undo", async (c) => {
     const b = await body(c, z.object({ service: z.string() }));
-    return c.json({ moved: await db.connect((conn) => insights.clearServiceCategory(conn, b.service)) });
+    return c.json({ moved: await db.connect((conn) => clearServiceCategory(conn, b.service)) });
   });
 
   app.post("/api/sorter/guess", async (c) => {

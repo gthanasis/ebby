@@ -20,7 +20,7 @@ import * as transactions from "./api/transactions.js";
 import { config, secrets } from "./config.js";
 import * as db from "./data/db.js";
 import * as users from "./data/users.js";
-import * as insights from "./domain/insights.js";
+import { loadPayday } from "./domain/months.js";
 
 const PUBLIC_PATHS = new Set(["/api/healthz"]);
 const store = new users.Store();
@@ -71,7 +71,7 @@ export function createApp(): Hono {
     if (userId == null) return c.text("No users yet: set ADMIN_EMAIL or run `ebby add-user EMAIL --admin`.", 503);
     // Everything downstream (routes, their background work, streams) reads and writes as this user.
     return db.asUser(userId, async () => {
-      await insights.loadPayday();
+      await loadPayday();
       await next();
     });
   });

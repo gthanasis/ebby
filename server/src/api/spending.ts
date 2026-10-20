@@ -8,10 +8,16 @@ import * as db from "../data/db.js";
 import * as ai from "../domain/ai.js";
 import * as aiUsage from "../domain/ai_usage.js";
 import { CATEGORIES } from "../domain/categories.js";
-import * as insights from "../domain/insights.js";
 import * as spending from "../domain/spending.js";
 import * as common from "./common.js";
 import { body, fail, int, integer, required } from "./http.js";
+import { serviceDetail, serviceTransactionIds } from "../domain/services.js";
+import { categoryDetail } from "../domain/category.js";
+import { detectPayday, thisMonth } from "../domain/months.js";
+import { pace } from "../domain/pace.js";
+import { subscriptions } from "../domain/subscriptions.js";
+import { todayView } from "../domain/today.js";
+import { year } from "../domain/year.js";
 
 const RANGE_ERROR = "range is day, week, month or year; off is 0 or less";
 
@@ -20,9 +26,9 @@ export function routes(app: Hono) {
     const synced = (await db.connections(conn)).filter((x) => x.session_id && x.last_sync).map((x) => x.last_sync).sort();
     const settings = await common.settings(conn);
     return {
-      month: await insights.todayView(conn), fresh_at: synced[0] ?? null,
+      month: await todayView(conn), fresh_at: synced[0] ?? null,
       // Until payday is set (or the nudge dismissed), offer the one the deposits point to.
-      payday_hint: settings.payday || settings.payday_dismissed ? null : await insights.detectPayday(conn),
+      payday_hint: settings.payday || settings.payday_dismissed ? null : await detectPayday(conn),
     };
   })));
 
@@ -63,18 +69,18 @@ export function routes(app: Hono) {
     return c.json(await db.connect((conn) => spending.category(conn, category, range, off)));
   });
 
-  app.get("/api/pace", async (c) => c.json(await db.connect((conn) => insights.pace(conn, c.req.query("month") || insights.thisMonth()))));
+  app.get("/api/pace", async (c) => c.json(await db.connect((conn) => pace(conn, c.req.query("month") || thisMonth()))));
 
   app.get("/api/category/:category", async (c) => {
     const category = c.req.param("category");
     if (!(category in CATEGORIES)) fail(404, "Unknown category");
-    return c.json(await db.connect((conn) => insights.categoryDetail(conn, category, c.req.query("month") || insights.thisMonth())));
+    return c.json(await db.connect((conn) => categoryDetail(conn, category, c.req.query("month") || thisMonth())));
   });
 
   app.get("/api/service", async (c) => {
     const category = required(c.req.query("category"), "category"), name = required(c.req.query("name"), "name");
     if (!(category in CATEGORIES)) fail(404, "Unknown category");
-    return c.json(await db.connect((conn) => insights.serviceDetail(conn, category, name, c.req.query("month") || insights.thisMonth())));
+    return c.json(await db.connect((conn) => serviceDetail(conn, category, name, c.req.query("month") || thisMonth())));
   });
 
   /** Moves a whole service to another category, now and for future charges from the same merchant. */
@@ -82,7 +88,7 @@ export function routes(app: Hono) {
     const b = await body(c, z.object({ category: z.string(), name: z.string(), to: z.string() }));
     if (!(b.to in CATEGORIES)) fail(400, "Unknown category");
     const moved = await db.connect(async (conn) => {
-      const ids = await insights.serviceTransactionIds(conn, b.category, b.name);
+      const ids = await serviceTransactionIds(conn, b.category, b.name);
       const rows = ids.length ? (await conn.execute(`SELECT id, merchant FROM transactions WHERE id IN (${ids.map(() => "?").join(",")})`, ids)).rows : [];
       for (const r of rows) {
         await conn.execute("INSERT INTO rules(merchant, category) VALUES(?, ?) ON CONFLICT(user_id, merchant) DO UPDATE SET category = excluded.category",
@@ -94,11 +100,11 @@ export function routes(app: Hono) {
     return c.json({ moved });
   });
 
-  app.get("/api/subscriptions", async (c) => c.json(await db.connect((conn) => insights.subscriptions(conn))));
+  app.get("/api/subscriptions", async (c) => c.json(await db.connect((conn) => subscriptions(conn))));
 
   app.get("/api/year", async (c) => {
     const y = int(c.req.query("year"), "year", null);
-    return c.json(await db.connect((conn) => insights.year(conn, y || clock.serverToday().year)));
+    return c.json(await db.connect((conn) => year(conn, y || clock.serverToday().year)));
   });
 
   app.post("/api/insights/refresh", async (c) => {

@@ -14,9 +14,11 @@ import { type Conn, first, type Row } from "../data/db.js";
 import type { SpendRow } from "./spending.js";
 import { fmt0, fmtG, isoUtc, maxBy, parseIso, PyDate, pyRound, sorted, sum } from "../py.js";
 import { CATEGORIES } from "./categories.js";
-import { PAYDAY_MIN } from "./constants.js";
-import * as insights from "./insights.js";
+import { CASH_ACCOUNT, PAYDAY_MIN } from "./constants.js";
 import type { HabitRule, Wish, YearlyCost } from "../types/entities.js";
+import { getPlan } from "./plan.js";
+import { localToday, monthBounds, thisMonth } from "./months.js";
+import { spentBetween } from "./today.js";
 
 const SAVINGS_HINTS = ["αποταμίευση", "saving", "spare", "fund", "pocket"];
 const DEFAULT_WORK_HOURS = 160;
@@ -28,7 +30,7 @@ const now = () => clock.now();
 
 async function accounts(conn: Conn): Promise<Row[]> {
   return (await conn.execute("SELECT id, bank, name, is_card FROM accounts WHERE is_card = 0 AND id != ? ORDER BY bank, name",
-    [insights.CASH_ACCOUNT])).rows;
+    [CASH_ACCOUNT])).rows;
 }
 
 export async function savingsAccountIds(conn: Conn): Promise<string[]> {
@@ -48,10 +50,10 @@ export async function lastPayday(conn: Conn): Promise<Row | null> {
 }
 
 export async function payYourselfFirst(conn: Conn): Promise<Row> {
-  const plan = await insights.getPlan(conn);
+  const plan = await getPlan(conn);
   const ids = await savingsAccountIds(conn);
   const payday = await lastPayday(conn);
-  const since = payday ? payday.date : insights.monthBounds(insights.thisMonth())[0];
+  const since = payday ? payday.date : monthBounds(thisMonth())[0];
   let saved = 0.0;
   if (ids.length) {
     saved = first((await conn.execute(`SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE account IN (${ids.map(() => "?").join(",")})
@@ -66,19 +68,19 @@ export async function payYourselfFirst(conn: Conn): Promise<Row> {
 // ---------- no-spend days ----------
 
 export async function noSpend(conn: Conn): Promise<Row> {
-  const today = insights.localToday();
+  const today = localToday();
   const monday = today.addDays(-today.weekday());
   const week = [];
   for (let i = 0; i < 7; i++) {
     const d = monday.addDays(i);
-    week.push({ date: d.isoformat(), spent: d.n <= today.n ? await insights.spentBetween(conn, d, d) : null });
+    week.push({ date: d.isoformat(), spent: d.n <= today.n ? await spentBetween(conn, d, d) : null });
   }
   // Today isn't over, so it doesn't count yet (card payments also land a day late).
   const done = week.filter((w) => w.spent != null && w.date < today.isoformat());
-  const firstDay = PyDate.fromisoformat(insights.monthBounds(insights.thisMonth())[0]);
+  const firstDay = PyDate.fromisoformat(monthBounds(thisMonth())[0]);
   let best = 0, run = 0;
   for (let d = firstDay; d.n < today.n; d = d.addDays(1)) {
-    run = (await insights.spentBetween(conn, d, d)) <= 0 ? run + 1 : 0;
+    run = (await spentBetween(conn, d, d)) <= 0 ? run + 1 : 0;
     best = Math.max(best, run);
   }
   return { week, count_week: done.filter((w) => w.spent! <= 0).length, days_done: done.length, best_month: best };
@@ -87,7 +89,7 @@ export async function noSpend(conn: Conn): Promise<Row> {
 // ---------- the 48-hour list ----------
 
 export async function hourlyRate(conn: Conn): Promise<number | null> {
-  const plan = await insights.getPlan(conn);
+  const plan = await getPlan(conn);
   const hours = (await db.getMeta(conn, "settings"))?.work_hours ?? DEFAULT_WORK_HOURS;
   return plan && hours ? pyRound(plan.take_home / hours, 2) : null;
 }
@@ -124,7 +126,7 @@ export async function dueReminders(conn: Conn): Promise<Row[]> {
 // ---------- yearly costs (set aside monthly) ----------
 
 export async function yearly(conn: Conn): Promise<Row> {
-  const today = insights.localToday();
+  const today = localToday();
   const items: Row[] = [];
   for (const y of await conn.execute<YearlyCost>("SELECT * FROM yearly_costs ORDER BY due_month")) {
     const due = new PyDate(today.year + (y.due_month < today.month ? 1 : 0), y.due_month, 1);
@@ -140,7 +142,7 @@ export async function yearly(conn: Conn): Promise<Row> {
 
 /** Charges that come once a year: insurance and annual fees in the last 15 months. */
 export async function yearlySuggestions(conn: Conn): Promise<Row[]> {
-  const since = insights.localToday().addDays(-460).isoformat();
+  const since = localToday().addDays(-460).isoformat();
   const rows = (await conn.execute(`SELECT date, amount, description, merchant FROM transactions
     WHERE date >= ? AND amount < -30 AND duplicate_of IS NULL AND currency = 'EUR' AND status != 'OFFSET'
       AND (description LIKE '%ΑΣΦΑΛ%' OR description LIKE '%ΑSFΑL%' OR description LIKE '%ΕΤΗΣΙΑ%' OR description LIKE '%INTERAMERICAN%'
@@ -211,7 +213,7 @@ async function boughtWishes(conn: Conn, a: PyDate, b: PyDate): Promise<number[]>
 
 /** The habit's number for the days a..b: payments, euros, no-spend days or wishlist skips. */
 async function measure(conn: Conn, r: HabitRule, a: PyDate, b: PyDate, rows: SpendRow[]): Promise<{ value: number; spent: number | null }> {
-  const today = insights.localToday();
+  const today = localToday();
   const mine = rows.filter((x) => x.category === r.category);
   if (r.type === "fewer") return { value: mine.length, spent: pyRound(sum(mine.map((x) => x.amount)), 2) };
   if (r.type === "spend_less") return { value: pyRound(sum(mine.map((x) => x.amount)), 2), spent: pyRound(sum(mine.map((x) => x.amount)), 2) };
@@ -263,7 +265,7 @@ export async function ruleRows(conn: Conn): Promise<HabitRule[]> {
 
 export async function habitView(conn: Conn, r: HabitRule, detail = false): Promise<Row> {
   const spending = await import("./spending.js");
-  const today = insights.localToday();
+  const today = localToday();
   const monday = mondayOf(today);
   const sunday = monday.addDays(6);
   const created = mondayOf(PyDate.fromisoformat(r.created_at.slice(0, 10)));
@@ -312,7 +314,7 @@ export async function habitView(conn: Conn, r: HabitRule, detail = false): Promi
 /** The last WEEKS finished weeks: payments and euros per category, no-spend days, buys over €50. */
 async function weeklyStats(conn: Conn): Promise<{ cats: Map<string, [number, number, number[]]>; nospend: number; enough: boolean }> {
   const spending = await import("./spending.js");
-  const monday = mondayOf(insights.localToday());
+  const monday = mondayOf(localToday());
   const a = monday.addDays(-7 * WEEKS);
   const rows = await spending.rows(conn, a, monday.addDays(-1));
   const cats = new Map<string, [number, number, number[]]>();
@@ -374,7 +376,7 @@ export async function weekly(conn: Conn): Promise<Row> {
   const rules = await ruleRows(conn);
   const items = [];
   for (const r of rules) items.push(await habitView(conn, r));
-  const today = insights.localToday();
+  const today = localToday();
   const monday = mondayOf(today);
   const order: Record<string, number> = { missed: 0, at_risk: 1 };
   const worry = sorted(items.filter((h) => h.status in order), (h) => order[h.status]);

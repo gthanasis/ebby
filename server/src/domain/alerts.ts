@@ -7,7 +7,10 @@ import * as push from "../integrations/push.js";
 import { fmt0, sorted } from "../py.js";
 import { CATEGORIES } from "./categories.js";
 import * as habits from "./habits.js";
-import * as insights from "./insights.js";
+import { commitmentsView } from "./commitments.js";
+import { getPlan } from "./plan.js";
+import { pace } from "./pace.js";
+import { thisMonth } from "./months.js";
 
 const LEVELS: Record<string, number> = { ahead: 1, over: 2 };
 
@@ -18,7 +21,7 @@ export const quietHours = () => { const h = localNow().hour; return !(9 <= h && 
 export async function pending(conn: Conn, month: string): Promise<Row[]> {
   const sent = ((await db.getMeta(conn, "alerts_sent")) || {})[month] || {};
   const out = [];
-  for (const c of (await insights.pace(conn, month)).categories) {
+  for (const c of (await pace(conn, month)).categories) {
     const level = LEVELS[c.status];
     if (level && level > (sent[c.category] ?? 0)) out.push({ ...c, level });
   }
@@ -28,7 +31,7 @@ export async function pending(conn: Conn, month: string): Promise<Row[]> {
 /** Warns once a month per commitment that goes past its limit. No other advice: it's a chosen cost. */
 export async function checkCommitments(conn: Conn, month: string): Promise<number> {
   const sent: number[] = ((await db.getMeta(conn, "commitment_alerts")) || {})[month] || [];
-  const over = (await insights.commitmentsView(conn, month)).items.filter((c: Row) => c.over && !sent.includes(c.id));
+  const over = (await commitmentsView(conn, month)).items.filter((c: Row) => c.over && !sent.includes(c.id));
   if (!over.length) return 0;
   let title: string, body: string;
   if (over.length === 1) {
@@ -62,12 +65,12 @@ export async function checkWishlist(conn: Conn): Promise<number> {
 /** Sends due alerts. Returns how many notifications went out. */
 export async function check(): Promise<number> {
   if (quietHours()) return 0;  // left pending; the next check after 09:00 sends them
-  const month = insights.thisMonth();
+  const month = thisMonth();
   return db.connect(async (conn) => {
     const settings = (await db.getMeta(conn, "settings")) || {};
     if (settings.alerts ?? true) await checkCommitments(conn, month);
     await checkWishlist(conn);
-    if (!(await insights.getPlan(conn)) || !(settings.alerts ?? true)) return 0;
+    if (!(await getPlan(conn)) || !(settings.alerts ?? true)) return 0;
     const due = sorted(await pending(conn, month), (c) => -(c.spent - (c.budget || 0)));
     if (!due.length) return 0;
     const top = due[0];

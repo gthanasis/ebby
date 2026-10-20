@@ -11,6 +11,9 @@ import * as categories from "../domain/categories.js";
 import * as banks from "../integrations/banks.js";
 import { type Client, EnableBankingError, MAX_HISTORY_DAYS, type Psu } from "../integrations/enable_banking.js";
 import { isoUtc, parseIso } from "../py.js";
+import { assignCommitments } from "../domain/commitments.js";
+import { autofill } from "../domain/plan.js";
+import { loadPayday } from "../domain/months.js";
 
 export const nowIso = () => isoUtc(clock.now(), "seconds");
 
@@ -93,9 +96,8 @@ export async function syncBank(client: Client, connRow: Row, psu: Psu = null): P
     }
     const pairs = await db.connect(async (conn) => {
       const made = await db.dedupe(conn);
-      const insights = await import("../domain/insights.js");
-      await insights.assignCommitments(conn);  // new rows from this sync
-      await insights.autofill(conn);  // first import: set the plan up from the transactions
+      await assignCommitments(conn);  // new rows from this sync
+      await autofill(conn);  // first import: set the plan up from the transactions
       await db.updateConnection(conn, bank, { last_sync: nowIso(), last_error: null, backfill: 0 });
       return made;
     });
@@ -153,12 +155,11 @@ export function runScheduler() {
   started = true;
 
   const forUser = async () => {
-    const insights = await import("../domain/insights.js");
     const alerts = await import("../domain/alerts.js");
     const ai = await import("../domain/ai.js");
     const aiUsage = await import("../domain/ai_usage.js");
     const push = await import("../integrations/push.js");
-    await insights.loadPayday();
+    await loadPayday();
     const last = await db.connect(async (conn) => {
       if ((await db.getMeta(conn, "categories_version")) !== categories.VERSION) {
         await db.recategorize(conn);  // categories changed since this history was sorted
