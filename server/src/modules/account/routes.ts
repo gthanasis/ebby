@@ -9,16 +9,16 @@ import * as db from "../../shared/db.js";
 import * as aiUsageRepo from "../assistant/ai_usage_repo.js";
 import type { Conn } from "../../shared/db.js";
 import * as users from "./repo.js";
+import { toMe, toOnboarding, toPerson } from "./converters.js";
 import * as vault from "../../shared/vault.js";
 import * as aiUsage from "../assistant/ai_usage.js";
-import { pyRound } from "../../shared/utils/python.js";
 import { body, fail, HttpError, int, mapErrors, num } from "../../shared/http.js";
 import { localToday } from "../../shared/months.js";
 
 async function onboarding(conn: Conn) {
   const keys = await credentials.publicInfo(conn);
   const connected = (await db.connections(conn)).filter((c) => c.session_id).length;
-  return { bank_access: "enable_banking" in keys, banks_connected: connected, done: Boolean(await db.getMeta(conn, "onboarded")) };
+  return toOnboarding(keys, connected, await db.getMeta(conn, "onboarded"));
 }
 
 async function admin() {
@@ -37,12 +37,8 @@ export function routes(app: Hono) {
       // What counts against the allowance: calls on the owner's key this month.
       await aiUsageRepo.spentOnOwnerKey(conn, since),
     ] as const);
-    return c.json({
-      email: person.email, name: person.name, picture: person.picture, is_admin: person.is_admin,
-      ai_budget_usd: person.ai_budget_usd, ai_spent_usd: pyRound(spent, 2), credentials: keys, onboarding: ob,
-      // What each person allows on their own Enable Banking app, so banks can send them back here.
-      eb_redirect_url: config.REDIRECT_URL,
-    });
+    // What each person allows on their own Enable Banking app, so banks can send them back here.
+    return c.json(toMe(person, spent, keys, ob, config.REDIRECT_URL));
   });
 
   app.post("/api/credentials/enable-banking", async (c) => {
@@ -75,7 +71,7 @@ export function routes(app: Hono) {
 
   app.get("/api/people", async (c) => {
     await admin();
-    return c.json(await users.people(monthStart()));
+    return c.json((await users.people(monthStart())).map(toPerson));
   });
 
   app.post("/api/people", async (c) => {
@@ -89,6 +85,6 @@ export function routes(app: Hono) {
     const userId = int(c.req.param("userId"), "user_id", 0);
     const b = await body(c, z.object({ status: z.enum(["active", "disabled"]).nullable().optional(), ai_budget_usd: budget }));
     await users.update(userId, { status: b.status ?? null, aiBudgetUsd: b.ai_budget_usd ?? null });
-    return c.json(await users.people(monthStart()));
+    return c.json((await users.people(monthStart())).map(toPerson));
   });
 }
