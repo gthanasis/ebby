@@ -132,11 +132,12 @@ async function weeklyReadDue(): Promise<boolean> {
   const now = clock.localNow();
   if (!(await ai.available()) || now.weekday !== 0 || now.hour < 9) return false;
   return db.connect(async (conn) => {
-    const read = (await db.getMeta<any>(conn, "weekly_read")) || {};
-    const settings = (await db.getMeta<any>(conn, "settings")) || {};
+    const read = await db.getMeta(conn, "weekly_read");
+    const settings = (await db.getMeta(conn, "settings")) || {};
     if (!(settings.weekly_read ?? true)) return false;
-    if (!read.created_at) return true;
-    const [y, w] = clock.wallClock(parseIso(read.created_at), "UTC").date.isocalendar()  // as stored (UTC), like the Python app;
+    if (!read?.created_at) return true;
+    // The week it was made in, as stored (UTC), like the Python app.
+    const [y, w] = clock.wallClock(parseIso(read.created_at), "UTC").date.isocalendar();
     const [ny, nw] = now.date.isocalendar();
     return y !== ny || w !== nw;
   });
@@ -163,7 +164,7 @@ export function runScheduler() {
         await db.recategorize(conn);  // categories changed since this history was sorted
         await db.setMeta(conn, "categories_version", categories.VERSION);
       }
-      return db.getMeta<string>(conn, "last_attempt");
+      return db.getMeta(conn, "last_attempt");
     });
     const due = !last || parseIso(last).getTime() < clock.now().getTime() - config.SYNC_HOURS * 3600_000;
     if (due) await sync();

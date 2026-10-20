@@ -20,6 +20,7 @@ import { CATEGORIES, SPENDING } from "./categories.js";
 import * as insights from "./insights.js";
 import { ASSISTANT } from "./prompts/assistant.js";
 import * as spending from "./spending.js";
+import type { Goal } from "../types/entities.js";
 
 const MAX_TOOL_ROUNDS = 6;
 const CATEGORY_IDS = Object.keys(CATEGORIES);
@@ -159,7 +160,7 @@ async function plan(conn: Conn): Promise<Row> {
 
 async function goals(conn: Conn): Promise<Row[]> {
   const out = [];
-  for (const r of await conn.execute("SELECT * FROM goals ORDER BY target_date")) {
+  for (const r of await conn.execute<Goal>("SELECT * FROM goals ORDER BY target_date")) {
     const g = await insights.goalView(conn, r);
     out.push({ id: g.id, name: g.name, price: g.price, saved: g.saved, target_date: g.target_date, weekly: g.weekly, monthly: g.monthly });
   }
@@ -271,7 +272,7 @@ async function store(conn: Conn, conversation: number, role: string, content: un
 }
 
 export async function currentConversation(conn: Conn): Promise<number> {
-  return (await db.getMeta<number>(conn, "assistant_conversation")) || 1;
+  return (await db.getMeta(conn, "assistant_conversation")) || 1;
 }
 
 export async function newConversation() {

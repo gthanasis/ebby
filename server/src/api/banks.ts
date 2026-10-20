@@ -123,7 +123,7 @@ export function routes(app: Hono) {
     const psu = psuHeaders(c);
     if (!psu) return c.json({ started: false, reason: "no public IP to send" });
     if (await sync.isSyncing()) return c.json({ started: false, reason: "already syncing" });
-    const last = await db.connect((conn) => db.getMeta<string>(conn, "last_live_sync"));
+    const last = await db.connect((conn) => db.getMeta(conn, "last_live_sync"));
     if (last && parseIso(last).getTime() > clock.now().getTime() - LIVE_SYNC_MINUTES * 60_000) return c.json({ started: false, reason: "synced recently" });
     sync.background(async () => { if (await sync.sync(psu)) await alerts.check(); });
     return c.json({ started: true });

@@ -11,10 +11,12 @@
 import * as clock from "../clock.js";
 import * as db from "../data/db.js";
 import { type Conn, first, type Row } from "../data/db.js";
+import type { SpendRow } from "./spending.js";
 import { fmt0, fmtG, isoUtc, maxBy, parseIso, PyDate, pyRound, sorted, sum } from "../py.js";
 import { CATEGORIES } from "./categories.js";
 import { PAYDAY_MIN } from "./constants.js";
 import * as insights from "./insights.js";
+import type { HabitRule, Wish, YearlyCost } from "../types/entities.js";
 
 const SAVINGS_HINTS = ["αποταμίευση", "saving", "spare", "fund", "pocket"];
 const DEFAULT_WORK_HOURS = 160;
@@ -30,7 +32,7 @@ async function accounts(conn: Conn): Promise<Row[]> {
 }
 
 export async function savingsAccountIds(conn: Conn): Promise<string[]> {
-  const chosen = await db.getMeta<string[]>(conn, "savings_accounts");
+  const chosen = await db.getMeta(conn, "savings_accounts");
   if (chosen != null) return chosen;
   // Default: accounts named like savings, and Revolut pockets (named by you, not "Revolut EUR").
   return (await accounts(conn)).filter((a) => {
@@ -86,7 +88,7 @@ export async function noSpend(conn: Conn): Promise<Row> {
 
 export async function hourlyRate(conn: Conn): Promise<number | null> {
   const plan = await insights.getPlan(conn);
-  const hours = (await db.getMeta<any>(conn, "settings"))?.work_hours ?? DEFAULT_WORK_HOURS;
+  const hours = (await db.getMeta(conn, "settings"))?.work_hours ?? DEFAULT_WORK_HOURS;
   return plan && hours ? pyRound(plan.take_home / hours, 2) : null;
 }
 
@@ -94,7 +96,7 @@ export async function wishlist(conn: Conn): Promise<Row[]> {
   const rate = await hourlyRate(conn);
   const at = now();
   const out = [];
-  for (const r of await conn.execute("SELECT * FROM wishlist WHERE decision IS NULL ORDER BY created_at")) {
+  for (const r of await conn.execute<Wish>("SELECT * FROM wishlist WHERE decision IS NULL ORDER BY created_at")) {
     const readyAt = new Date(parseIso(r.created_at).getTime() + WAIT_MS);
     out.push({ ...r, ready_at: isoUtc(readyAt, "seconds"), ready: at.getTime() >= readyAt.getTime(), hours_of_work: rate ? pyRound(r.price / rate, 1) : null });
   }
@@ -124,7 +126,7 @@ export async function dueReminders(conn: Conn): Promise<Row[]> {
 export async function yearly(conn: Conn): Promise<Row> {
   const today = insights.localToday();
   const items: Row[] = [];
-  for (const y of await conn.execute("SELECT * FROM yearly_costs ORDER BY due_month")) {
+  for (const y of await conn.execute<YearlyCost>("SELECT * FROM yearly_costs ORDER BY due_month")) {
     const due = new PyDate(today.year + (y.due_month < today.month ? 1 : 0), y.due_month, 1);
     const monthsLeft = (due.year - today.year) * 12 + due.month - today.month;
     items.push({ ...y, monthly: pyRound(y.yearly_amount / 12, 2), next_due: due.isoformat().slice(0, 7), months_left: monthsLeft });
@@ -183,13 +185,18 @@ const NOUNS: Record<string, [string, string]> = {
   delivery: ["delivery", "deliveries"], eating_out: ["meal out", "meals out"], coffee_bars: ["coffee or drink out", "coffees and drinks out"],
 };
 const WEEKS = 8;
+
+/** One week of a habit: its number, what was spent (for the money habits), and whether it was kept. */
+interface Week { start: string; value: number; spent: number | null; status: string; counted: boolean; current: boolean }
+/** A habit worth starting, with why and what it would save a month (null when it's not about money). */
+type Suggestion = Pick<HabitRule, "type" | "category" | "target"> & { why: string; monthly: number | null };
 const WEEKS_A_MONTH = 4.33;
 
 const mondayOf = (d: PyDate) => d.addDays(-d.weekday());
 const catLabel = (c: string | null) => (c && c in CATEGORIES ? CATEGORIES[c][0].toLowerCase() : "spending");
-const plural = (r: Row) => (NOUNS[r.category] ?? [null, `${catLabel(r.category)} payments`])[1];
+const plural = (r: Pick<HabitRule, "category">) => (NOUNS[r.category ?? ""] ?? [null, `${catLabel(r.category)} payments`])[1];
 
-export function habitTitle(r: Row): string {
+export function habitTitle(r: Pick<HabitRule, "type" | "target" | "category">): string {
   const t = r.type, n = r.target;
   if (t === "fewer") return `${fmtG(n)} or fewer ${plural(r)}`;
   if (t === "spend_less") return `Under €${fmt0(n)} a week on ${catLabel(r.category)}`;
@@ -203,7 +210,7 @@ async function boughtWishes(conn: Conn, a: PyDate, b: PyDate): Promise<number[]>
 }
 
 /** The habit's number for the days a..b: payments, euros, no-spend days or wishlist skips. */
-async function measure(conn: Conn, r: Row, a: PyDate, b: PyDate, rows: Row[]): Promise<Row> {
+async function measure(conn: Conn, r: HabitRule, a: PyDate, b: PyDate, rows: SpendRow[]): Promise<{ value: number; spent: number | null }> {
   const today = insights.localToday();
   const mine = rows.filter((x) => x.category === r.category);
   if (r.type === "fewer") return { value: mine.length, spent: pyRound(sum(mine.map((x) => x.amount)), 2) };
@@ -224,7 +231,7 @@ async function measure(conn: Conn, r: Row, a: PyDate, b: PyDate, rows: Row[]): P
   return { value: skipped, spent: null };
 }
 
-function status(r: Row, value: number, finished: boolean, daysLeft: number): string {
+function status(r: HabitRule, value: number, finished: boolean, daysLeft: number): string {
   const t = r.type, n = r.target;
   if (t === "nospend") {
     if (value >= n) return "kept";
@@ -239,7 +246,7 @@ function status(r: Row, value: number, finished: boolean, daysLeft: number): str
   return "on_track";
 }
 
-function nudge(r: Row, m: Row, st: string, daysLeft: number): string {
+function nudge(r: HabitRule, m: { value: number }, st: string, daysLeft: number): string {
   const t = r.type, n = r.target, v = m.value;
   if (t === "fewer") return st === "missed" ? `${fmtG(v)} this week, over your ${fmtG(n)}.` : `No more ${plural(r)} this week keeps it.`;
   if (t === "spend_less") return st === "missed" ? `€${fmt0(v)} this week, over your €${fmt0(n)}.` : `€${fmt0(n - v)} left on ${catLabel(r.category)} this week.`;
@@ -250,11 +257,11 @@ function nudge(r: Row, m: Row, st: string, daysLeft: number): string {
   return `A buy over €${fmt0(n)} skipped the wishlist this week.`;
 }
 
-export async function ruleRows(conn: Conn): Promise<Row[]> {
-  return (await conn.execute("SELECT * FROM habit_rules ORDER BY created_at, id")).rows;
+export async function ruleRows(conn: Conn): Promise<HabitRule[]> {
+  return (await conn.execute<HabitRule>("SELECT * FROM habit_rules ORDER BY created_at, id")).rows;
 }
 
-export async function habitView(conn: Conn, r: Row, detail = false): Promise<Row> {
+export async function habitView(conn: Conn, r: HabitRule, detail = false): Promise<Row> {
   const spending = await import("./spending.js");
   const today = insights.localToday();
   const monday = mondayOf(today);
@@ -262,7 +269,7 @@ export async function habitView(conn: Conn, r: Row, detail = false): Promise<Row
   const created = mondayOf(PyDate.fromisoformat(r.created_at.slice(0, 10)));
   const daysLeft = 7 - today.weekday();  // today included
   const rows = await spending.rows(conn, monday.addDays(-7 * WEEKS), sunday);
-  const weeks: Row[] = [];
+  const weeks: Week[] = [];
   for (let i = WEEKS; i >= 0; i--) {
     const a = monday.addDays(-7 * i), b = a.addDays(6);
     const wk = rows.filter((x) => a.isoformat() <= x.date && x.date <= b.isoformat());
@@ -291,8 +298,9 @@ export async function habitView(conn: Conn, r: Row, detail = false): Promise<Row
       const d = monday.addDays(i);
       if (d.n > today.n) { days.push({ date: d.isoformat(), value: null }); continue; }
       const m = await measure(conn, r, d, d, rows.filter((x) => x.date === d.isoformat()));
-      if (r.type === "nospend") m.value = rows.some((x) => x.date === d.isoformat()) ? 0 : d.n < today.n ? 1 : null;
-      days.push({ date: d.isoformat(), value: m.value });
+      // A no-spend day counts once it's over: 1 kept, 0 spent on; today is still open.
+      const value = r.type === "nospend" ? (rows.some((x) => x.date === d.isoformat()) ? 0 : d.n < today.n ? 1 : null) : m.value;
+      days.push({ date: d.isoformat(), value });
     }
     out.days = days;
     const goal = r.goal_id ? (await conn.execute("SELECT id, name FROM goals WHERE id = ?", [r.goal_id])).one() : null;
@@ -321,17 +329,17 @@ async function weeklyStats(conn: Conn): Promise<{ cats: Map<string, [number, num
 }
 
 /** Habits one step better than how you spend now, biggest saving first. Three at most. */
-export async function suggestions(conn: Conn, taken: Row[]): Promise<Row[]> {
+export async function suggestions(conn: Conn, taken: HabitRule[]): Promise<Row[]> {
   const s = await weeklyStats(conn);
   if (!s.enough) return [];
   const used = new Set(taken.map((r) => `${r.type}|${r.category ?? ""}`));
   const usedCats = new Set(taken.filter((r) => r.category).map((r) => r.category));
-  const out: Row[] = [];
+  const out: Suggestion[] = [];
   for (const cat of ["delivery", "eating_out", "coffee_bars", "shopping"]) {
     if (usedCats.has(cat) || !s.cats.has(cat)) continue;
     const [n, total] = s.cats.get(cat)!;
     const perWeek = n / WEEKS, spendWeek = total / WEEKS;
-    const options: Row[] = [];
+    const options: Suggestion[] = [];
     if (cat in NOUNS && perWeek >= 3) {
       const target = Math.max(1, pyRound(perWeek) - 1);
       options.push({ type: "fewer", category: cat, target, why: `You have about ${fmt0(perWeek, false)} a week, €${fmt0(total / n)} each.`,
@@ -342,7 +350,7 @@ export async function suggestions(conn: Conn, taken: Row[]): Promise<Row[]> {
       options.push({ type: "spend_less", category: cat, target, why: `You usually spend about €${fmt0(spendWeek)} a week.`,
         monthly: pyRound((spendWeek - target) * WEEKS_A_MONTH, 2) });
     }
-    if (options.length) out.push(maxBy(options, (o) => o.monthly)!);
+    if (options.length) out.push(maxBy(options, (o) => o.monthly ?? 0)!);
   }
   if (!used.has("nospend|") && pyRound(s.nospend) < 4) {
     const current = pyRound(s.nospend);
@@ -357,7 +365,7 @@ export async function suggestions(conn: Conn, taken: Row[]): Promise<Row[]> {
       why: `Shopping was €${fmt0(total)} in the last ${WEEKS} weeks, €${fmt0(total / shopping[2].length)} a time.`, monthly: null });
   }
   // The two that save the most, then the ones about how you spend (no-spend days, waiting first).
-  const money = sorted(out.filter((o) => o.monthly), (o) => -o.monthly).slice(0, 2);
+  const money = sorted(out.filter((o) => o.monthly), (o) => -o.monthly!).slice(0, 2);
   return [...money, ...out.filter((o) => !o.monthly)].map((o) => ({ ...o, title: habitTitle(o) })).slice(0, 4);
 }
 

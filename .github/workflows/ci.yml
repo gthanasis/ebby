@@ -48,6 +48,10 @@ jobs:
       - name: Typecheck the server
         working-directory: server
         run: npm ci && npm run typecheck
+      # src/types/db.ts is generated from the migrations; a migration without `npm run db:types` fails here.
+      - name: Schema types match the migrations
+        working-directory: server
+        run: npm run db:types && git diff --exit-code src/types/db.ts
       # Unit tests and the API contract (every read against its snapshot, every write through the reads).
       - name: Tests
         working-directory: server

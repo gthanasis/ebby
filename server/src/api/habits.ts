@@ -7,6 +7,7 @@ import * as clock from "../clock.js";
 import * as db from "../data/db.js";
 import { CATEGORIES } from "../domain/categories.js";
 import * as habits from "../domain/habits.js";
+import type { HabitRule } from "../types/entities.js";
 import { isoUtc } from "../py.js";
 import { body, fail, int, integer, num } from "./http.js";
 
@@ -29,7 +30,7 @@ export function routes(app: Hono) {
   app.get("/api/habits/rules/:hid", async (c) => {
     const hid = int(c.req.param("hid"), "hid", 0);
     return c.json(await db.connect(async (conn) => {
-      const r = (await conn.execute("SELECT * FROM habit_rules WHERE id = ?", [hid])).one();
+      const r = (await conn.execute<HabitRule>("SELECT * FROM habit_rules WHERE id = ?", [hid])).one();
       if (!r) fail(404, "No such habit");
       return habits.habitView(conn, r!, true);
     }));
@@ -42,7 +43,7 @@ export function routes(app: Hono) {
       if (!(await conn.execute("SELECT * FROM habit_rules WHERE id = ?", [hid])).one()) fail(404, "No such habit");
       if (b.target != null && b.target > 0) await conn.execute("UPDATE habit_rules SET target = ? WHERE id = ?", [b.target, hid]);
       if (b.goal_id != null || b.clear_goal) await conn.execute("UPDATE habit_rules SET goal_id = ? WHERE id = ?", [b.clear_goal ? null : b.goal_id, hid]);
-      return habits.habitView(conn, (await conn.execute("SELECT * FROM habit_rules WHERE id = ?", [hid])).one()!, true);
+      return habits.habitView(conn, (await conn.execute<HabitRule>("SELECT * FROM habit_rules WHERE id = ?", [hid])).one()!, true);
     }));
   });
 

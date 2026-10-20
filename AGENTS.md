@@ -36,6 +36,8 @@ server/
     reference/        fixed reference data: what merchant category codes mean
   src/integrations/   Enable Banking, its bank list, web push
   src/data/           the database, encryption, credentials, users, the demo seed
+  src/types/          db.ts: the tables, generated from migrations/ (npm run db:types after adding one; CI checks);
+                      entities.ts: rows as the app reads them, and the JSON documents kept in meta
   src/jobs/           bank sync and the scheduler
   migrations/         numbered SQL files, applied at startup
   test/               unit tests, and test/api/: the API as a black box (below)
@@ -76,6 +78,9 @@ connections and transactions, and its typed builder is there for new queries.
 - **Settings come only from `server/src/config.ts`**, the one module that reads `process.env`: `config` for what
   tunes the app, `secrets` for what must never be logged. A new variable gets a rule there (and a line in
   `.env.example`); the server checks them all at startup and refuses to start, naming each problem.
+- **Types come from the schema.** Read rows as the types in `src/types/entities.ts` (`conn.execute<Goal>(…)`), and
+  meta documents through `db.getMeta(conn, "plan")`, which is typed by key: a new meta key gets its shape in
+  `MetaDocuments`. Avoid adding `Row` (`Record<string, any>`).
 - **Pay months need the payday loaded:** every request (the middleware) and every job loads it with
   `insights.loadPayday()` before using `monthBounds`; forgetting throws rather than silently using the 1st.
 - **Numbers and ids match what Python wrote.** Stored data and transaction ids were first made by a Python app,
