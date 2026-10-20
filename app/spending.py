@@ -17,7 +17,7 @@ USUAL_COUNT = {"day": 8, "week": 8, "month": 6}
 # How often matters for these, so their counts are worth saying.
 HABITS = {"delivery", "eating_out", "coffee_bars", "people", "groceries"}
 # A drop here is usually timing (not charged yet), not something you did.
-TIMED = {"bills", "health", "car", "subscriptions", "pets"}
+TIMED = {"bills", "health", "car", "subscriptions", "pets", "insurance", "loans", "education"}
 _T = SPEND_SQL
 for _col in ("duplicate_of", "commitment_id", "currency", "category IN"):
     _T = _T.replace(_col, "t." + _col)

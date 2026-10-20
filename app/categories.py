@@ -8,6 +8,8 @@ accounts and credit card repayments are kept out of spending so nothing counts t
 
 import re
 
+# Bumped whenever the rules below change, so everyone's stored history is sorted again (sync.run_scheduler).
+VERSION = 2
 
 # id: (label, mdi icon, counts as spending)
 CATEGORIES = {
@@ -20,17 +22,23 @@ CATEGORIES = {
     "shopping": ("Shopping", "mdi:shopping-outline", True),
     "bills": ("Bills", "mdi:file-document-outline", True),
     "housing": ("Rent & home", "mdi:home-outline", True),
+    "loans": ("Loans & mortgage", "mdi:bank-transfer-out", True),
+    "insurance": ("Insurance", "mdi:shield-check-outline", True),
     "health": ("Health & fitness", "mdi:heart-pulse", True),
     "personal_care": ("Personal care", "mdi:content-cut", True),
     "travel": ("Travel", "mdi:airplane", True),
     "leisure": ("Leisure", "mdi:ticket-outline", True),
     "pets": ("Pets", "mdi:paw-outline", True),
+    "kids": ("Kids", "mdi:baby-face-outline", True),
+    "education": ("Education", "mdi:school-outline", True),
+    "gifts": ("Gifts & donations", "mdi:gift-outline", True),
     "people": ("Sent to people", "mdi:account-arrow-right-outline", True),
     "cash": ("Cash", "mdi:cash", True),
     "fees": ("Fees & taxes", "mdi:bank-outline", True),
     "other": ("Other", "mdi:dots-horizontal", True),
     "income": ("Income", "mdi:arrow-down-circle-outline", False),
     "transfer": ("Own transfers", "mdi:swap-horizontal", False),
+    "investments": ("Investments", "mdi:chart-line", False),
     "card_payment": ("Card repayments", "mdi:credit-card-check-outline", False),
 }
 SPENDING = {k for k, (_, _, spend) in CATEGORIES.items() if spend}
@@ -64,10 +72,13 @@ DESCRIPTION_RULES = [
     (_keys("ΠΛΗΡΩΜΗ ΚΑΡΤΑΣ", "ΠΛΗΡΩΜΗ VISA", "ΠΛΗΡΩΜΗ MASTERCARD"), "card_payment"),
     (_keys("ΑWΒ", "ΕΚΔΟΣΗ ΕΝΤΟΛΗΣ", "ΠΡΟΙΟΝ ΕΝΤΟΛΗΣ", "ΑΝΤ. ΕΚΔΟΣΗΣ", "REVOLUT", "ΚΑΤΑΘΕΣΗ"), "transfer"),
     (_keys("ΝΟΙΚΙ", "ΕΝΟΙΚΙΟ"), "housing"),
+    (_keys("ΔΟΣΗ ΔΑΝΕΙΟΥ", "ΔΟΣΗ ΣΤΕΓΑΣΤΙΚΟΥ", "ΔΟΣΗ ΚΑΤΑΝΑΛΩΤΙΚΟΥ", "LOAN INSTALMENT", "LOAN REPAYMENT",
+           "MORTGAGE"), "loans"),
+    (_keys("ΑΣΦΑΛΙΣΤΡ", "SYNALLAGI ASFALISTRO", "ΑΣΦΑΛΙΣΤΙΚ"), "insurance"),
     (_keys("ΕΞΟΔΑ", "ΕΤΗΣΙΑ ΣΥΝΔΡΟΜΗ", "ΦΟΡΟΣ", "ΤΟΚΟΙ ΥΠΕΡΗΜΕΡΙΑΣ"), "fees"),
     (_keys("ΑΝΑΛΗΨΗ", "ΥΠΕΡΑΝΑΛΗΨΗ", "ATM "), "cash"),
     (_keys("ΕΝΤΟΛΗ INSTANT", "ΕΝΤΟΛΗ ΙΝSΤΑΝΤ"), "people"),
-    (_keys("ΔΙΑΦΟΡΕΣ ΠΛΗΡΩΜΕΣ", "ΑΣΦΑΛΙΣΤΡ", "SYNALLAGI ASFALISTRO"), "bills"),
+    (_keys("ΔΙΑΦΟΡΕΣ ΠΛΗΡΩΜΕΣ"), "bills"),
     (_keys("SDDFTSID", "ΔΕΗ", "ΕΥΔΑΠ", "COSMOTE", "VODAFONE", "NOVA", "ΗΡΩΝ", "ZENITH"), "bills"),
     (_keys("ΣΥΝΔΡΟΜΕΣ"), "subscriptions"),
 ]
@@ -84,7 +95,20 @@ MERCHANT_RULES = [
     (_keys("ODOS", "AUTOPARK", "PARKING", "SHELL", "REVOIL", "EKO ", "AVIN", "BP ", "AEGEAN OIL", "ELINOIL",
            "UBER", "UBR*", "FREENOW", "BEAT", "OASA", "ATHENS METRO", "MOREAS", "GEFYRA", "KTEO", "FUELS", "MOTORAID", "FEDOIL"), "car"),
     (_keys("STEAM", "PLAYSTATION", "NINTENDO", "CINEMA", "VILLAGE", "NOVIBET", "GAMEHOUSE"), "leisure"),
-    (_keys("BINANCE", "COINBASE", "KRAKEN"), "transfer"),
+    (_keys("BINANCE", "COINBASE", "KRAKEN", "BITSTAMP", "CRYPTO.COM", "BITPANDA", "TRADE REPUBLIC", "ETORO", "DEGIRO",
+           "INTERACTIVE BROKERS", "IBKR", "TRADING 212", "TRADING212", "FREEDOM24", "LIGHTYEAR", "SCALABLE CAPITAL",
+           "ΜΑΚΡΟΧΡΟΝΙΟ ΑΠΟΤΑΜΙΕΥΤΙΚΟ"), "investments"),
+    (_keys("INTERAMERICAN", "ETHNIKI ASFALISTIKI", "ΕΘΝΙΚΗ ΑΣΦΑΛΙΣΤΙΚΗ", "ALLIANZ", "GENERALI", "NN HELLAS", "NN HELLENIC",
+           "EUROLIFE", "ERGO ", "AXA ", "MINETTA", "HELLAS DIRECT", "INTERLIFE", "EUROPAIKI PISTI",
+           "ΕΥΡΩΠΑΪΚΗ ΠΙΣΤΗ", "METLIFE"), "insurance"),
+    (_keys("UDEMY", "COURSERA", "DUOLINGO", "MASTERCLASS", "SKILLSHARE", "PLURALSIGHT", "FRONTISTIRIO",
+           "ΦΡΟΝΤΙΣΤΗΡΙΟ", "UNIVERSITY", "PANEPISTIMIO", "ΠΑΝΕΠΙΣΤΗΜΙΟ", "SCHOOL", "ΣΧΟΛΕΙΟ", "ΕΚΠΑΙΔΕΥΤ",
+           "ΔΙΔΑΚΤΡΑ", "BRITISH COUNCIL", "HELLENIC AMERICAN"), "education"),
+    (_keys("ΠΑΙΔΙΚΟΣ ΣΤΑΘΜΟΣ", "PAIDIKOS STATHMOS", "BABY", "MOTHERCARE", "PAIDIKO", "ΠΑΙΔΙΚΑ", "PRENATAL",
+           "ZIPPY", "KIDS"), "kids"),
+    (_keys("UNICEF", "ACTIONAID", "DOCTORS WITHOUT BORDERS", "ΓΙΑΤΡΟΙ ΧΩΡΙΣ ΣΥΝΟΡΑ", "RED CROSS", "ΕΡΥΘΡΟΣ ΣΤΑΥΡΟΣ",
+           "ΧΑΜΟΓΕΛΟ ΤΟΥ ΠΑΙΔΙΟΥ", "GREENPEACE", "WWF", "DONATION", "ΔΩΡΕΑ", "GOFUNDME", "FLOWERS",
+           "ΑΝΘΟΠΩΛΕΙΟ", "ANTHOPOLEIO"), "gifts"),
     (_keys("COSMOTE", "VODAFONE", "NOVA", "ΔΕΗ", "DEI ", "EYDAP"), "bills"),
     (_keys("SKROUTZ", "AMAZON", "IKEA", "PUBLIC", "PLAISIO", "KOTSOVOLOS", "JUMBO", "ZARA", "H&M", "ATTIKA", "LEROY MERLIN",
            "ACTION STORES", "LOGITECH", "GLOBALE", "TARGET", "SHOP", "PAYPAL"), "shopping"),
@@ -115,7 +139,11 @@ def _mcc_category(mcc: int) -> str | None:
         ((5995, 5995), "pets"), ((742, 742), "pets"),
         ((6010, 6011), "cash"),
         ((4829, 4829), "people"),
-        ((9311, 9399), "fees"), ((6012, 6012), "transfer"), ((6300, 6399), "bills"), ((4214, 4215), "shopping"),
+        ((9311, 9399), "fees"), ((6012, 6012), "transfer"), ((6300, 6399), "insurance"), ((4214, 4215), "shopping"),
+        ((6211, 6211), "investments"), ((6051, 6051), "investments"),
+        ((8211, 8299), "education"), ((5942, 5943), "education"),
+        ((8351, 8351), "kids"), ((5641, 5641), "kids"),
+        ((8398, 8398), "gifts"), ((8661, 8661), "gifts"), ((5992, 5992), "gifts"), ((5947, 5947), "gifts"),
         ((5200, 5399), "shopping"), ((5600, 5735), "shopping"), ((5900, 5999), "shopping"), ((5094, 5094), "shopping"),
     ]
     for (lo, hi), category in ranges:
@@ -129,7 +157,9 @@ _PERSON = re.compile(r"^(SENT FROM REVOLUT TO|TO|FROM) (.+)$")
 
 
 def _revolut(key: str, outgoing: bool, owner_names) -> str | None:
-    if _CURRENCY.match(key) or "TOP-UP" in key or "TOP UP" in key or key.startswith("TO INVESTMENT"):
+    if key.startswith("TO INVESTMENT"):
+        return "investments"
+    if _CURRENCY.match(key) or "TOP-UP" in key or "TOP UP" in key:
         return "transfer"
     if m := _PERSON.match(key):
         who = m.group(2)

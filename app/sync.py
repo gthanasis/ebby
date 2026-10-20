@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse
 
-from . import banks, config, credentials, db
+from . import banks, categories, config, credentials, db
 from .enable_banking import MAX_HISTORY_DAYS, Client, EnableBankingError
 
 log = logging.getLogger("bank-sync")
@@ -151,6 +151,9 @@ def run_scheduler():
 
     def for_user():
         with db.connect() as conn:
+            if db.get_meta(conn, "categories_version") != categories.VERSION:
+                db.recategorize(conn)  # categories.py changed since this history was sorted
+                db.set_meta(conn, "categories_version", categories.VERSION)
             last = db.get_meta(conn, "last_attempt")
         due = not last or datetime.fromisoformat(last) < datetime.now(timezone.utc) - timedelta(hours=config.SYNC_HOURS)
         if due:
