@@ -4,6 +4,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -28.24,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -18,6 +19,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -5.98,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -32,6 +34,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -35.81,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -46,6 +49,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -27.46,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -60,6 +64,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -11.03,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -74,6 +79,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -42.24,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -88,6 +94,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -4.21,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -102,6 +109,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -8.23,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -116,6 +124,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -57.66,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -130,6 +139,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -31.23,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -144,6 +154,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -23.11,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -158,6 +169,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -13.0,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -172,6 +184,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -3.49,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -186,6 +199,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -8.95,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -200,6 +214,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -26.36,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -214,6 +229,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -13.06,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -228,6 +244,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -4.37,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -242,6 +259,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -9.92,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -256,6 +274,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -39.22,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -270,6 +289,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -5.81,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -284,6 +304,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -41.44,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -298,6 +319,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -12.44,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -312,6 +334,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -47.84,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -326,6 +349,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -43.07,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -340,6 +364,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -28.32,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -354,6 +379,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -7.98,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -368,6 +394,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -43.79,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -382,6 +409,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -44.23,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -396,6 +424,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -28.55,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -410,6 +439,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -28.24,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -424,6 +454,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -7.03,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -438,6 +469,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -19.36,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -452,6 +484,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -8.85,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -466,6 +499,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -8.48,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -480,6 +514,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -43.55,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -494,6 +529,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -31.62,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -508,6 +544,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -15.88,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -522,6 +559,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -35.59,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -536,6 +574,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -7.76,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -550,6 +589,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -8.87,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -564,6 +604,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -4.74,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -578,6 +619,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -21.11,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -592,6 +634,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -6.28,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -606,6 +649,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -7.96,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -620,6 +664,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -44.31,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -634,6 +679,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -21.55,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -648,6 +694,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -7.81,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -662,6 +709,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -39.22,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -676,6 +724,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -7.21,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -690,6 +739,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -23.78,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -704,6 +754,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -23.54,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -718,6 +769,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -5.48,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -732,6 +784,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -30.21,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -746,6 +799,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -7.38,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -760,6 +814,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -8.13,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -774,6 +829,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -17.11,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -788,6 +844,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -3.15,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -802,6 +859,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -5.95,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -816,6 +874,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -25.69,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -830,6 +889,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -4.18,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -844,6 +904,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -71.8,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -858,6 +919,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -41.32,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -872,6 +934,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -20.64,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -886,6 +949,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -16.77,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -900,6 +964,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -49.46,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -914,6 +979,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -6.31,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -928,6 +994,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -4.93,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -942,6 +1009,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -36.96,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -956,6 +1024,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -30.44,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -970,6 +1039,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -16.18,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -984,6 +1054,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -5.05,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -998,6 +1069,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -30.55,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1012,6 +1084,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -5.31,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1026,6 +1099,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -3.01,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1040,6 +1114,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -27.32,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1054,6 +1129,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -30.42,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1068,6 +1144,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -43.6,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1082,6 +1159,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -52.33,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1096,6 +1174,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -4.02,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1110,6 +1189,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -32.61,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1124,6 +1204,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -72.9,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1138,6 +1219,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -7.04,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1152,6 +1234,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -14.7,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1166,6 +1249,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -6.35,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1180,6 +1264,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -6.76,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1194,6 +1279,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -23.11,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1208,6 +1294,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -8.91,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1222,6 +1309,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -31.44,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1236,6 +1324,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -33.78,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1250,6 +1339,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -5.12,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1264,6 +1354,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -5.47,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1278,6 +1369,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -6.27,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1292,6 +1384,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -3.08,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1306,6 +1399,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -8.01,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1320,6 +1414,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -5.04,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -1334,6 +1429,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -46.64,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",

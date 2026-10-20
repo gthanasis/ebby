@@ -4,6 +4,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -21.35,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -18,6 +19,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -26.26,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -32,6 +34,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -30.67,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -46,6 +49,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -26.31,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -60,6 +64,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -21.46,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -74,6 +79,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -11.45,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -88,6 +94,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -14.92,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -102,6 +109,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -26.45,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -116,6 +124,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -31.1,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -130,6 +139,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -17.92,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -144,6 +154,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -13.03,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -158,6 +169,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -25.79,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -172,6 +184,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -18.75,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -186,6 +199,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -30.25,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -200,6 +214,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -27.0,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -214,6 +229,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -31.76,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -228,6 +244,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -11.23,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -242,6 +259,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -13.27,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -256,6 +274,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -16.27,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -270,6 +289,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -14.68,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -284,6 +304,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -23.42,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -298,6 +319,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -19.94,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -312,6 +334,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -26.42,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -326,6 +349,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -19.82,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -340,6 +364,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -29.48,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -354,6 +379,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -13.16,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -368,6 +394,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -13.76,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -382,6 +409,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -20.95,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -396,6 +424,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -29.22,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -410,6 +439,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -13.77,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -424,6 +454,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -30.68,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -438,6 +469,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -12.55,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -452,6 +484,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -17.77,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -466,6 +499,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -30.5,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -480,6 +514,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -19.84,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -494,6 +529,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -15.95,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -508,6 +544,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -22.15,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -522,6 +559,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -25.72,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -536,6 +574,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -23.23,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -550,6 +589,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -14.91,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -564,6 +604,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -17.58,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -578,6 +619,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -15.77,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -592,6 +634,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -29.25,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -606,6 +649,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -19.3,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -620,6 +664,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -28.81,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -634,6 +679,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -24.15,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -648,6 +694,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -26.55,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -662,6 +709,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -21.86,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -676,6 +724,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -11.76,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -690,6 +739,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -18.74,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -704,6 +754,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -14.02,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -718,6 +769,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -26.88,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -732,6 +784,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -25.55,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -746,6 +799,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -25.25,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -760,6 +814,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -31.42,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -774,6 +829,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -17.83,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -788,6 +844,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -14.24,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -802,6 +859,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -22.36,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -816,6 +874,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -26.35,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -830,6 +889,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -24.0,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -844,6 +904,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -17.61,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -858,6 +919,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -15.11,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -872,6 +934,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -25.48,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -886,6 +949,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -15.69,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",

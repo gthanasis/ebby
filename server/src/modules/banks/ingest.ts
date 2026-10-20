@@ -47,8 +47,18 @@ export function txRow(account: string, isCard: boolean, tx: Row, rules: Record<s
   const txId = `${account}:${txKey(tx)}`;
   // Rules are keyed by merchant, or by "tx:<id>" for a single row (card rows have no merchant).
   const category = rules[`tx:${txId}`] || (merchant && rules[merchant]) || categorize(description, mcc, outgoing, isCard, owners);
-  return [txId, account, tx.booking_date || tx.transaction_date || tx.value_date || null, outgoing ? -value : value,
+  return [txId, account, paidOn(tx), outgoing ? -value : value,
     amount.currency || "EUR", tx.status || "BOOK", description, merchant, mcc ?? null, category, pyDumps(tx, { ensureAscii: false })];
+}
+
+/** The day you paid. Alpha books an account payment days later and keeps the day you paid as its value date; a card
+ * row it books on the day and values later. So: the bank's transaction date, else the earlier of the two. Pending rows
+ * keep their booking date, which saveWindow() replaces them by. */
+export function paidOn(tx: Row): string | null {
+  if (tx.transaction_date) return tx.transaction_date;
+  const booked: string | undefined = tx.booking_date, valued: string | undefined = tx.value_date;
+  if (tx.status === "PDNG" || !booked || !valued) return booked || valued || null;
+  return valued < booked ? valued : booked;
 }
 
 /** Stores one fetched date window. Pending rows in it are replaced: they get new ids once booked. */
