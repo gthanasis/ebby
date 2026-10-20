@@ -5,6 +5,7 @@ from datetime import date
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app import clock
 from app.data import db
 from app.domain import insights
 
@@ -60,12 +61,11 @@ def commitment_services(transfers: bool = False):
 def add_commitment(body: CommitmentIn):
     _check_commitment(body)
     import json as _json
-    from datetime import datetime, timezone
     with db.connect() as conn:
         conn.execute("""INSERT INTO commitments(name, kind, monthly_limit, note, services, off_bank, created_at, every_months, amount, next_date)
                         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                      (body.name.strip(), body.kind, body.monthly_limit, body.note.strip(), _json.dumps(body.services),
-                      max(0, body.off_bank), datetime.now(timezone.utc).isoformat(), body.every_months, body.amount, body.next_date))
+                      max(0, body.off_bank), clock.now().isoformat(), body.every_months, body.amount, body.next_date))
         insights.assign_commitments(conn)
         insights.resplit(conn)
         return insights.commitments_view(conn, insights.this_month())

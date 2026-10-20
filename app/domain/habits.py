@@ -9,6 +9,7 @@ They nudge behaviour rather than report it, so each one answers a single questio
 
 from datetime import date, datetime, timedelta, timezone
 
+from app import clock
 from app.data import db
 from app.domain import insights
 
@@ -19,7 +20,7 @@ WAIT = timedelta(hours=48)
 
 
 def _now():
-    return datetime.now(timezone.utc)
+    return clock.now()
 
 
 # ---------- pay yourself first ----------

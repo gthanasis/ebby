@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
-from app import config
+from app import clock, config
 from app.data import credentials, db
 from app.domain import alerts, insights
 from app.integrations import banks
@@ -115,7 +115,7 @@ def _psu_headers(request: Request) -> dict | None:
 @router.post("/api/sync/live")
 def live_sync(request: Request):
     """Called when the app is opened: fresh data, at most every LIVE_SYNC_MINUTES."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
     psu = _psu_headers(request)
     if not psu:
         return {"started": False, "reason": "no public IP to send"}
@@ -123,7 +123,7 @@ def live_sync(request: Request):
         return {"started": False, "reason": "already syncing"}
     with db.connect() as conn:
         last = db.get_meta(conn, "last_live_sync")
-    if last and datetime.fromisoformat(last) > datetime.now(timezone.utc) - timedelta(minutes=LIVE_SYNC_MINUTES):
+    if last and datetime.fromisoformat(last) > clock.now() - timedelta(minutes=LIVE_SYNC_MINUTES):
         return {"started": False, "reason": "synced recently"}
 
     def run():

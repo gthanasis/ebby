@@ -12,6 +12,7 @@ import time
 from collections import defaultdict
 from datetime import date, timedelta
 
+from app import clock
 from app.data import db
 from app.domain.categories import CATEGORIES, SPENDING
 
@@ -419,7 +420,7 @@ def subscriptions(conn) -> dict:
         name = service_name(r["merchant"], r["description"], False, r["mcc"])
         by_service[name][month_of(r["date"])] += -r["amount"]
         last[name] = max(last.get(name, ""), r["date"])
-    today = date.today()
+    today = clock.server_today()
     items = []
     for name, months in by_service.items():
         if len(months) < 3:
@@ -485,7 +486,7 @@ def _months_spent(conn, start: str, end: str) -> list[dict]:
 
 def goal_view(conn, goal: dict) -> dict:
     remaining = max(0.0, goal["price"] - goal["saved"])
-    days = max(1, (date.fromisoformat(goal["target_date"]) - date.today()).days)
+    days = max(1, (date.fromisoformat(goal["target_date"]) - clock.server_today()).days)
     weekly = remaining / (days / 7)
     monthly = remaining / (days / 30.44)
     return {**goal, "remaining": round(remaining, 2), "weeks_left": max(1, round(days / 7)),
@@ -536,11 +537,7 @@ def cuts(conn, needed_monthly: float) -> list[dict]:
 # ---------- day / week / month for the Home card ----------
 
 def local_today() -> date:
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
-
-    from app import config
-    return datetime.now(ZoneInfo(config.TIMEZONE)).date()
+    return clock.today()
 
 
 def _spent_between(conn, start: date, end: date) -> float:

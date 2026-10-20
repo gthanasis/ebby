@@ -13,7 +13,7 @@ import logging
 import os
 import secrets
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Protocol
 from urllib.parse import quote, urlencode
 
@@ -23,7 +23,10 @@ from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 from jwt import PyJWKClient
 
-from app import config  # noqa: F401  loads .env into os.environ
+from app import (
+    clock,
+    config,  # noqa: F401  loads .env into os.environ
+)
 
 log = logging.getLogger("bank-sync.auth")
 
@@ -192,7 +195,7 @@ def router(store: AuthStore) -> APIRouter:
             store.activate(user["id"], claims.get("name"), claims.get("picture"))
 
         token = secrets.token_urlsafe(32)
-        expires = datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS)
+        expires = clock.now() + timedelta(days=SESSION_DAYS)
         store.create_session(user["id"], hash_token(token), expires, request.headers.get("user-agent"))
         response = RedirectResponse("/", status_code=302)
         response.delete_cookie(FLOW_COOKIE, path="/auth")

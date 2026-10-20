@@ -2,10 +2,10 @@ import logging
 import threading
 import time
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
-from app import config
+from app import clock, config
 from app.data import credentials, db
 from app.domain import categories
 from app.integrations import banks
@@ -15,7 +15,7 @@ log = logging.getLogger("bank-sync")
 
 
 def now_iso():
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return clock.now().isoformat(timespec="seconds")
 
 
 def is_syncing() -> bool:
@@ -159,7 +159,7 @@ def run_scheduler():
                 db.recategorize(conn)  # categories.py changed since this history was sorted
                 db.set_meta(conn, "categories_version", categories.VERSION)
             last = db.get_meta(conn, "last_attempt")
-        due = not last or datetime.fromisoformat(last) < datetime.now(timezone.utc) - timedelta(hours=config.SYNC_HOURS)
+        due = not last or datetime.fromisoformat(last) < clock.now() - timedelta(hours=config.SYNC_HOURS)
         if due:
             sync()
         # Also flushes alerts held back during quiet hours.

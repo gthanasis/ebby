@@ -8,6 +8,7 @@ import psycopg
 
 from app import config
 from app.data import db
+from app import clock
 
 TABLES = ["accounts", "transactions", "rules", "connections", "goals", "commitments", "assistant_messages",
           "assistant_actions", "wishlist", "habit_rules", "yearly_costs", "push_subscriptions", "meta"]
@@ -43,7 +44,7 @@ def run(path: Path, email: str, admin: bool = False) -> dict[str, int]:
             counts[table] = len(rows)
         if not db.get_meta(conn, "yearly_moved"):
             # What the previous version did on start: yearly costs became fixed costs paid every 12 months.
-            today = date.today()
+            today = clock.server_today()
             for y in conn.execute("SELECT * FROM yearly_costs").fetchall():
                 due = date(today.year + (y["due_month"] < today.month), y["due_month"], 1)
                 conn.execute("""INSERT INTO commitments(name, kind, monthly_limit, services, created_at, every_months, amount, next_date)

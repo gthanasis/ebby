@@ -1,13 +1,13 @@
 """The weekly read: Claude looks at the last 90 days and says what's driving the spending."""
 
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import timedelta
 from typing import NamedTuple
 
 import anthropic
 from pydantic import BaseModel, Field
 
-from app import config
+from app import clock, config
 from app.data import credentials, db, users
 from app.domain import ai_usage, insights
 from app.domain.categories import CATEGORIES
@@ -71,7 +71,7 @@ def client(feature: str) -> Claude:
     month's allowance lasts. Called before every request, so a tool loop stops once it runs out.
     Raises ai_usage.BudgetExceeded or ai_usage.NoAPIKey, whose messages are fit to show."""
     person = users.me(db.current_user())
-    now = datetime.now(timezone.utc)
+    now = clock.now()
     with db.connect() as conn:
         spent = conn.execute("SELECT COALESCE(SUM(cost_usd), 0) FROM ai_usage WHERE at >= ? AND NOT own_key",
                              (ai_usage.month_bounds(now)[0],)).fetchone()[0]
@@ -107,7 +107,7 @@ def fallback(model: str) -> dict:
 
 
 def _context(conn) -> str:
-    today = date.today()
+    today = clock.server_today()
     since = (today - timedelta(days=90)).isoformat()
     month = insights.this_month()
     p = insights.pace(conn, month)
@@ -186,7 +186,7 @@ def weekly_read() -> dict | None:
     if response.stop_reason == "refusal" or response.parsed_output is None:
         log.warning("weekly read not produced (stop_reason=%s)", response.stop_reason)
         return None
-    read = {**response.parsed_output.model_dump(), "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    read = {**response.parsed_output.model_dump(), "created_at": clock.now().isoformat(timespec="seconds"),
             "model": response.model, "budgets": (plan or {}).get("budgets")}
     log.info("weekly read: %d input / %d output tokens", response.usage.input_tokens, response.usage.output_tokens)
     with db.connect() as conn:
@@ -227,4 +227,4 @@ def explain(context: str) -> dict | None:
     record(claude, config.ANTHROPIC_MODEL, response.usage)
     if response.stop_reason == "refusal" or response.parsed_output is None:
         return None
-    return {**response.parsed_output.model_dump(by_alias=True), "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    return {**response.parsed_output.model_dump(by_alias=True), "created_at": clock.now().isoformat(timespec="seconds")}

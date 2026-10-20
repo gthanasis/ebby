@@ -7,6 +7,7 @@ here runs through db.connect_system() and never touches anyone's own rows.
 from datetime import datetime, timedelta, timezone
 
 from app.data import db
+from app import clock
 
 
 class Store:
@@ -36,7 +37,7 @@ class Store:
             """, (token_hash,)).fetchone()
             if not row:
                 return None
-            if row["extended_at"] < datetime.now(timezone.utc) - timedelta(days=1):
+            if row["extended_at"] < clock.now() - timedelta(days=1):
                 conn.execute("UPDATE sessions SET expires_at = now() + interval '30 days', extended_at = now() WHERE token_hash = ?",
                              (token_hash,))
         return {k: v for k, v in row.items() if k != "extended_at"}

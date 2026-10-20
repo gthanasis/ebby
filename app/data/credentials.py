@@ -13,6 +13,7 @@ import anthropic
 from app import config
 from app.data import db, vault
 from app.integrations.enable_banking import Client, EnableBankingError
+from app import clock
 
 _clients: dict[int, Client] = {}  # per person; dropped whenever their keys change
 _lock = threading.Lock()
@@ -63,7 +64,7 @@ def save_enable_banking(app_id: str, pem: bytes) -> dict:
     with db.connect() as conn:
         store(conn, "enable_banking", {"app_id": app_id, "pem": pem.decode()}, info)
     forget_client()
-    return {**info, "verified_at": datetime.now(timezone.utc).isoformat()}
+    return {**info, "verified_at": clock.now().isoformat()}
 
 
 def save_anthropic(api_key: str) -> dict:

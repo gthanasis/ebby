@@ -1,10 +1,10 @@
 """Where the money went: home, spending by period, pace, categories, services, subscriptions, the year."""
 
-from datetime import date
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app import clock
 from app.api import common
 from app.data import db
 from app.domain import ai, ai_usage, insights, spending
@@ -124,7 +124,7 @@ def subscriptions():
 @router.get("/api/year")
 def year(year: int | None = None):
     with db.connect() as conn:
-        return insights.year(conn, year or date.today().year)
+        return insights.year(conn, year or clock.server_today().year)
 
 
 @router.post("/api/insights/refresh")
