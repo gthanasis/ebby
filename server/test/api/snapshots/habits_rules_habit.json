@@ -1,0 +1,125 @@
+{
+ "body": {
+  "baseline": 73.42,
+  "category": "delivery",
+  "created_at": "2026-10-20T06:00:00+00:00",
+  "days": [
+   {
+    "date": "2026-10-19",
+    "value": 1
+   },
+   {
+    "date": "2026-10-20",
+    "value": 0
+   },
+   {
+    "date": "2026-10-21",
+    "value": null
+   },
+   {
+    "date": "2026-10-22",
+    "value": null
+   },
+   {
+    "date": "2026-10-23",
+    "value": null
+   },
+   {
+    "date": "2026-10-24",
+    "value": null
+   },
+   {
+    "date": "2026-10-25",
+    "value": null
+   }
+  ],
+  "days_left": 6,
+  "goal": null,
+  "goal_id": null,
+  "id": 1,
+  "nudge": "No more deliveries this week keeps it.",
+  "saved": 0,
+  "status": "on_track",
+  "streak": 0,
+  "target": 2.0,
+  "title": "2 or fewer deliveries",
+  "type": "fewer",
+  "user_id": 1,
+  "value": 1,
+  "weeks": [
+   {
+    "counted": false,
+    "current": false,
+    "spent": 74.45,
+    "start": "2026-08-24",
+    "status": "missed",
+    "value": 4
+   },
+   {
+    "counted": false,
+    "current": false,
+    "spent": 68.75,
+    "start": "2026-08-31",
+    "status": "missed",
+    "value": 4
+   },
+   {
+    "counted": false,
+    "current": false,
+    "spent": 107.76,
+    "start": "2026-09-07",
+    "status": "missed",
+    "value": 4
+   },
+   {
+    "counted": false,
+    "current": false,
+    "spent": 38.18,
+    "start": "2026-09-14",
+    "status": "kept",
+    "value": 2
+   },
+   {
+    "counted": false,
+    "current": false,
+    "spent": 25.67,
+    "start": "2026-09-21",
+    "status": "kept",
+    "value": 2
+   },
+   {
+    "counted": false,
+    "current": false,
+    "spent": 92.69,
+    "start": "2026-09-28",
+    "status": "missed",
+    "value": 4
+   },
+   {
+    "counted": false,
+    "current": false,
+    "spent": 122.95,
+    "start": "2026-10-05",
+    "status": "missed",
+    "value": 6
+   },
+   {
+    "counted": false,
+    "current": false,
+    "spent": 56.93,
+    "start": "2026-10-12",
+    "status": "kept",
+    "value": 2
+   },
+   {
+    "counted": true,
+    "current": true,
+    "spent": 21.35,
+    "start": "2026-10-19",
+    "status": "on_track",
+    "value": 1
+   }
+  ]
+ },
+ "status": 200
+}

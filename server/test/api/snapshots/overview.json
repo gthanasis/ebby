@@ -1,0 +1,267 @@
+{
+ "body": {
+  "by_category": [
+   {
+    "amount": 650.0,
+    "category": "housing",
+    "count": 1
+   },
+   {
+    "amount": 319.59,
+    "category": "delivery",
+    "count": 15
+   },
+   {
+    "amount": 177.81999999999996,
+    "category": "eating_out",
+    "count": 15
+   },
+   {
+    "amount": 163.2,
+    "category": "groceries",
+    "count": 8
+   },
+   {
+    "amount": 122.0,
+    "category": "bills",
+    "count": 3
+   },
+   {
+    "amount": 57.61000000000001,
+    "category": "coffee_bars",
+    "count": 9
+   },
+   {
+    "amount": 49.57000000000001,
+    "category": "subscriptions",
+    "count": 4
+   },
+   {
+    "amount": 45.0,
+    "category": "health",
+    "count": 1
+   },
+   {
+    "amount": 40.0,
+    "category": "cash",
+    "count": 1
+   },
+   {
+    "amount": 38.050000000000004,
+    "category": "car",
+    "count": 6
+   },
+   {
+    "amount": 25.0,
+    "category": "people",
+    "count": 1
+   },
+   {
+    "amount": 16.65,
+    "category": "shopping",
+    "count": 1
+   }
+  ],
+  "count": 65,
+  "current": true,
+  "daily": [
+   {
+    "amount": 13.29,
+    "date": "2026-09-25"
+   },
+   {
+    "amount": 9.629999999999999,
+    "date": "2026-09-26"
+   },
+   {
+    "amount": 47.28,
+    "date": "2026-09-27"
+   },
+   {
+    "amount": 12.63,
+    "date": "2026-09-28"
+   },
+   {
+    "amount": 3.42,
+    "date": "2026-09-29"
+   },
+   {
+    "amount": 677.29,
+    "date": "2026-10-01"
+   },
+   {
+    "amount": 99.9,
+    "date": "2026-10-02"
+   },
+   {
+    "amount": 99.94999999999999,
+    "date": "2026-10-03"
+   },
+   {
+    "amount": 43.67,
+    "date": "2026-10-04"
+   },
+   {
+    "amount": 27.1,
+    "date": "2026-10-05"
+   },
+   {
+    "amount": 86.95,
+    "date": "2026-10-06"
+   },
+   {
+    "amount": 45.129999999999995,
+    "date": "2026-10-07"
+   },
+   {
+    "amount": 61.71,
+    "date": "2026-10-08"
+   },
+   {
+    "amount": 94.59000000000002,
+    "date": "2026-10-09"
+   },
+   {
+    "amount": 29.36,
+    "date": "2026-10-10"
+   },
+   {
+    "amount": 35.81,
+    "date": "2026-10-11"
+   },
+   {
+    "amount": 36.67,
+    "date": "2026-10-12"
+   },
+   {
+    "amount": 5.32,
+    "date": "2026-10-13"
+   },
+   {
+    "amount": 25.12,
+    "date": "2026-10-14"
+   },
+   {
+    "amount": 45.0,
+    "date": "2026-10-15"
+   },
+   {
+    "amount": 8.85,
+    "date": "2026-10-16"
+   },
+   {
+    "amount": 65.36,
+    "date": "2026-10-17"
+   },
+   {
+    "amount": 38.690000000000005,
+    "date": "2026-10-18"
+   },
+   {
+    "amount": 28.990000000000002,
+    "date": "2026-10-19"
+   },
+   {
+    "amount": 62.78,
+    "date": "2026-10-20"
+   }
+  ],
+  "end": "2026-10-23",
+  "income": 2400.0,
+  "merchants": [
+   {
+    "amount": 650.0,
+    "category": "housing",
+    "count": 1,
+    "merchant": "ΕΝΟΙΚΙΟ ΔΙΑΜΕΡΙΣΜΑΤΟΣ"
+   },
+   {
+    "amount": 240.91999999999996,
+    "category": "delivery",
+    "count": 11,
+    "merchant": "Wolt"
+   },
+   {
+    "amount": 78.67,
+    "category": "delivery",
+    "count": 4,
+    "merchant": "Efood"
+   },
+   {
+    "amount": 69.7,
+    "category": "groceries",
+    "count": 2,
+    "merchant": "Sklavenitis"
+   },
+   {
+    "amount": 61.0,
+    "category": "bills",
+    "count": 1,
+    "merchant": "ΔΕΗ"
+   },
+   {
+    "amount": 45.0,
+    "category": "health",
+    "count": 1,
+    "merchant": "Gym Fitness Athletic"
+   },
+   {
+    "amount": 42.0,
+    "category": "bills",
+    "count": 1,
+    "merchant": "Cosmote"
+   },
+   {
+    "amount": 40.0,
+    "category": "cash",
+    "count": 1,
+    "merchant": "ΑΝΑΛΗΨΗ ATM"
+   }
+  ],
+  "month": "2026-10",
+  "monthly": [
+   {
+    "income": 0.0,
+    "month": "2026-04",
+    "spent": 276.52
+   },
+   {
+    "income": 2400.0,
+    "month": "2026-05",
+    "spent": 2148.49
+   },
+   {
+    "income": 2400.0,
+    "month": "2026-06",
+    "spent": 2037.37
+   },
+   {
+    "income": 2400.0,
+    "month": "2026-07",
+    "spent": 2122.02
+   },
+   {
+    "income": 2400.0,
+    "month": "2026-08",
+    "spent": 2884.12
+   },
+   {
+    "income": 2400.0,
+    "month": "2026-09",
+    "spent": 1835.77
+   },
+   {
+    "income": 2400.0,
+    "month": "2026-10",
+    "spent": 1704.49
+   }
+  ],
+  "oldest_month": "2026-04",
+  "prev_month": "2026-09",
+  "prev_to_date": 1691.16,
+  "prev_total": 1835.77,
+  "start": "2026-09-25",
+  "total": 1704.49
+ },
+ "status": 200
+}

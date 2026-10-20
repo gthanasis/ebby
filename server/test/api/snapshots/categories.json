@@ -1,0 +1,167 @@
+{
+ "body": [
+  {
+   "icon": "mdi:cart-outline",
+   "id": "groceries",
+   "label": "Groceries",
+   "spending": true
+  },
+  {
+   "icon": "mdi:silverware-fork-knife",
+   "id": "eating_out",
+   "label": "Eating out",
+   "spending": true
+  },
+  {
+   "icon": "mdi:moped-outline",
+   "id": "delivery",
+   "label": "Delivery",
+   "spending": true
+  },
+  {
+   "icon": "mdi:coffee-outline",
+   "id": "coffee_bars",
+   "label": "Coffee & bars",
+   "spending": true
+  },
+  {
+   "icon": "mdi:car-outline",
+   "id": "car",
+   "label": "Car & transport",
+   "spending": true
+  },
+  {
+   "icon": "mdi:laptop",
+   "id": "subscriptions",
+   "label": "Subscriptions & tech",
+   "spending": true
+  },
+  {
+   "icon": "mdi:shopping-outline",
+   "id": "shopping",
+   "label": "Shopping",
+   "spending": true
+  },
+  {
+   "icon": "mdi:file-document-outline",
+   "id": "bills",
+   "label": "Bills",
+   "spending": true
+  },
+  {
+   "icon": "mdi:home-outline",
+   "id": "housing",
+   "label": "Rent & home",
+   "spending": true
+  },
+  {
+   "icon": "mdi:bank-transfer-out",
+   "id": "loans",
+   "label": "Loans & mortgage",
+   "spending": true
+  },
+  {
+   "icon": "mdi:shield-check-outline",
+   "id": "insurance",
+   "label": "Insurance",
+   "spending": true
+  },
+  {
+   "icon": "mdi:heart-pulse",
+   "id": "health",
+   "label": "Health & fitness",
+   "spending": true
+  },
+  {
+   "icon": "mdi:content-cut",
+   "id": "personal_care",
+   "label": "Personal care",
+   "spending": true
+  },
+  {
+   "icon": "mdi:airplane",
+   "id": "travel",
+   "label": "Travel",
+   "spending": true
+  },
+  {
+   "icon": "mdi:ticket-outline",
+   "id": "leisure",
+   "label": "Leisure",
+   "spending": true
+  },
+  {
+   "icon": "mdi:paw-outline",
+   "id": "pets",
+   "label": "Pets",
+   "spending": true
+  },
+  {
+   "icon": "mdi:baby-face-outline",
+   "id": "kids",
+   "label": "Kids",
+   "spending": true
+  },
+  {
+   "icon": "mdi:school-outline",
+   "id": "education",
+   "label": "Education",
+   "spending": true
+  },
+  {
+   "icon": "mdi:gift-outline",
+   "id": "gifts",
+   "label": "Gifts & donations",
+   "spending": true
+  },
+  {
+   "icon": "mdi:account-arrow-right-outline",
+   "id": "people",
+   "label": "Sent to people",
+   "spending": true
+  },
+  {
+   "icon": "mdi:cash",
+   "id": "cash",
+   "label": "Cash",
+   "spending": true
+  },
+  {
+   "icon": "mdi:bank-outline",
+   "id": "fees",
+   "label": "Fees & taxes",
+   "spending": true
+  },
+  {
+   "icon": "mdi:dots-horizontal",
+   "id": "other",
+   "label": "Other",
+   "spending": true
+  },
+  {
+   "icon": "mdi:arrow-down-circle-outline",
+   "id": "income",
+   "label": "Income",
+   "spending": false
+  },
+  {
+   "icon": "mdi:swap-horizontal",
+   "id": "transfer",
+   "label": "Own transfers",
+   "spending": false
+  },
+  {
+   "icon": "mdi:chart-line",
+   "id": "investments",
+   "label": "Investments",
+   "spending": false
+  },
+  {
+   "icon": "mdi:credit-card-check-outline",
+   "id": "card_payment",
+   "label": "Card repayments",
+   "spending": false
+  }
+ ],
+ "status": 200
+}

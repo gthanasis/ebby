@@ -1,0 +1,116 @@
+{
+ "body": {
+  "items": [
+   {
+    "amount": 45.0,
+    "count": 0,
+    "created_at": "2026-10-20T06:00:00+00:00",
+    "every_months": 1,
+    "history": [
+     {
+      "month": "2026-05",
+      "spent": 0.0
+     },
+     {
+      "month": "2026-06",
+      "spent": 0.0
+     },
+     {
+      "month": "2026-07",
+      "spent": 0.0
+     },
+     {
+      "month": "2026-08",
+      "spent": 0.0
+     },
+     {
+      "month": "2026-09",
+      "spent": 0.0
+     },
+     {
+      "month": "2026-10",
+      "spent": 0.0
+     }
+    ],
+    "id": 1,
+    "kind": "chosen",
+    "monthly_limit": 45.0,
+    "name": "Gym",
+    "next_date": null,
+    "note": "Three times a week, worth it",
+    "off_bank": 0.0,
+    "over": false,
+    "services": [],
+    "spent": 0.0,
+    "user_id": 1
+   }
+  ],
+  "limit": 45.0,
+  "month": "2026-10",
+  "over": [],
+  "spent": 0.0,
+  "suggestions": [
+   {
+    "limit": 720.0,
+    "monthly": 650.0,
+    "service": "ΕΝΟΙΚΙΟ ΔΙΑΜΕΡΙΣΜΑΤΟΣ"
+   },
+   {
+    "limit": 70.0,
+    "monthly": 61.0,
+    "service": "ΔΕΗ"
+   },
+   {
+    "limit": 50.0,
+    "monthly": 45.0,
+    "service": "Gym Fitness Athletic"
+   },
+   {
+    "limit": 50.0,
+    "monthly": 42.0,
+    "service": "Cosmote"
+   },
+   {
+    "limit": 50.0,
+    "monthly": 39.3,
+    "service": "Pharmacy Markou"
+   },
+   {
+    "limit": 30.0,
+    "monthly": 21.6,
+    "service": "Claude (Anthropic)"
+   },
+   {
+    "limit": 30.0,
+    "monthly": 19.0,
+    "service": "Eydap"
+   },
+   {
+    "limit": 20.0,
+    "monthly": 18.0,
+    "service": "Vodafone"
+   },
+   {
+    "limit": 20.0,
+    "monthly": 14.55,
+    "service": "Coffee Island"
+   },
+   {
+    "limit": 20.0,
+    "monthly": 13.99,
+    "service": "Netflix"
+   },
+   {
+    "limit": 20.0,
+    "monthly": 10.99,
+    "service": "Spotify"
+   },
+   {
+    "limit": 10.0,
+    "monthly": 2.99,
+    "service": "Apple"
+   }
+  ]
+ },
+ "status": 200
+}
