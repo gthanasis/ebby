@@ -101,8 +101,8 @@ def test_read_matches_snapshot(api, path):
 
 def test_every_read_route_is_covered(api):
     """A new GET endpoint gets a snapshot here, or a reason it can't have one."""
-    from tests.test_isolation import _all_routes
     from app import server
+    from tests.test_isolation import _all_routes
     skipped = {"/api/banks": "asks Enable Banking", "/api/push/key": "a key made per install", "/api/healthz": "no data"}
     covered = {p.split("?")[0] for p in READS}
     for route in _all_routes(server.app.routes):
