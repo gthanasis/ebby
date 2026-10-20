@@ -5,10 +5,10 @@ import { randomBytes } from "node:crypto";
 import type { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { hashToken } from "../src/api/auth.js";
-import * as db from "../src/data/db.js";
-import { ensureUser } from "../src/data/users.js";
-import * as people from "../src/data/users.js";
+import { hashToken } from "../src/modules/account/auth.js";
+import * as db from "../src/shared/db.js";
+import { ensureUser } from "../src/modules/account/repo.js";
+import * as people from "../src/modules/account/repo.js";
 import { createApp } from "../src/server.js";
 import { users } from "./fixtures.js";
 

@@ -1,13 +1,13 @@
 // Getting transactions out of Enable Banking and into ebby, against a fake that behaves like the real banks.
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import * as db from "../src/data/db.js";
-import { ensureUser } from "../src/data/users.js";
-import { Client, EnableBankingError, SUSPECT_FULL, WINDOW_DAYS } from "../src/integrations/enable_banking.js";
-import * as sync from "../src/jobs/sync.js";
-import { PyDate } from "../src/utils/python.js";
+import * as db from "../src/shared/db.js";
+import { ensureUser } from "../src/modules/account/repo.js";
+import { Client, EnableBankingError, SUSPECT_FULL, WINDOW_DAYS } from "../src/modules/banks/enable_banking.js";
+import * as sync from "../src/modules/banks/sync.js";
+import { PyDate } from "../src/shared/utils/python.js";
 import { users } from "./fixtures.js";
-import * as ingest from "../src/domain/ingest.js";
+import * as ingest from "../src/modules/banks/ingest.js";
 
 type Row = Record<string, any>;
 const tx = (day: string, amount: number, text: string, out = true, extra: Row = {}): Row => ({

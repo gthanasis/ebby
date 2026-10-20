@@ -52,10 +52,10 @@ jobs:
       - name: Schema types match the migrations
         working-directory: server
         run: npm run db:types && git diff --exit-code src/types/db.ts
-      # Imports point one way (api → jobs → domain → integrations → data → core), no cycles, SQL only in src/data.
-      - name: Layers
+      # Features never in a circle, shared never uses a feature, SQL only in repositories (scripts/check-structure.ts).
+      - name: Structure
         working-directory: server
-        run: npm run check:layers
+        run: npm run check:structure
       # Unit tests and the API contract (every read against its snapshot, every write through the reads).
       - name: Tests
         working-directory: server

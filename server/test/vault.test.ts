@@ -3,7 +3,7 @@ import { generateKeyPairSync } from "node:crypto";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import * as vault from "../src/data/vault.js";
+import * as vault from "../src/shared/vault.js";
 
 const KEY = process.env.CREDENTIALS_KEY!;
 afterEach(() => { process.env.CREDENTIALS_KEY = KEY; delete process.env.CREDENTIALS_OLD_KEYS; });

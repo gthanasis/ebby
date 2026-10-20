@@ -2,8 +2,8 @@
 
 import pg from "pg";
 
-import * as db from "../src/data/db.js";
-import { ensureUser } from "../src/data/users.js";
+import * as db from "../src/shared/db.js";
+import { ensureUser } from "../src/modules/account/repo.js";
 
 let ready: Promise<{ a: number; b: number }> | null = null;
 

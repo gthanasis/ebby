@@ -5,22 +5,22 @@ import { extname, join, resolve } from "node:path";
 
 import { Hono } from "hono";
 
-import * as account from "./api/account.js";
-import * as assistantRoutes from "./api/assistant.js";
-import * as auth from "./api/auth.js";
-import * as banksRoutes from "./api/banks.js";
-import * as commitments from "./api/commitments.js";
-import * as goals from "./api/goals.js";
-import * as habitsRoutes from "./api/habits.js";
-import { HttpError } from "./api/http.js";
-import * as plan from "./api/plan.js";
-import * as pushRoutes from "./api/push.js";
-import * as spendingRoutes from "./api/spending.js";
-import * as transactions from "./api/transactions.js";
+import * as account from "./modules/account/routes.js";
+import * as assistantRoutes from "./modules/assistant/routes.js";
+import * as auth from "./modules/account/auth.js";
+import * as banksRoutes from "./modules/banks/routes.js";
+import * as commitments from "./modules/commitments/routes.js";
+import * as goals from "./modules/goals/routes.js";
+import * as habitsRoutes from "./modules/habits/routes.js";
+import { HttpError } from "./shared/http.js";
+import * as plan from "./modules/plan/routes.js";
+import * as pushRoutes from "./modules/alerts/routes.js";
+import * as spendingRoutes from "./modules/spending/routes.js";
+import * as transactions from "./modules/transactions/routes.js";
 import { config, secrets } from "./config.js";
-import * as db from "./data/db.js";
-import * as users from "./data/users.js";
-import { withPayCalendar } from "./domain/months.js";
+import * as db from "./shared/db.js";
+import * as users from "./modules/account/repo.js";
+import { withPayCalendar } from "./shared/months.js";
 
 const PUBLIC_PATHS = new Set(["/api/healthz"]);
 const store = new users.Store();
