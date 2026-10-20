@@ -1,0 +1,53 @@
+{
+ "body": {
+  "budget": 295.0,
+  "category": "delivery",
+  "history": [
+   {
+    "month": "2026-04",
+    "spent": 41.17
+   },
+   {
+    "month": "2026-05",
+    "spent": 279.36
+   },
+   {
+    "month": "2026-06",
+    "spent": 235.78
+   },
+   {
+    "month": "2026-07",
+    "spent": 245.85
+   },
+   {
+    "month": "2026-08",
+    "spent": 277.05
+   },
+   {
+    "month": "2026-09",
+    "spent": 289.14
+   }
+  ],
+  "month": "2026-09",
+  "services": [
+   {
+    "accounts": [
+     "Alpha Μισθοδοσία"
+    ],
+    "amount": 212.42,
+    "count": 10,
+    "name": "Wolt"
+   },
+   {
+    "accounts": [
+     "Alpha Μισθοδοσία"
+    ],
+    "amount": 76.72,
+    "count": 4,
+    "name": "efood"
+   }
+  ],
+  "spent": 289.14
+ },
+ "status": 200
+}

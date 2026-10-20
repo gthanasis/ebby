@@ -1,0 +1,100 @@
+{
+ "body": {
+  "count": 9,
+  "items": [
+   {
+    "last_charge": "2026-10-06",
+    "monthly": 61.0,
+    "months": 6,
+    "name": "ΔΕΗ",
+    "next_charge": "2026-11-05",
+    "stale": false,
+    "varies": false
+   },
+   {
+    "last_charge": "2026-10-15",
+    "monthly": 45.0,
+    "months": 6,
+    "name": "Gym Fitness Athletic",
+    "next_charge": "2026-11-14",
+    "stale": false,
+    "varies": false
+   },
+   {
+    "last_charge": "2026-10-03",
+    "monthly": 42.0,
+    "months": 6,
+    "name": "Cosmote",
+    "next_charge": "2026-11-02",
+    "stale": false,
+    "varies": false
+   },
+   {
+    "last_charge": "2026-10-14",
+    "monthly": 21.6,
+    "months": 6,
+    "name": "Claude (Anthropic)",
+    "next_charge": "2026-11-13",
+    "stale": false,
+    "varies": false
+   },
+   {
+    "last_charge": "2026-10-20",
+    "monthly": 19.0,
+    "months": 7,
+    "name": "Eydap",
+    "next_charge": "2026-11-19",
+    "stale": false,
+    "varies": false
+   },
+   {
+    "last_charge": "2026-09-22",
+    "monthly": 18.0,
+    "months": 6,
+    "name": "Vodafone",
+    "next_charge": "2026-10-22",
+    "stale": false,
+    "varies": false
+   },
+   {
+    "last_charge": "2026-10-09",
+    "monthly": 13.99,
+    "months": 6,
+    "name": "Netflix",
+    "next_charge": "2026-11-08",
+    "stale": false,
+    "varies": false
+   },
+   {
+    "last_charge": "2026-10-09",
+    "monthly": 10.99,
+    "months": 6,
+    "name": "Spotify",
+    "next_charge": "2026-11-08",
+    "stale": false,
+    "varies": false
+   },
+   {
+    "last_charge": "2026-10-12",
+    "monthly": 2.99,
+    "months": 6,
+    "name": "Apple",
+    "next_charge": "2026-11-11",
+    "stale": false,
+    "varies": false
+   },
+   {
+    "last_charge": "2026-08-11",
+    "monthly": 42.94,
+    "months": 4,
+    "name": "Pharmacy Markou",
+    "next_charge": null,
+    "stale": true,
+    "varies": true
+   }
+  ],
+  "monthly": 234.57,
+  "yearly": 2814.84
+ },
+ "status": 200
+}

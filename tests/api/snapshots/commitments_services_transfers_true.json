@@ -1,0 +1,215 @@
+{
+ "body": [
+  {
+   "category": "housing",
+   "monthly": 300.0,
+   "months": 6,
+   "service": "ΕΝΟΙΚΙΟ ΔΙΑΜΕΡΙΣΜΑΤΟΣ"
+  },
+  {
+   "category": "delivery",
+   "monthly": 105.29,
+   "months": 7,
+   "service": "Wolt"
+  },
+  {
+   "category": "groceries",
+   "monthly": 62.4,
+   "months": 7,
+   "service": "Sklavenitis"
+  },
+  {
+   "category": "eating_out",
+   "monthly": 49.82,
+   "months": 6,
+   "service": "Card · restaurants"
+  },
+  {
+   "category": "shopping",
+   "monthly": 47.42,
+   "months": 6,
+   "service": "Skroutz"
+  },
+  {
+   "category": "coffee_bars",
+   "monthly": 45.63,
+   "months": 7,
+   "service": "Card · bars"
+  },
+  {
+   "category": "groceries",
+   "monthly": 30.71,
+   "months": 5,
+   "service": "Lidl Hellas"
+  },
+  {
+   "category": "bills",
+   "monthly": 28.15,
+   "months": 6,
+   "service": "ΔΕΗ"
+  },
+  {
+   "category": "groceries",
+   "monthly": 26.92,
+   "months": 7,
+   "service": "Card · supermarkets"
+  },
+  {
+   "category": "delivery",
+   "monthly": 24.56,
+   "months": 5,
+   "service": "efood"
+  },
+  {
+   "category": "travel",
+   "monthly": 24.0,
+   "months": 1,
+   "service": "Booking.Com"
+  },
+  {
+   "category": "cash",
+   "monthly": 22.31,
+   "months": 6,
+   "service": "ΑΝΑΛΗΨΗ ATM"
+  },
+  {
+   "category": "health",
+   "monthly": 20.77,
+   "months": 6,
+   "service": "Gym Fitness Athletic"
+  },
+  {
+   "category": "bills",
+   "monthly": 19.38,
+   "months": 6,
+   "service": "Cosmote"
+  },
+  {
+   "category": "groceries",
+   "monthly": 18.53,
+   "months": 7,
+   "service": "Fournos Georgiou"
+  },
+  {
+   "category": "groceries",
+   "monthly": 18.41,
+   "months": 4,
+   "service": "Ab Vasilopoulos"
+  },
+  {
+   "category": "eating_out",
+   "monthly": 15.11,
+   "months": 6,
+   "service": "Card · fast food"
+  },
+  {
+   "category": "travel",
+   "monthly": 14.31,
+   "months": 1,
+   "service": "Aegean Airlines"
+  },
+  {
+   "category": "car",
+   "monthly": 14.02,
+   "months": 6,
+   "service": "Uber"
+  },
+  {
+   "category": "health",
+   "monthly": 12.09,
+   "months": 4,
+   "service": "Pharmacy Markou"
+  },
+  {
+   "category": "bills",
+   "monthly": 10.23,
+   "months": 7,
+   "service": "Eydap"
+  },
+  {
+   "category": "car",
+   "monthly": 10.02,
+   "months": 3,
+   "service": "Shell"
+  },
+  {
+   "category": "subscriptions",
+   "monthly": 9.97,
+   "months": 6,
+   "service": "Claude (Anthropic)"
+  },
+  {
+   "category": "car",
+   "monthly": 9.22,
+   "months": 7,
+   "service": "Oasa Athens Metro"
+  },
+  {
+   "category": "bills",
+   "monthly": 8.31,
+   "months": 6,
+   "service": "Vodafone"
+  },
+  {
+   "category": "eating_out",
+   "monthly": 7.83,
+   "months": 7,
+   "service": "Coffee Island"
+  },
+  {
+   "category": "shopping",
+   "monthly": 7.83,
+   "months": 2,
+   "service": "Zara"
+  },
+  {
+   "category": "shopping",
+   "monthly": 7.77,
+   "months": 3,
+   "service": "Amazon"
+  },
+  {
+   "category": "subscriptions",
+   "monthly": 6.46,
+   "months": 6,
+   "service": "Netflix"
+  },
+  {
+   "category": "car",
+   "monthly": 5.45,
+   "months": 5,
+   "service": "Freenow"
+  },
+  {
+   "category": "people",
+   "monthly": 5.38,
+   "months": 3,
+   "service": "Nikos Alexiou"
+  },
+  {
+   "category": "subscriptions",
+   "monthly": 5.07,
+   "months": 6,
+   "service": "Spotify"
+  },
+  {
+   "category": "leisure",
+   "monthly": 4.08,
+   "months": 2,
+   "service": "Village Cinemas"
+  },
+  {
+   "category": "personal_care",
+   "monthly": 1.85,
+   "months": 1,
+   "service": "Hair Studio"
+  },
+  {
+   "category": "subscriptions",
+   "monthly": 1.38,
+   "months": 6,
+   "service": "Apple"
+  }
+ ],
+ "status": 200
+}

@@ -69,8 +69,9 @@ def invite(email: str, ai_budget_usd: float | None = None) -> dict:
         raise ValueError("That isn't an email address.")
     with db.connect_system() as conn:
         row = conn.execute("""
-            INSERT INTO users(email, ai_budget_usd) VALUES(?, COALESCE(?, 2)) ON CONFLICT(email) DO NOTHING RETURNING id
-        """, (email, ai_budget_usd)).fetchone()
+            INSERT INTO users(email, ai_budget_usd, created_at) VALUES(?, COALESCE(?, 2), ?) ON CONFLICT(email) DO NOTHING
+            RETURNING id
+        """, (email, ai_budget_usd, clock.now())).fetchone()
     if not row:
         raise ValueError(f"{email} is already on the list.")
     return me(row["id"])

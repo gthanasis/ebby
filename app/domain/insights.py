@@ -347,7 +347,8 @@ def pace(conn, month: str) -> dict:
     expected = planned * elapsed / days if planned else None
 
     categories = []
-    for cat in sorted(set(rows) | set(budgets), key=lambda c: -(rows.get(c, {}).get("spent", 0))):
+    # Ties (nothing spent yet) by name: a set's order changes from one process to the next.
+    for cat in sorted(set(rows) | set(budgets), key=lambda c: (-(rows.get(c, {}).get("spent", 0)), c)):
         r = rows.get(cat, {"spent": 0.0, "count": 0})
         budget = budgets.get(cat)
         status = "none"

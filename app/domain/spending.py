@@ -99,7 +99,7 @@ def _usual(past: list[list[dict]]) -> tuple[float | None, dict[str, list[float]]
 def _highlights(rows, usual_cats, days, elapsed, rng, min_move) -> list[dict]:
     now = _by_category(rows)
     moves = []
-    for c in set(now) | set(usual_cats):
+    for c in sorted(set(now) | set(usual_cats)):  # sorted: equal moves keep one order
         v, n = now.get(c, [0.0, 0])
         ua, uc = usual_cats.get(c, [0.0, 0.0])
         d = v - ua
@@ -216,7 +216,7 @@ def _year(conn, year: int, rows, total) -> dict:
                     t[c] = t.get(c, 0) + v / len(ms)
             return t
         before, after = avg(done[-6:-3]), avg(done[-3:])
-        moves = [(c, max(0.0, before.get(c, 0)), max(0.0, after.get(c, 0))) for c in set(before) | set(after)]
+        moves = [(c, max(0.0, before.get(c, 0)), max(0.0, after.get(c, 0))) for c in sorted(set(before) | set(after))]
         for c, x, y in sorted((m for m in moves if abs(m[2] - m[1]) >= 60), key=lambda m: -abs(m[2] - m[1]))[:3]:
             highlights.append({"kind": "trend", "category": c, "before": round(x, 2), "after": round(y, 2),
                                "from": done[-3]["key"], "to": done[-1]["key"]})

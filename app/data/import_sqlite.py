@@ -17,9 +17,9 @@ TABLES = ["accounts", "transactions", "rules", "connections", "goals", "commitme
 def ensure_user(email: str, admin: bool = False) -> int:
     with db.connect_system() as conn:
         row = conn.execute("""
-            INSERT INTO users(email, is_admin, status) VALUES(?, ?, 'active')
+            INSERT INTO users(email, is_admin, status, created_at) VALUES(?, ?, 'active', ?)
             ON CONFLICT(email) DO UPDATE SET is_admin = users.is_admin OR excluded.is_admin RETURNING id
-        """, (email.lower(), admin)).fetchone()
+        """, (email.lower(), admin, clock.now())).fetchone()
     return row["id"]
 
 
