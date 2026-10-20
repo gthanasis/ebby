@@ -8,6 +8,7 @@ import calendar
 import json
 import re
 import statistics
+import time
 from collections import defaultdict
 from datetime import date, timedelta
 
@@ -34,20 +35,26 @@ DISCRETIONARY = {"eating_out": 1.0, "delivery": 1.0, "shopping": 1.0, "cash": 1.
 # falls on a weekend arrives the Friday before, so the month starts then.
 
 PAYDAY_MIN = 1000  # an income deposit at least this big counts as pay
-_paydays: dict[int, int | str] = {}  # per person, read from their settings once
+# Per person, read from their settings and kept a minute: month_bounds runs many times a request, and
+# a change made on another pod reaches this one within that minute.
+PAYDAY_TTL = 60
+_paydays: dict[int, tuple[float, int | str]] = {}
 
 
 def payday() -> int | str:
     user = db.current_user()
-    if user not in _paydays:
-        with db.connect() as conn:
-            day = (db.get_meta(conn, "settings") or {}).get("payday") or 1
-        _paydays[user] = day if day == "last" else int(day)
-    return _paydays[user]
+    hit = _paydays.get(user)
+    if hit and time.monotonic() - hit[0] < PAYDAY_TTL:
+        return hit[1]
+    with db.connect() as conn:
+        day = (db.get_meta(conn, "settings") or {}).get("payday") or 1
+    day = day if day == "last" else int(day)
+    _paydays[user] = (time.monotonic(), day)
+    return day
 
 
 def set_payday(day: int | str):
-    _paydays[db.current_user()] = day
+    _paydays[db.current_user()] = (time.monotonic(), day)
 
 
 def _pay_date(y: int, m: int, day: int | str) -> date:

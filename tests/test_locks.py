@@ -32,3 +32,21 @@ def test_one_persons_sync_doesnt_hold_up_anothers(users, monkeypatch):
     with db.as_user(users["a"]), db.advisory_lock(db.LOCK_SYNC, users["a"]):
         with db.as_user(users["b"]):
             assert not sync.is_syncing() and sync.sync() is True
+
+
+def test_a_payday_changed_on_another_pod_is_picked_up(users, monkeypatch):
+    from app import insights
+    with db.as_user(users["a"]):
+        with db.connect() as conn:
+            before = db.get_meta(conn, "settings") or {}
+        try:
+            insights.set_payday(25)  # this pod's cache
+            with db.connect() as conn:  # the other pod saves a new payday
+                db.set_meta(conn, "settings", {**before, "payday": "last"})
+            assert insights.payday() == 25  # still within the minute
+            monkeypatch.setattr(insights, "PAYDAY_TTL", 0)
+            assert insights.payday() == "last"
+        finally:
+            with db.connect() as conn:
+                db.set_meta(conn, "settings", before)
+            insights._paydays.clear()
