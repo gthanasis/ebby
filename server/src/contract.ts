@@ -6,8 +6,9 @@
 import type { z } from "zod";
 
 import * as goals from "./modules/goals/schemas.js";
+import * as plan from "./modules/plan/schemas.js";
 
-const features = [goals];
+const features = [goals, plan];
 
 /** Every named shape, for the web app's types. */
 export const schemas: Record<string, z.ZodType> = Object.assign({}, ...features.map((f) => f.schemas));

@@ -1,13 +1,14 @@
 /** One spending category over a pay month: who it went to, its last six months, and its budget. */
 
-import type { Conn, Row } from "../../shared/db.js";
+import type { Conn } from "../../shared/db.js";
 import * as transactionsRepo from "../../shared/ledger/transactions.js";
-import { pyRound, sorted, sum } from "../../shared/utils/python.js";
+import { pyRound } from "../../shared/utils/python.js";
 import { monthBounds, shift } from "../../shared/months.js";
 import { budgetsFor, getPlan } from "./service.js";
 import { sn } from "../spending/services.js";
+import { type CategoryDetail, toCategoryDetail } from "./converters.js";
 
-export async function categoryDetail(conn: Conn, category: string, month: string): Promise<Row> {
+export async function categoryDetail(conn: Conn, category: string, month: string): Promise<CategoryDetail> {
   const [start, end] = monthBounds(month);
   const services = new Map<string, { amount: number; count: number; accounts: Set<string> }>();
   for (const r of await transactionsRepo.categoryPayments(conn, start, end, category)) {
@@ -24,11 +25,5 @@ export async function categoryDetail(conn: Conn, category: string, month: string
     history.push({ month: m, spent: pyRound(v, 2) });
   }
   const budget = budgetsFor(await getPlan(conn), month)[category] ?? null;
-  return {
-    category, month, budget, history,
-    spent: pyRound(sum([...services.values()].map((s) => s.amount)), 2),
-    services: sorted([...services.entries()].filter(([, s]) => s.amount > 0).map(([n, s]) => ({
-      name: n, amount: pyRound(s.amount, 2), count: s.count, accounts: sorted(s.accounts),
-    })), (s) => -s.amount),
-  };
+  return toCategoryDetail(category, month, budget, history, services);
 }
