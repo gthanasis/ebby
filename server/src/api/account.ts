@@ -6,7 +6,8 @@ import { z } from "zod";
 import { config } from "../config.js";
 import * as credentials from "../data/credentials.js";
 import * as db from "../data/db.js";
-import { type Conn, first } from "../data/db.js";
+import * as aiUsageRepo from "../data/repos/ai_usage.js";
+import type { Conn } from "../data/db.js";
 import * as users from "../data/users.js";
 import * as vault from "../data/vault.js";
 import * as aiUsage from "../domain/ai_usage.js";
@@ -34,7 +35,7 @@ export function routes(app: Hono) {
     const [keys, ob, spent] = await db.connect(async (conn) => [
       await credentials.publicInfo(conn), await onboarding(conn),
       // What counts against the allowance: calls on the owner's key this month.
-      first((await conn.execute("SELECT COALESCE(SUM(cost_usd), 0) FROM ai_usage WHERE at >= ? AND NOT own_key", [since])).one()),
+      await aiUsageRepo.spentOnOwnerKey(conn, since),
     ] as const);
     return c.json({
       email: person.email, name: person.name, picture: person.picture, is_admin: person.is_admin,

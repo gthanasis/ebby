@@ -7,7 +7,8 @@ import * as clock from "../clock.js";
 import * as db from "../data/db.js";
 import { CATEGORIES } from "../domain/categories.js";
 import * as habits from "../domain/habits.js";
-import type { HabitRule } from "../types/entities.js";
+import * as habitRules from "../data/repos/habit_rules.js";
+import * as yearlyCosts from "../data/repos/yearly_costs.js";
 import { isoUtc } from "../py.js";
 import { body, fail, int, integer, num } from "./http.js";
 
@@ -30,7 +31,7 @@ export function routes(app: Hono) {
   app.get("/api/habits/rules/:hid", async (c) => {
     const hid = int(c.req.param("hid"), "hid", 0);
     return c.json(await db.connect(async (conn) => {
-      const r = (await conn.execute<HabitRule>("SELECT * FROM habit_rules WHERE id = ?", [hid])).one();
+      const r = await habitRules.get(conn, hid);
       if (!r) fail(404, "No such habit");
       return habits.habitView(conn, r!, true);
     }));
@@ -40,17 +41,17 @@ export function routes(app: Hono) {
     const hid = int(c.req.param("hid"), "hid", 0);
     const b = await body(c, z.object({ target: num.nullable().default(null), goal_id: integer.nullable().default(null), clear_goal: z.boolean().default(false) }));
     return c.json(await db.connect(async (conn) => {
-      if (!(await conn.execute("SELECT * FROM habit_rules WHERE id = ?", [hid])).one()) fail(404, "No such habit");
-      if (b.target != null && b.target > 0) await conn.execute("UPDATE habit_rules SET target = ? WHERE id = ?", [b.target, hid]);
-      if (b.goal_id != null || b.clear_goal) await conn.execute("UPDATE habit_rules SET goal_id = ? WHERE id = ?", [b.clear_goal ? null : b.goal_id, hid]);
-      return habits.habitView(conn, (await conn.execute<HabitRule>("SELECT * FROM habit_rules WHERE id = ?", [hid])).one()!, true);
+      if (!(await habitRules.get(conn, hid))) fail(404, "No such habit");
+      if (b.target != null && b.target > 0) await habitRules.setTarget(conn, hid, b.target);
+      if (b.goal_id != null || b.clear_goal) await habitRules.setGoal(conn, hid, b.clear_goal ? null : b.goal_id);
+      return habits.habitView(conn, (await habitRules.get(conn, hid))!, true);
     }));
   });
 
   app.delete("/api/habits/rules/:hid", async (c) => {
     const hid = int(c.req.param("hid"), "hid", 0);
     return c.json(await db.connect(async (conn) => {
-      await conn.execute("DELETE FROM habit_rules WHERE id = ?", [hid]);
+      await habitRules.remove(conn, hid);
       return habits.weekly(conn);
     }));
   });
@@ -86,8 +87,7 @@ export function routes(app: Hono) {
     const b = await body(c, z.object({ name: z.string(), yearly_amount: num, due_month: integer }));
     if (!b.name.trim() || b.yearly_amount <= 0 || !(1 <= b.due_month && b.due_month <= 12)) fail(400, "A yearly cost needs a name, an amount and the month it's due");
     return c.json(await db.connect(async (conn) => {
-      await conn.execute("INSERT INTO yearly_costs(name, yearly_amount, due_month, created_at) VALUES(?, ?, ?, ?)",
-        [b.name.trim(), b.yearly_amount, b.due_month, isoUtc(clock.now())]);
+      await yearlyCosts.add(conn, { name: b.name.trim(), yearly_amount: b.yearly_amount, due_month: b.due_month, created_at: isoUtc(clock.now()) });
       return habits.overview(conn);
     }));
   });
@@ -95,7 +95,7 @@ export function routes(app: Hono) {
   app.delete("/api/yearly/:yid", async (c) => {
     const yid = int(c.req.param("yid"), "yid", 0);
     return c.json(await db.connect(async (conn) => {
-      await conn.execute("DELETE FROM yearly_costs WHERE id = ?", [yid]);
+      await yearlyCosts.remove(conn, yid);
       return habits.overview(conn);
     }));
   });

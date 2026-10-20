@@ -10,6 +10,7 @@ import * as clock from "../clock.js";
 import { config } from "../config.js";
 import * as credentials from "../data/credentials.js";
 import * as db from "../data/db.js";
+import * as accountsRepo from "../data/repos/accounts.js";
 import * as alerts from "../domain/alerts.js";
 import * as banks from "../integrations/banks.js";
 import { EnableBankingError } from "../integrations/enable_banking.js";
@@ -62,11 +63,7 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export function routes(app: Hono) {
   app.get("/api/status", async (c) => {
     const [accounts, connections, openQuestions] = await db.connect(async (conn) => [
-      (await conn.execute(
-        "SELECT id, bank, name, is_card, last4, balance, balance_at, synced_at, "
-        + "(SELECT COUNT(*) FROM transactions t WHERE t.account = a.id) AS transactions, "
-        + "(SELECT MIN(date) FROM transactions t WHERE t.account = a.id) AS since "
-        + "FROM accounts a ORDER BY bank, is_card, name")).rows,
+      await accountsRepo.withCounts(conn),
       // The banks you've connected or started to; the rest are offered from GET /api/banks.
       (await db.connections(conn)).map((x) => ({ bank: x.bank, connected: Boolean(x.session_id), valid_until: x.valid_until, last_sync: x.last_sync, last_error: x.last_error })),
       (await questions(conn)).length,
