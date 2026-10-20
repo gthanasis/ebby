@@ -165,7 +165,6 @@ export async function overview(conn: Conn): Promise<Row> {
 // Weeks run Monday to Sunday. Each finished week is kept or missed, which is what streaks, savings and anything
 // game-like later build on.
 
-export const TYPES = ["fewer", "spend_less", "nospend", "wait"];
 // The categories "fewer" is suggested for, with what one payment is called.
 const NOUNS: Record<string, [string, string]> = {
   delivery: ["delivery", "deliveries"], eating_out: ["meal out", "meals out"], coffee_bars: ["coffee or drink out", "coffees and drinks out"],
@@ -182,64 +181,92 @@ const mondayOf = (d: PyDate) => d.addDays(-d.weekday());
 const catLabel = (c: string | null) => (c && c in CATEGORIES ? CATEGORIES[c][0].toLowerCase() : "spending");
 const plural = (r: Pick<HabitRule, "category">) => (NOUNS[r.category ?? ""] ?? [null, `${catLabel(r.category)} payments`])[1];
 
-export function habitTitle(r: Pick<HabitRule, "type" | "target" | "category">): string {
-  const t = r.type, n = r.target;
-  if (t === "fewer") return `${fmtG(n)} or fewer ${plural(r)}`;
-  if (t === "spend_less") return `Under €${fmt0(n)} a week on ${catLabel(r.category)}`;
-  if (t === "nospend") return `${fmtG(n)} no-spend days`;
-  return `Wait 48 hours over €${fmt0(n)}`;
-}
-
 async function boughtWishes(conn: Conn, a: PyDate, b: PyDate): Promise<number[]> {
   return wishlistRepo.boughtPrices(conn, a.addDays(-7).isoformat(), b.addDays(2).isoformat());
 }
 
-/** The habit's number for the days a..b: payments, euros, no-spend days or wishlist skips. */
-async function measure(conn: Conn, r: HabitRule, a: PyDate, b: PyDate, rows: spending.SpendRow[]): Promise<{ value: number; spent: number | null }> {
-  const today = localToday();
-  const mine = rows.filter((x) => x.category === r.category);
-  if (r.type === "fewer") return { value: mine.length, spent: pyRound(sum(mine.map((x) => x.amount)), 2) };
-  if (r.type === "spend_less") return { value: pyRound(sum(mine.map((x) => x.amount)), 2), spent: pyRound(sum(mine.map((x) => x.amount)), 2) };
-  if (r.type === "nospend") {
-    const spentDays = new Set(rows.map((x) => x.date));
-    const done = Array.from({ length: b.diffDays(a) + 1 }, (_, i) => a.addDays(i)).filter((d) => d.n < today.n);  // today isn't over
-    return { value: done.filter((d) => !spentDays.has(d.isoformat())).length, spent: null };
-  }
-  const wishes = await boughtWishes(conn, a, b);
-  let skipped = 0;
-  for (const x of mine) {
-    if (x.amount > r.target) {
-      const i = wishes.findIndex((w) => Math.abs(w - x.amount) <= Math.max(5, w * 0.2));
-      if (i === -1) skipped += 1; else wishes.splice(i, 1);
-    }
-  }
-  return { value: skipped, spent: null };
+type HabitType = "fewer" | "spend_less" | "nospend" | "wait";
+
+/** What sets one type of habit apart: how it's called, what it counts, when a week is kept, what to say. */
+interface HabitKind {
+  title(r: Pick<HabitRule, "target" | "category">): string;
+  /** The habit's number for the days a..b: payments, euros, no-spend days or wishlist skips. */
+  measure(conn: Conn, r: HabitRule, a: PyDate, b: PyDate, rows: spending.SpendRow[]): Promise<{ value: number; spent: number | null }>;
+  status(n: number, value: number, finished: boolean, daysLeft: number): string;
+  nudge(r: HabitRule, value: number, st: string, daysLeft: number): string;
+  /** It counts money spent in a category, so it has a baseline to save against. */
+  tracksMoney: boolean;
 }
 
-function status(r: HabitRule, value: number, finished: boolean, daysLeft: number): string {
-  const t = r.type, n = r.target;
-  if (t === "nospend") {
-    if (value >= n) return "kept";
-    if (finished || value + daysLeft < n) return "missed";
-    return value + daysLeft === n ? "at_risk" : "on_track";
-  }
-  const over = t === "fewer" || t === "spend_less" ? value > n : value > 0;
-  if (over) return "missed";
-  if (finished) return "kept";
-  if (t === "fewer" && value === n) return "at_risk";
-  if (t === "spend_less" && value >= n * 0.85) return "at_risk";
-  return "on_track";
-}
+const inCategory = (r: HabitRule, rows: spending.SpendRow[]) => rows.filter((x) => x.category === r.category);
+// A habit with a ceiling: going over it misses the week, staying under keeps it once the week is over.
+const underCap = (over: boolean, finished: boolean, atRisk: boolean) => (over ? "missed" : finished ? "kept" : atRisk ? "at_risk" : "on_track");
 
-function nudge(r: HabitRule, m: { value: number }, st: string, daysLeft: number): string {
-  const t = r.type, n = r.target, v = m.value;
-  if (t === "fewer") return st === "missed" ? `${fmtG(v)} this week, over your ${fmtG(n)}.` : `No more ${plural(r)} this week keeps it.`;
-  if (t === "spend_less") return st === "missed" ? `€${fmt0(v)} this week, over your €${fmt0(n)}.` : `€${fmt0(n - v)} left on ${catLabel(r.category)} this week.`;
-  if (t === "nospend") {
-    if (st === "missed") return `${fmtG(v)} of ${fmtG(n)} no-spend days, with too few days left.`;
-    return daysLeft === 1 ? "Spend nothing today to keep it." : `Spend nothing on the ${daysLeft} days left to keep it.`;
-  }
-  return `A buy over €${fmt0(n)} skipped the wishlist this week.`;
+const HABIT_KINDS: Record<HabitType, HabitKind> = {
+  fewer: {
+    title: (r) => `${fmtG(r.target)} or fewer ${plural(r)}`,
+    measure: async (conn, r, a, b, rows) => {
+      const mine = inCategory(r, rows);
+      return { value: mine.length, spent: pyRound(sum(mine.map((x) => x.amount)), 2) };
+    },
+    status: (n, value, finished) => underCap(value > n, finished, value === n),
+    nudge: (r, v, st) => (st === "missed" ? `${fmtG(v)} this week, over your ${fmtG(r.target)}.` : `No more ${plural(r)} this week keeps it.`),
+    tracksMoney: true,
+  },
+  spend_less: {
+    title: (r) => `Under €${fmt0(r.target)} a week on ${catLabel(r.category)}`,
+    measure: async (conn, r, a, b, rows) => {
+      const spent = pyRound(sum(inCategory(r, rows).map((x) => x.amount)), 2);
+      return { value: spent, spent };
+    },
+    status: (n, value, finished) => underCap(value > n, finished, value >= n * 0.85),
+    nudge: (r, v, st) => (st === "missed" ? `€${fmt0(v)} this week, over your €${fmt0(r.target)}.` : `€${fmt0(r.target - v)} left on ${catLabel(r.category)} this week.`),
+    tracksMoney: true,
+  },
+  nospend: {
+    title: (r) => `${fmtG(r.target)} no-spend days`,
+    measure: async (conn, r, a, b, rows) => {
+      const today = localToday();
+      const spentDays = new Set(rows.map((x) => x.date));
+      const done = Array.from({ length: b.diffDays(a) + 1 }, (_, i) => a.addDays(i)).filter((d) => d.n < today.n);  // today isn't over
+      return { value: done.filter((d) => !spentDays.has(d.isoformat())).length, spent: null };
+    },
+    status: (n, value, finished, daysLeft) => {
+      if (value >= n) return "kept";
+      if (finished || value + daysLeft < n) return "missed";
+      return value + daysLeft === n ? "at_risk" : "on_track";
+    },
+    nudge: (r, v, st, daysLeft) => {
+      if (st === "missed") return `${fmtG(v)} of ${fmtG(r.target)} no-spend days, with too few days left.`;
+      return daysLeft === 1 ? "Spend nothing today to keep it." : `Spend nothing on the ${daysLeft} days left to keep it.`;
+    },
+    tracksMoney: false,
+  },
+  wait: {
+    title: (r) => `Wait 48 hours over €${fmt0(r.target)}`,
+    measure: async (conn, r, a, b, rows) => {
+      const wishes = await boughtWishes(conn, a, b);
+      let skipped = 0;
+      for (const x of inCategory(r, rows)) {
+        if (x.amount > r.target) {
+          const i = wishes.findIndex((w) => Math.abs(w - x.amount) <= Math.max(5, w * 0.2));
+          if (i === -1) skipped += 1; else wishes.splice(i, 1);
+        }
+      }
+      return { value: skipped, spent: null };
+    },
+    status: (n, value, finished) => underCap(value > 0, finished, false),
+    nudge: (r) => `A buy over €${fmt0(r.target)} skipped the wishlist this week.`,
+    tracksMoney: false,
+  },
+};
+
+export const TYPES: string[] = Object.keys(HABIT_KINDS);
+// A type this version doesn't know behaves as "wait".
+const kindOf = (type: string): HabitKind => (Object.hasOwn(HABIT_KINDS, type) ? HABIT_KINDS[type as HabitType] : HABIT_KINDS.wait);
+
+export function habitTitle(r: Pick<HabitRule, "type" | "target" | "category">): string {
+  return kindOf(r.type).title(r);
 }
 
 export async function ruleRows(conn: Conn): Promise<HabitRule[]> {
@@ -252,14 +279,15 @@ export async function habitView(conn: Conn, r: HabitRule, detail = false): Promi
   const sunday = monday.addDays(6);
   const created = mondayOf(PyDate.fromisoformat(r.created_at.slice(0, 10)));
   const daysLeft = 7 - today.weekday();  // today included
+  const kind = kindOf(r.type);
   const rows = await spending.rows(conn, monday.addDays(-7 * WEEKS), sunday);
   const weeks: Week[] = [];
   for (let i = WEEKS; i >= 0; i--) {
     const a = monday.addDays(-7 * i), b = a.addDays(6);
     const wk = rows.filter((x) => a.isoformat() <= x.date && x.date <= b.isoformat());
-    const m = await measure(conn, r, a, b, wk);
+    const m = await kind.measure(conn, r, a, b, wk);
     const finished = i > 0;
-    weeks.push({ start: a.isoformat(), ...m, status: status(r, m.value, finished, finished ? 0 : daysLeft), counted: a.n >= created.n, current: !finished });
+    weeks.push({ start: a.isoformat(), ...m, status: kind.status(r.target, m.value, finished, finished ? 0 : daysLeft), counted: a.n >= created.n, current: !finished });
   }
   const current = weeks[weeks.length - 1];
   let streak = 0;
@@ -268,12 +296,12 @@ export async function habitView(conn: Conn, r: HabitRule, detail = false): Promi
     streak += 1;
   }
   let saved = 0.0;
-  if ((r.type === "fewer" || r.type === "spend_less") && r.baseline) {
+  if (kind.tracksMoney && r.baseline) {
     saved = sum(weeks.slice(0, -1).filter((w) => w.counted).map((w) => Math.max(0.0, r.baseline - (w.spent || 0))));
   }
   const out: Row = {
     ...r, title: habitTitle(r), value: current.value, status: current.status, streak,
-    saved: pyRound(saved, 2), days_left: daysLeft, nudge: nudge(r, current, current.status, daysLeft),
+    saved: pyRound(saved, 2), days_left: daysLeft, nudge: kind.nudge(r, current.value, current.status, daysLeft),
   };
   if (detail) {
     out.weeks = weeks;
@@ -281,7 +309,7 @@ export async function habitView(conn: Conn, r: HabitRule, detail = false): Promi
     for (let i = 0; i < 7; i++) {
       const d = monday.addDays(i);
       if (d.n > today.n) { days.push({ date: d.isoformat(), value: null }); continue; }
-      const m = await measure(conn, r, d, d, rows.filter((x) => x.date === d.isoformat()));
+      const m = await kind.measure(conn, r, d, d, rows.filter((x) => x.date === d.isoformat()));
       // A no-spend day counts once it's over: 1 kept, 0 spent on; today is still open.
       const value = r.type === "nospend" ? (rows.some((x) => x.date === d.isoformat()) ? 0 : d.n < today.n ? 1 : null) : m.value;
       days.push({ date: d.isoformat(), value });
@@ -371,7 +399,7 @@ export async function weekly(conn: Conn): Promise<Row> {
 
 export async function addRule(conn: Conn, type: string, category: string | null, target: number, goalId: number | null = null): Promise<number> {
   let baseline = 0.0;
-  if ((type === "fewer" || type === "spend_less") && category) {
+  if (kindOf(type).tracksMoney && category) {
     const c = (await weeklyStats(conn)).cats.get(category);
     baseline = c ? pyRound(c[1] / WEEKS, 2) : 0.0;
   }

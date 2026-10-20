@@ -14,12 +14,50 @@ const LONG = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" })
 const WEEKDAY = new Intl.DateTimeFormat("en-GB", { weekday: "short" });
 const pct = (a: number, b: number) => (b > 0 ? Math.min(100, Math.round((a / b) * 100)) : 0);
 
-/** What each habit type counts, and the categories it can count. */
-const TYPES: { type: HabitType; icon: string; title: string; shape: string; example: string; unit: string; cats?: string[] }[] = [
-  { type: "fewer", icon: "mdi:repeat", title: "Fewer times", shape: "Something you do, a number of times a week or less.", example: "e.g. 5 or fewer deliveries", unit: "times a week" },
-  { type: "spend_less", icon: "mdi:cash-multiple", title: "Spend less on", shape: "A category, under an amount a week.", example: "e.g. under €50 eating out", unit: "€ a week" },
-  { type: "nospend", icon: "mdi:calendar-remove-outline", title: "No-spend days", shape: "Days in the week with no spending at all.", example: "e.g. 3 days a week", unit: "days a week" },
-  { type: "wait", icon: "mdi:clock-outline", title: "Wait first", shape: "Buys over an amount wait 48 hours on your wishlist.", example: "e.g. anything over €50", unit: "€ or more", cats: ["shopping"] },
+type Counted = { value: number; target: number };
+/** How each habit type is shown: what it counts, the categories it can count, and the words around its numbers. */
+interface HabitKind {
+  type: HabitType; icon: string; title: string; shape: string; example: string; unit: string; cats?: string[];
+  /** The label over the category picker; null when it counts every category. */
+  countsIn: string | null;
+  field: string; placeholder: string;
+  /** Its numbers are euros. */
+  money: boolean;
+  savesMoney: boolean;
+  /** It has a number for each day of the week, and a line (refLabel) to stay under or reach. */
+  hasDays: boolean;
+  chartTitle: string;
+  refLabel?: string; targetLabel: string;
+  amount: (h: Counted) => string;
+  caption: (h: Counted, shown: (v: number) => string) => string;
+  goodDay: (v: number | null) => boolean;
+  day: (v: number) => ReactNode;
+}
+const TYPES: HabitKind[] = [
+  {
+    type: "fewer", icon: "mdi:repeat", title: "Fewer times", shape: "Something you do, a number of times a week or less.", example: "e.g. 5 or fewer deliveries", unit: "times a week",
+    countsIn: "What it counts", field: "Times a week, at most", placeholder: "5", money: false, savesMoney: true, hasDays: true,
+    chartTitle: "Times a week", refLabel: "limit", targetLabel: "Aim",
+    amount: (h) => `${h.value} of ${h.target}`, caption: (h, shown) => `of ${shown(h.target)}`, goodDay: (v) => v === 0, day: (v) => v,
+  },
+  {
+    type: "spend_less", icon: "mdi:cash-multiple", title: "Spend less on", shape: "A category, under an amount a week.", example: "e.g. under €50 eating out", unit: "€ a week",
+    countsIn: "What it counts", field: "Euros a week, at most", placeholder: "€50", money: true, savesMoney: true, hasDays: true,
+    chartTitle: "Spent a week", refLabel: "limit", targetLabel: "Aim",
+    amount: (h) => `${euroRound(h.value)} of ${euroRound(h.target)}`, caption: (h, shown) => `of ${shown(h.target)}`, goodDay: (v) => v === 0, day: (v) => Math.round(v),
+  },
+  {
+    type: "nospend", icon: "mdi:calendar-remove-outline", title: "No-spend days", shape: "Days in the week with no spending at all.", example: "e.g. 3 days a week", unit: "days a week",
+    countsIn: null, field: "Days a week", placeholder: "3", money: false, savesMoney: false, hasDays: true,
+    chartTitle: "No-spend days a week", refLabel: "aim", targetLabel: "Aim",
+    amount: (h) => `${h.value} of ${h.target}`, caption: (h) => `of ${h.target} days`, goodDay: (v) => v === 1, day: (v) => <Icon icon={v ? "mdi:check" : "mdi:close"} />,
+  },
+  {
+    type: "wait", icon: "mdi:clock-outline", title: "Wait first", shape: "Buys over an amount wait 48 hours on your wishlist.", example: "e.g. anything over €50", unit: "€ or more", cats: ["shopping"],
+    countsIn: "Buys in", field: "Over this amount", placeholder: "€50", money: false, savesMoney: false, hasDays: false,
+    chartTitle: "Skipped the wishlist, a week", targetLabel: "Over",
+    amount: (h) => (h.value ? `${h.value} skipped` : "None"), caption: () => "skipped the wishlist", goodDay: (v) => v === 0, day: (v) => v,
+  },
 ];
 const typeOf = (t: HabitType) => TYPES.find((x) => x.type === t)!;
 const STATUS: Record<HabitStatus, { label: string; cls: string }> = {
@@ -369,12 +407,12 @@ function HabitsTab({ byId, version, onChanged }: { byId: Record<string, Category
             <Card className="list">
               {data.habits.map((h) => {
                 const st = STATUS[h.status];
-                const money = h.type === "spend_less";
+                const t = typeOf(h.type);
                 return (
                   <Row key={h.id} icon={iconFor(h.type, h.category, byId)} title={h.title} href={hrefFor({ page: "goals", section: "habit", id: h.id })}
-                    sub={h.streak ? `${h.streak} ${h.streak === 1 ? "week" : "weeks"} in a row` : typeOf(h.type).title}
-                    amt={h.type === "wait" ? (h.value ? `${h.value} skipped` : "None") : money ? `${euroRound(h.value)} of ${euroRound(h.target)}` : `${h.value} of ${h.target}`}
-                    amtSub={st.label} amtCls={st.cls} bar={h.type === "wait" ? undefined : pct(h.value, h.target)}
+                    sub={h.streak ? `${h.streak} ${h.streak === 1 ? "week" : "weeks"} in a row` : t.title}
+                    amt={t.amount(h)}
+                    amtSub={st.label} amtCls={st.cls} bar={t.hasDays ? pct(h.value, h.target) : undefined}
                     barCls={h.status === "at_risk" || h.status === "missed" ? "ahead" : undefined} />
                 );
               })}
@@ -435,17 +473,17 @@ function NewHabitSheet({ byId, onClose, onAdded }: { byId: Record<string, Catego
     <Sheet title={t.title} onClose={onClose}>
       <form className="form" onSubmit={(e) => {
         e.preventDefault(); setError(null);
-        addHabit({ type, category: type === "nospend" ? null : category, target: parseAmount(target) }).then(onAdded).catch((err: Error) => setError(err.message));
+        addHabit({ type, category: t.countsIn ? category : null, target: parseAmount(target) }).then(onAdded).catch((err: Error) => setError(err.message));
       }}>
         <p className="hint" style={{ marginTop: 0 }}>{t.shape}</p>
-        {type !== "nospend" && (
-          <label className="fld"><span>{type === "wait" ? "Buys in" : "What it counts"}</span>
+        {t.countsIn && (
+          <label className="fld"><span>{t.countsIn}</span>
             <Select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
               {cats.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
             </Select></label>
         )}
-        <label className="fld"><span>{type === "nospend" ? "Days a week" : type === "fewer" ? "Times a week, at most" : type === "spend_less" ? "Euros a week, at most" : "Over this amount"}</span>
-          <input className="input" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} placeholder={type === "fewer" ? "5" : type === "nospend" ? "3" : "€50"} required /></label>
+        <label className="fld"><span>{t.field}</span>
+          <input className="input" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} placeholder={t.placeholder} required /></label>
         <button className="btn block" type="submit" disabled={!parseAmount(target)}>Add habit</button>
         {error && <div className="error">{error}</div>}
       </form>
@@ -461,8 +499,7 @@ function HabitScreen({ id, byId, version, onChanged }: { id: number; byId: Recor
   if (error) return <><Crumbs items={crumbs} /><div className="empty">This habit is gone.</div></>;
   if (!h) return <div className="skeleton" />;
   const t = typeOf(h.type);
-  const money = h.type === "spend_less";
-  const shown = (v: number) => (money ? euroRound(v) : String(v));
+  const shown = (v: number) => (t.money ? euroRound(v) : String(v));
   const top = Math.max(h.target, ...h.weeks.map((w) => w.value), 1) * 1.15;
   const todayIso = new Date().toLocaleDateString("en-CA");
   const st = STATUS[h.status];
@@ -473,16 +510,16 @@ function HabitScreen({ id, byId, version, onChanged }: { id: number; byId: Recor
       <div className="col">
         <Card>
           <div className="label" style={{ marginTop: 0 }}>This week · <span className={st.cls}>{st.label}</span></div>
-          <div className="sp-total num">{shown(h.value)}<small>{h.type === "nospend" ? `of ${h.target} days` : h.type === "wait" ? "skipped the wishlist" : `of ${shown(h.target)}`}</small></div>
-          {h.type !== "wait" && (
+          <div className="sp-total num">{shown(h.value)}<small>{t.caption(h, shown)}</small></div>
+          {t.hasDays && (
             <div className="gl-week">
               {h.days.map((d) => {
                 const isToday = d.date === todayIso;
-                const good = h.type === "nospend" ? d.value === 1 : d.value === 0;
+                const good = t.goodDay(d.value);
                 return (
                   <div key={d.date}>
                     <b className={[d.value === null && !isToday ? "later" : good ? "zero" : "", isToday ? "today" : ""].join(" ")}>
-                      {d.value === null ? "" : h.type === "nospend" ? <Icon icon={d.value ? "mdi:check" : "mdi:close"} /> : money ? Math.round(d.value) : d.value}
+                      {d.value === null ? "" : t.day(d.value)}
                     </b>
                     <span className={isToday ? "now" : ""}>{WEEKDAY.format(at(d.date))}</span>
                   </div>
@@ -493,24 +530,24 @@ function HabitScreen({ id, byId, version, onChanged }: { id: number; byId: Recor
           <p className="hint">{h.nudge}</p>
         </Card>
         <Card>
-          <CardHeader icon={iconFor(h.type, h.category, byId)} title={h.type === "nospend" ? "No-spend days a week" : h.type === "wait" ? "Skipped the wishlist, a week" : money ? "Spent a week" : "Times a week"} />
+          <CardHeader icon={iconFor(h.type, h.category, byId)} title={t.chartTitle} />
           <div className="sp-bars" style={{ gridTemplateColumns: `repeat(${h.weeks.length}, 1fr)`, height: 80 }}>
             {h.weeks.map((w) => (
               <i key={w.start} className={w.current ? "cur" : w.status === "missed" && w.counted ? "hot" : ""} style={{ height: `${Math.max(2, (w.value / top) * 100)}%` }}
                 title={`${SHORT.format(at(w.start))}: ${shown(w.value)}`} />
             ))}
-            {h.type !== "wait" && <span className="sp-ref" style={{ bottom: `${(h.target / top) * 100}%` }}><em className="num">{h.type === "nospend" ? "aim" : "limit"} {shown(h.target)}</em></span>}
+            {t.refLabel && <span className="sp-ref" style={{ bottom: `${(h.target / top) * 100}%` }}><em className="num">{t.refLabel} {shown(h.target)}</em></span>}
           </div>
           <div className="sp-x" style={{ gridTemplateColumns: `repeat(${h.weeks.length}, 1fr)` }}>
             {h.weeks.map((w, i) => <span key={w.start}>{w.current ? "Now" : i % 2 === 0 ? SHORT.format(at(w.start)) : ""}</span>)}
           </div>
           <div className="big2 gl-stats">
             <div><span className="muted small">In a row</span><b className="num">{h.streak} {h.streak === 1 ? "week" : "weeks"}</b></div>
-            <div><span className="muted small">Saved so far</span><b className="num">{h.type === "fewer" || money ? euroRound(h.saved) : "–"}</b></div>
+            <div><span className="muted small">Saved so far</span><b className="num">{t.savesMoney ? euroRound(h.saved) : "–"}</b></div>
           </div>
         </Card>
         <Card className="list">
-          <div className="part"><span className="t"><b>{h.type === "wait" ? "Over" : "Aim"}</b><span className="muted small">{t.unit}</span></span>
+          <div className="part"><span className="t"><b>{t.targetLabel}</b><span className="muted small">{t.unit}</span></span>
             <TargetField value={h.target} onSave={(v) => patchHabit(h.id, { target: v }).then(done)} /></div>
           <div className="part"><span className="t"><b>Goes towards</b><span className="muted small">What it saves is for</span></span>
             <Select variant="sm" aria-label="Goes towards" value={h.goal_id ?? ""} onChange={(e) => {
