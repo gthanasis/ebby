@@ -19,7 +19,7 @@ export const _cache = new Map<string, [number, Bank[]]>();
 export interface Bank { name: string; logo: string | null; beta: boolean; consent_days: number | null }
 
 /** Python's urllib.parse.quote: like encodeURIComponent, but "/" kept and !'()* escaped. */
-const quote = (s: string) => encodeURIComponent(s).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`).replaceAll("%2F", "/");
+export const quote = (s: string) => encodeURIComponent(s).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`).replaceAll("%2F", "/");
 
 /** Sorted by name. Throws credentials.MissingCredential before the person has given the app their Enable Banking
  * keys, EnableBankingError if it can't be reached. */

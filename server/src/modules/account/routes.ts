@@ -12,7 +12,7 @@ import * as users from "./repo.js";
 import * as vault from "../../shared/vault.js";
 import * as aiUsage from "../assistant/ai_usage.js";
 import { pyRound } from "../../shared/utils/python.js";
-import { body, fail, HttpError, int, num } from "../../shared/http.js";
+import { body, fail, HttpError, int, mapErrors, num } from "../../shared/http.js";
 import { localToday } from "../../shared/months.js";
 
 async function onboarding(conn: Conn) {
@@ -50,21 +50,12 @@ export function routes(app: Hono) {
     const appId = form.app_id, pem = form.pem;
     if (typeof appId !== "string" || !(pem instanceof File)) throw new HttpError(422, [{ type: "missing", loc: ["body"], msg: "Field required" }]);
     const data = Buffer.from(await pem.slice(0, vault.MAX_PEM_BYTES + 1).arrayBuffer());
-    try {
-      return c.json(await credentials.saveEnableBanking(appId, data));
-    } catch (e) {
-      if (e instanceof Error && !(e instanceof HttpError)) return fail(400, e.message);
-      throw e;
-    }
+    return mapErrors(async () => c.json(await credentials.saveEnableBanking(appId, data)), [[HttpError, "pass"], [Error, 400]]);
   });
 
   app.post("/api/credentials/anthropic", async (c) => {
     const b = await body(c, z.object({ api_key: z.string().min(10).max(400) }));
-    try {
-      return c.json(await credentials.saveAnthropic(b.api_key));
-    } catch (e) {
-      return fail(400, (e as Error).message);
-    }
+    return mapErrors(async () => c.json(await credentials.saveAnthropic(b.api_key)), [["*", 400, (e) => e.message]]);
   });
 
   app.delete("/api/credentials/:kind", async (c) => {
@@ -90,11 +81,7 @@ export function routes(app: Hono) {
   app.post("/api/people", async (c) => {
     await admin();
     const b = await body(c, z.object({ email: z.string().max(200), ai_budget_usd: budget }));
-    try {
-      return c.json(await users.invite(b.email, b.ai_budget_usd ?? null));
-    } catch (e) {
-      return fail(400, (e as Error).message);
-    }
+    return mapErrors(async () => c.json(await users.invite(b.email, b.ai_budget_usd ?? null)), [["*", 400, (e) => e.message]]);
   });
 
   app.patch("/api/people/:userId", async (c) => {

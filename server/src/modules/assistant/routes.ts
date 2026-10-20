@@ -10,14 +10,13 @@ import * as assistant from "./service.js";
 import { CATEGORIES } from "../../shared/categories.js";
 import * as sorter from "./sorter.js";
 import { pyDumps } from "../../shared/utils/python.js";
-import { body, fail, int } from "../../shared/http.js";
+import { body, fail, int, mapErrors } from "../../shared/http.js";
 import { cashView } from "../spending/cash.js";
 import { clearServiceCategory, setServiceCategory } from "../banks/ingest.js";
 import { questions } from "../spending/questions.js";
 import { thisMonth } from "../../shared/months.js";
 
 const ChatIn = z.object({ text: z.string() });
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export function routes(app: Hono) {
   app.get("/api/assistant", async (c) => {
@@ -28,11 +27,7 @@ export function routes(app: Hono) {
   app.post("/api/assistant/chat", async (c) => {
     const b = await body(c, ChatIn);
     if (!b.text.trim()) fail(400, "Say something first");
-    try {
-      return c.json(await assistant.chat(b.text.trim().slice(0, 2000)));
-    } catch (e) {
-      return fail(503, message(e));
-    }
+    return mapErrors(async () => c.json(await assistant.chat(b.text.trim().slice(0, 2000))), [["*", 503]]);
   });
 
   /** The reply as it's written, as server-sent events: text, status, then done (or error). */
@@ -50,12 +45,7 @@ export function routes(app: Hono) {
 
   app.post("/api/assistant/actions/:actionId/confirm", async (c) => {
     const id = int(c.req.param("actionId"), "action_id", 0);
-    let result;
-    try {
-      result = await assistant.runAction(id);
-    } catch (e) {
-      return fail(400, message(e));
-    }
+    const result = await mapErrors(() => assistant.runAction(id), [["*", 400]]);
     return c.json({ result, ...(await assistant.display()) });
   });
 

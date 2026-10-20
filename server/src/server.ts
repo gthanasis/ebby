@@ -8,6 +8,7 @@ import { Hono } from "hono";
 import * as account from "./modules/account/routes.js";
 import * as assistantRoutes from "./modules/assistant/routes.js";
 import * as auth from "./modules/account/auth.js";
+import { authenticator } from "./modules/account/authenticate.js";
 import * as banksRoutes from "./modules/banks/routes.js";
 import * as commitments from "./modules/commitments/routes.js";
 import * as goals from "./modules/goals/routes.js";
@@ -17,7 +18,7 @@ import * as plan from "./modules/plan/routes.js";
 import * as pushRoutes from "./modules/alerts/routes.js";
 import * as spendingRoutes from "./modules/spending/routes.js";
 import * as transactions from "./modules/transactions/routes.js";
-import { config, secrets } from "./config.js";
+import { config } from "./config.js";
 import * as db from "./shared/db.js";
 import * as users from "./modules/account/repo.js";
 import { withPayCalendar } from "./shared/months.js";
@@ -44,33 +45,13 @@ export function createApp(): Hono {
     return c.text("Internal Server Error", 500);
   });
 
+  const authenticate = authenticator(store);
   app.use("*", async (c, next) => {
-    const path = c.req.path;
-    if (PUBLIC_PATHS.has(path) || !isPrivate(path)) return next();
-    let userId: number | null;
-    if (config.GOOGLE_CLIENT_ID) {
-      const user = await auth.currentUser(c, store);
-      if (!user) return c.json({ detail: "Sign in first." }, 401);
-      if (!auth.originOk(c)) return c.json({ detail: "That request didn't come from this app." }, 403);
-      userId = user.id;
-    } else if (secrets.APP_PASSWORD) {
-      const header = c.req.header("authorization") ?? "";
-      let ok = false;
-      if (header.startsWith("Basic ")) {
-        const decoded = Buffer.from(header.slice(6), "base64").toString();
-        ok = decoded.slice(decoded.indexOf(":") + 1) === secrets.APP_PASSWORD;
-      }
-      if (!ok) return c.body(null, 401, { "WWW-Authenticate": 'Basic realm="ebby"' });
-      userId = await db.adminId();
-    } else if (config.LOCAL) {
-      userId = await db.adminId();  // local runs without any login act as the admin
-    } else {
-      // Public and no sign-in configured: acting as the admin would hand anyone their money.
-      return c.text("No sign-in configured: set GOOGLE_CLIENT_ID (or APP_PASSWORD for a private install).", 503);
-    }
-    if (userId == null) return c.text("No users yet: set ADMIN_EMAIL or run `ebby add-user EMAIL --admin`.", 503);
+    if (!isPrivate(c.req.path)) return next();
+    const who = await authenticate(c);
+    if (typeof who !== "number") return who;
     // Everything downstream (routes, their background work, streams) reads and writes as this user.
-    return db.asUser(userId, () => withPayCalendar(() => next()));
+    return db.asUser(who, () => withPayCalendar(() => next()));
   });
 
   app.get("/api/healthz", (c) => c.json({ ok: true }));

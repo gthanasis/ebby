@@ -15,6 +15,25 @@ export class HttpError extends Error {
 /** FastAPI's HTTPException. */
 export const fail = (status: number, detail: string): never => { throw new HttpError(status, detail); };
 
+/** What a thrown value says: an Error's message, anything else as text. */
+export const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+type ErrorClass = abstract new (...args: any[]) => unknown;
+/** What a route turns a thrown value into: the first rule whose class it is an instance of ("*" for anything) answers
+ * with that status and detail (the error's text by default), or "pass" lets it through as it is. */
+export type ErrorRule = [catches: ErrorClass | "*", status: number | "pass", detail?: (e: any) => string];
+
+/** Runs fn, answering what it throws by the rules; a value no rule catches is thrown on. */
+export async function mapErrors<T>(fn: () => Promise<T>, rules: ErrorRule[]): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    const rule = rules.find(([catches]) => catches === "*" || e instanceof catches);
+    if (!rule || rule[1] === "pass") throw e;
+    return fail(rule[1], (rule[2] ?? errorText)(e));
+  }
+}
+
 function invalid(issues: { path: PropertyKey[]; message: string }[], where: string): never {
   throw new HttpError(422, issues.map((i) => ({ type: "value_error", loc: [where, ...i.path.map(String)], msg: i.message })));
 }

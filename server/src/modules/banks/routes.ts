@@ -16,15 +16,12 @@ import * as banks from "./bank_list.js";
 import { EnableBankingError } from "./enable_banking.js";
 import * as sync from "./sync.js";
 import { parseIso } from "../../shared/utils/python.js";
-import { body, fail } from "../../shared/http.js";
+import { body, errorText, type ErrorRule, mapErrors } from "../../shared/http.js";
 import { CASH_ACCOUNT } from "../../shared/constants.js";
 import { questions } from "../spending/questions.js";
 import { thisMonth } from "../../shared/months.js";
 
 const LIVE_SYNC_MINUTES = 15;
-
-/** Python's urllib.parse.quote. */
-const quote = (s: string) => encodeURIComponent(s).replace(/[!'()*]/g, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`).replaceAll("%2F", "/");
 
 const v4 = (ip: string) => ip.split(".").reduce((n, p) => n * 256 + parseInt(p, 10), 0);
 const inV4 = (ip: number, base: string, bits: number) => Math.floor(ip / 2 ** (32 - bits)) === Math.floor(v4(base) / 2 ** (32 - bits));
@@ -58,7 +55,8 @@ function psuHeaders(c: Context): Record<string, string> | null {
   return headers;
 }
 
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+/** Connecting a bank: Enable Banking failing is a bad gateway, anything else a bad request. */
+const bankRound: ErrorRule[] = [[EnableBankingError, 502], ["*", 400]];
 
 export function routes(app: Hono) {
   app.get("/api/status", async (c) => {
@@ -87,34 +85,23 @@ export function routes(app: Hono) {
 
   /** Every bank Enable Banking connects in this country, for personal accounts. */
   app.get("/api/banks", async (c) => {
-    try {
-      return c.json({ country: config.COUNTRY, banks: await banks.available() });
-    } catch (e) {
-      if (e instanceof credentials.MissingCredential) return fail(400, e.message);
-      if (e instanceof EnableBankingError) return fail(502, `Couldn't get the list of banks from Enable Banking (${e.message}). Try again in a bit.`);
-      throw e;
-    }
+    return mapErrors(async () => c.json({ country: config.COUNTRY, banks: await banks.available() }), [
+      [credentials.MissingCredential, 400],
+      [EnableBankingError, 502, (e) => `Couldn't get the list of banks from Enable Banking (${e.message}). Try again in a bit.`],
+    ]);
   });
 
   app.post("/api/auth/start", async (c) => {
     const b = await body(c, z.object({ bank: z.string() }));
-    try {
-      return c.json({ url: await sync.startAuth(b.bank) });
-    } catch (e) {
-      if (e instanceof EnableBankingError) return fail(502, e.message);
-      return fail(400, message(e));
-    }
+    return mapErrors(async () => c.json({ url: await sync.startAuth(b.bank) }), bankRound);
   });
 
   app.post("/api/auth/complete", async (c) => {
     const b = await body(c, z.object({ address: z.string() }));
-    try {
+    return mapErrors(async () => {
       const [bank, count] = await sync.completeAuth(b.address);
       return c.json({ bank, accounts: count });
-    } catch (e) {
-      if (e instanceof EnableBankingError) return fail(502, e.message);
-      return fail(400, message(e));
-    }
+    }, bankRound);
   });
 
   /** Called when the app is opened: fresh data, at most every LIVE_SYNC_MINUTES. */
@@ -133,9 +120,9 @@ export function routes(app: Hono) {
     const page = (await db.connect((conn) => db.getMeta(conn, "onboarded"))) ? "accounts" : "welcome";  // back to wherever they connected from
     try {
       const [bank, count] = await sync.completeAuth(c.req.url);
-      return c.redirect(`/#/${page}/connected=${quote(bank)}&accounts=${count}`, 303);
+      return c.redirect(`/#/${page}/connected=${banks.quote(bank)}&accounts=${count}`, 303);
     } catch (e) {
-      return c.redirect(`/#/${page}/error=${quote(message(e))}`, 303);
+      return c.redirect(`/#/${page}/error=${banks.quote(errorText(e))}`, 303);
     }
   });
 }

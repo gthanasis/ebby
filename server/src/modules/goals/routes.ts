@@ -8,7 +8,8 @@ import * as db from "../../shared/db.js";
 import type { Conn, Row } from "../../shared/db.js";
 import * as habits from "../habits/service.js";
 import * as spending from "../spending/service.js";
-import { median, monthDays, PyDate, pyMod, pyRound, sum } from "../../shared/utils/python.js";
+import { addMonths } from "../../shared/utils/dates.js";
+import { median, PyDate, pyRound, sum } from "../../shared/utils/python.js";
 import * as goalsRepo from "./repo.js";
 import { goalsList } from "./service.js";
 import { body, fail, int, isoDate, num } from "../../shared/http.js";
@@ -16,12 +17,6 @@ import { committedTotal } from "../commitments/service.js";
 import { extraPay } from "../plan/extra_pay.js";
 import { getPlan } from "../plan/service.js";
 import { localToday, monthBounds, shift, thisMonth } from "../../shared/months.js";
-
-function addMonths(d: PyDate, n: number): PyDate {
-  const i = d.month - 1 + n;
-  const y = d.year + Math.floor(i / 12), m = pyMod(i, 12) + 1;
-  return new PyDate(y, m, Math.min(d.day, monthDays(y, m)));
-}
 
 /** Suggested until you have a savings total: three months of your fixed costs and usual spending, in a year. */
 async function safetyNet(conn: Conn): Promise<Row | null> {

@@ -3,7 +3,8 @@
 import { type Conn, type Row } from "../../shared/db.js";
 import * as commitmentsRepo from "./repo.js";
 import * as transactionsRepo from "../../shared/ledger/transactions.js";
-import { maxBy, monthDays, PyDate, pyMod, pyRound, sorted, sum } from "../../shared/utils/python.js";
+import { addMonths } from "../../shared/utils/dates.js";
+import { maxBy, PyDate, pyRound, sorted, sum } from "../../shared/utils/python.js";
 import type { Commitment } from "../../types/entities.js";
 import { localToday, monthBounds, monthOf, shift, thisMonth } from "../../shared/months.js";
 import { sn } from "../spending/services.js";
@@ -17,12 +18,6 @@ async function commitmentRows(conn: Conn): Promise<Commitment[]> {
     out.push(c);
   }
   return out;
-}
-
-function addMonths(d: PyDate, n: number): PyDate {
-  const i = d.month - 1 + n;
-  const y = d.year + Math.floor(i / 12), m = pyMod(i, 12) + 1;
-  return new PyDate(y, m, Math.min(d.day, monthDays(y, m)));
 }
 
 /** For a cost paid every few months: the next payment (moved on once its date has passed), and what should be put
