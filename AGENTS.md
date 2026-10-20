@@ -87,8 +87,9 @@ placeholders (`conn.execute`) for the rest. Callers open the transaction (`db.co
 - **Types come from the schema.** Read rows as the types in `src/types/entities.ts` (`conn.execute<Goal>(…)`), and
   meta documents through `db.getMeta(conn, "plan")`, which is typed by key: a new meta key gets its shape in
   `MetaDocuments`. Avoid adding `Row` (`Record<string, any>`).
-- **Pay months need the payday loaded:** every request (the middleware) and every job loads it with
-  `loadPayday()` (domain/months.ts) before using `monthBounds`; forgetting throws rather than silently using the 1st.
+- **Pay months need the pay calendar:** every request (the middleware) and every job's work for a person runs
+  inside `withPayCalendar()` (domain/months.ts), which reads their payday fresh; `monthBounds` outside it throws
+  rather than silently using the 1st. `PayCalendar` itself is plain: `new PayCalendar(25).monthBounds("2026-10")`.
 - **Numbers and ids match what Python wrote.** Stored data and transaction ids were first made by a Python app,
   and the snapshots hold its numbers. Round money with `pyRound` (halves to even), format with `fmt0`/`fmt2`,
   and build stored JSON and ids with `pyDumps`. A plain `Math.round` or `JSON.stringify` there changes totals
