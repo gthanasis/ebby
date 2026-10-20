@@ -8,7 +8,7 @@
 
 import { serve } from "@hono/node-server";
 
-import { config } from "./config.js";
+import { config, ConfigError, validateConfig } from "./config.js";
 import * as db from "./data/db.js";
 import * as demo from "./data/demo.js";
 import * as sync from "./jobs/sync.js";
@@ -21,6 +21,7 @@ async function startup() {
 
 async function main(args: string[]) {
   const [cmd = "serve", ...rest] = args;
+  validateConfig({ database: true });
   if (cmd === "serve") {
     await startup();
     sync.runScheduler();
@@ -41,4 +42,7 @@ async function main(args: string[]) {
   await db.close();
 }
 
-main(process.argv.slice(2)).catch((e) => { console.error(e); process.exit(1); });
+main(process.argv.slice(2)).catch((e) => {
+  console.error(e instanceof ConfigError ? e.message : e);
+  process.exit(1);
+});

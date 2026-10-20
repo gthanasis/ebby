@@ -148,7 +148,7 @@ let started = false;
  * then cool-down alerts, and the weekly read on Monday mornings. */
 export function runScheduler() {
   // The demo's banks are made up: nothing to sync, no alerts to send. EBBY_SCHEDULER=off keeps tests' data still.
-  if (config.DEMO || started || process.env.EBBY_SCHEDULER === "off") return;
+  if (config.DEMO || started || !config.SCHEDULER) return;
   started = true;
 
   const forUser = async () => {

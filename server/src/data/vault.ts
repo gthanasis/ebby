@@ -6,6 +6,7 @@
  * Byte for byte what the Python app stored: AES-256-GCM, the 16-byte tag after the ciphertext.
  */
 
+import { secrets } from "../config.js";
 import { createCipheriv, createDecipheriv, createHash, createPrivateKey, createPublicKey, randomBytes } from "node:crypto";
 
 export const MAX_PEM_BYTES = 16 * 1024;
@@ -24,7 +25,7 @@ function decodeKey(value: string, name: string): Buffer {
 const keyId = (key: Buffer) => createHash("sha256").update(key).digest("hex").slice(0, 8);
 
 function currentKey(): Buffer {
-  const value = process.env.CREDENTIALS_KEY;
+  const value = secrets.CREDENTIALS_KEY;
   if (!value) throw new Error("CREDENTIALS_KEY isn't set");
   return decodeKey(value, "CREDENTIALS_KEY");
 }
@@ -32,8 +33,9 @@ function currentKey(): Buffer {
 /** Every key that can decrypt, by id; read on each call so tests and rotations take effect. */
 function keys(): Map<string, Buffer> {
   const out = new Map<string, Buffer>();
-  for (const value of (process.env.CREDENTIALS_OLD_KEYS ?? "").split(",")) {
-    if (value.trim()) { const k = decodeKey(value, "CREDENTIALS_OLD_KEYS"); out.set(keyId(k), k); }
+  for (const value of secrets.CREDENTIALS_OLD_KEYS) {
+    const k = decodeKey(value, "CREDENTIALS_OLD_KEYS");
+    out.set(keyId(k), k);
   }
   const current = currentKey();
   out.set(keyId(current), current);

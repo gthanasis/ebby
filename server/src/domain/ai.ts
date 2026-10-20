@@ -5,7 +5,7 @@ import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 
 import * as clock from "../clock.js";
-import { config } from "../config.js";
+import { config, secrets } from "../config.js";
 import * as credentials from "../data/credentials.js";
 import * as db from "../data/db.js";
 import { type Conn, first, type Row } from "../data/db.js";
@@ -55,7 +55,7 @@ const FALLBACK = () => ({ betas: ["server-side-fallback-2026-07-01"] as Anthropi
 
 /** Whether this person can use Claude at all: the owner's key is set, or they added their own. */
 export async function available(): Promise<boolean> {
-  if (config.ANTHROPIC_API_KEY) return true;
+  if (secrets.ANTHROPIC_API_KEY) return true;
   return db.connect(async (conn) => "anthropic" in await credentials.publicInfo(conn));
 }
 
@@ -69,7 +69,7 @@ export async function client(feature: string): Promise<Claude> {
   const now = clock.now();
   const spent = await db.connect(async (conn) => first((await conn.execute(
     "SELECT COALESCE(SUM(cost_usd), 0) FROM ai_usage WHERE at >= ? AND NOT own_key", [aiUsage.monthBounds(now)[0]])).one()));
-  const [key, own] = aiUsage.chooseKey({ ownKey: await credentials.anthropicKey(), sharedKey: config.ANTHROPIC_API_KEY,
+  const [key, own] = aiUsage.chooseKey({ ownKey: await credentials.anthropicKey(), sharedKey: secrets.ANTHROPIC_API_KEY,
     isAdmin: person.is_admin, spent, budget: person.ai_budget_usd, today: now });
   // The workspace belongs to the owner's key; someone's own key bills wherever it's scoped.
   const defaultHeaders = config.ANTHROPIC_WORKSPACE_ID && !own ? { "anthropic-workspace-id": config.ANTHROPIC_WORKSPACE_ID } : undefined;

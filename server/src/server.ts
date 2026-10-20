@@ -17,7 +17,7 @@ import * as plan from "./api/plan.js";
 import * as pushRoutes from "./api/push.js";
 import * as spendingRoutes from "./api/spending.js";
 import * as transactions from "./api/transactions.js";
-import { config } from "./config.js";
+import { config, secrets } from "./config.js";
 import * as db from "./data/db.js";
 import * as users from "./data/users.js";
 import * as insights from "./domain/insights.js";
@@ -53,12 +53,12 @@ export function createApp(): Hono {
       if (!user) return c.json({ detail: "Sign in first." }, 401);
       if (!auth.originOk(c)) return c.json({ detail: "That request didn't come from this app." }, 403);
       userId = user.id;
-    } else if (config.APP_PASSWORD) {
+    } else if (secrets.APP_PASSWORD) {
       const header = c.req.header("authorization") ?? "";
       let ok = false;
       if (header.startsWith("Basic ")) {
         const decoded = Buffer.from(header.slice(6), "base64").toString();
-        ok = decoded.slice(decoded.indexOf(":") + 1) === config.APP_PASSWORD;
+        ok = decoded.slice(decoded.indexOf(":") + 1) === secrets.APP_PASSWORD;
       }
       if (!ok) return c.body(null, 401, { "WWW-Authenticate": 'Basic realm="ebby"' });
       userId = await db.adminId();
