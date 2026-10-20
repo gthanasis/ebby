@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from app import auth
+from app.api import auth
 
 CLIENT_ID = "client-123.apps.googleusercontent.com"
 KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)

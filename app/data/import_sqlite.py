@@ -6,7 +6,8 @@ from pathlib import Path
 
 import psycopg
 
-from . import config, db
+from app import config
+from app.data import db
 
 TABLES = ["accounts", "transactions", "rules", "connections", "goals", "commitments", "assistant_messages",
           "assistant_actions", "wishlist", "habit_rules", "yearly_costs", "push_subscriptions", "meta"]
@@ -55,6 +56,6 @@ def run(path: Path, email: str, admin: bool = False) -> dict[str, int]:
             db.set_meta(conn, "settings", {**settings, "owner_names": config.OWNER_NAMES})
         # They were already set up: skip the first-run screens.
         db.set_meta(conn, "onboarded", True)
-    from . import credentials
+    from app.data import credentials
     credentials.adopt_env_key(user_id)
     return counts

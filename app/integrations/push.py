@@ -9,7 +9,8 @@ from cryptography.hazmat.primitives import serialization
 from py_vapid import Vapid
 from pywebpush import WebPushException, webpush
 
-from . import config, db
+from app import config
+from app.data import db
 
 log = logging.getLogger("bank-sync")
 _KEY_FILE = config.DATA_DIR / "vapid.pem"

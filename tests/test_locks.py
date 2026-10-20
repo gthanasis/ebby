@@ -4,7 +4,8 @@ Each advisory_lock holds its own pooled connection, so two of them in this proce
 as two pods would.
 """
 
-from app import db, sync
+from app.data import db
+from app.jobs import sync
 
 
 def test_only_one_scheduler_round_at_a_time():
@@ -35,7 +36,7 @@ def test_one_persons_sync_doesnt_hold_up_anothers(users, monkeypatch):
 
 
 def test_a_payday_changed_on_another_pod_is_picked_up(users, monkeypatch):
-    from app import insights
+    from app.domain import insights
     with db.as_user(users["a"]):
         with db.connect() as conn:
             before = db.get_meta(conn, "settings") or {}

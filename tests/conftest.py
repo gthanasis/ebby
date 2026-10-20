@@ -29,7 +29,7 @@ def database():
     with psycopg.connect(OWNER, autocommit=True) as pg:
         pg.execute(f"DROP DATABASE IF EXISTS {TEST_DB} WITH (FORCE)")
         pg.execute(f"CREATE DATABASE {TEST_DB}")
-    from app import db
+    from app.data import db
     db.init()
     yield
     if db._pool:
@@ -39,8 +39,8 @@ def database():
 @pytest.fixture(scope="session")
 def users(database):
     """Two people with data that's easy to spot: anything of A's showing up for B is a leak."""
-    from app import db
-    from app.import_sqlite import ensure_user
+    from app.data import db
+    from app.data.import_sqlite import ensure_user
     a, b = ensure_user("a@example.com", admin=True), ensure_user("b@example.com")
     for user, tag in ((a, "AAA"), (b, "BBB")):
         with db.as_user(user), db.connect() as conn:

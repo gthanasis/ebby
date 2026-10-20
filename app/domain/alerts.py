@@ -4,8 +4,11 @@ import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from . import config, db, habits, insights, push
-from .categories import CATEGORIES
+from app import config
+from app.data import db
+from app.domain import habits, insights
+from app.integrations import push
+from app.domain.categories import CATEGORIES
 
 log = logging.getLogger("bank-sync")
 LEVELS = {"ahead": 1, "over": 2}

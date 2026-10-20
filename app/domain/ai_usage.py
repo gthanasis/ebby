@@ -5,7 +5,7 @@ from datetime import date, datetime
 from typing import NamedTuple
 from zoneinfo import ZoneInfo
 
-from . import config
+from app import config
 
 
 class Price(NamedTuple):

@@ -6,7 +6,7 @@ here runs through db.connect_system() and never touches anyone's own rows.
 
 from datetime import datetime, timedelta, timezone
 
-from . import db
+from app.data import db
 
 
 class Store:

@@ -7,7 +7,9 @@ import pytest
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 
-from app import config, db, server, sync
+from app import config, server
+from app.data import db
+from app.jobs import sync
 
 # Path parameters for routes that need them, so every GET route gets called.
 PATH_VALUES = {"category": "delivery", "tx_id": "acc-AAA:0", "cid": "1", "hid": "1", "goal_id": "1", "wid": "1", "yid": "1",
@@ -112,7 +114,7 @@ def test_streamed_responses_act_as_the_requests_user(client_as, users):
 
 
 def test_scheduler_runs_each_user_as_themselves(monkeypatch, users):
-    from app import ai, alerts
+    from app.domain import ai, alerts
     ran = []
     monkeypatch.setattr(sync, "sync", lambda: ran.append(("sync", db.current_user())))
     monkeypatch.setattr(alerts, "check", lambda: ran.append(("alerts", db.current_user())))
@@ -127,7 +129,7 @@ def test_scheduler_runs_each_user_as_themselves(monkeypatch, users):
 
 
 def test_each_person_keeps_their_own_payday(users):
-    from app import insights
+    from app.domain import insights
     with db.as_user(users["a"]):
         insights.set_payday(25)
     with db.as_user(users["b"]):
@@ -139,6 +141,6 @@ def test_each_person_keeps_their_own_payday(users):
 
 
 def test_transfers_to_yourself_use_your_own_names():
-    from app.categories import categorize
+    from app.domain.categories import categorize
     assert categorize("To Maria Papadopoulou", None, True, False, ["Maria Papadopoulou"]) == "transfer"
     assert categorize("To Maria Papadopoulou", None, True, False, ["Nikos K"]) == "people"

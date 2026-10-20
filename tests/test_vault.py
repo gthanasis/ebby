@@ -7,7 +7,7 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 
-from app import vault
+from app.data import vault
 
 
 def _new_key() -> str:

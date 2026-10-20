@@ -18,7 +18,9 @@ import json
 import sys
 from pathlib import Path
 
-from . import config, db, sync
+from app import config
+from app.data import db
+from app.jobs import sync
 
 
 def main():
@@ -28,16 +30,16 @@ def main():
     cmd = args[0]
     db.init()
     if cmd == "import-sqlite" and len(args) >= 3:
-        from .import_sqlite import run
+        from app.data.import_sqlite import run
         for table, n in run(Path(args[1]), args[2], admin="--admin" in args).items():
             print(f"{table}: {n}")
         return
     if cmd == "add-user" and len(args) >= 2:
-        from .import_sqlite import ensure_user
+        from app.data.import_sqlite import ensure_user
         print(f"{args[1]} is user {ensure_user(args[1], admin='--admin' in args)}")
         return
     if cmd == "demo-seed":
-        from . import demo
+        from app.data import demo
         print(demo.seed(*args[1:2]))
         return
     if cmd == "serve":

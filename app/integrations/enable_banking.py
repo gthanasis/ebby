@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 import jwt
 import requests
 
-from . import config
+from app import config
 
 API = "https://api.enablebanking.com"
 

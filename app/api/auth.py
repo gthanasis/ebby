@@ -23,7 +23,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 from jwt import PyJWKClient
 
-from . import config  # noqa: F401  loads .env into os.environ
+from app import config  # noqa: F401  loads .env into os.environ
 
 log = logging.getLogger("bank-sync.auth")
 

@@ -3,8 +3,11 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app import banks, config, credentials, db, server, sync
-from app.enable_banking import Client
+from app.integrations import banks
+from app import config, server
+from app.data import credentials, db
+from app.jobs import sync
+from app.integrations.enable_banking import Client
 
 ASPSPS = [
     {"name": "Piraeus Bank", "logo": "https://example.com/piraeus.png", "beta": True, "psu_types": ["business", "personal"],
@@ -68,7 +71,7 @@ def test_no_list_before_your_enable_banking_app(monkeypatch, users):
 
 
 def test_demo_seed_fills_only_the_demo_person(users):
-    from app import demo
+    from app.data import demo
     result = demo.seed("demo-test@spending.local")
     assert sum(result["transactions"].values()) > 300
     with db.as_user(result["user_id"]), db.connect() as conn:

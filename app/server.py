@@ -16,9 +16,14 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-from . import ai, ai_usage, alerts, assistant, auth, banks, config, credentials, db, habits, insights, push, sorter, spending, sync, users, vault
-from .categories import CATEGORIES, SPENDING
-from .enable_banking import EnableBankingError
+from app.domain import ai, ai_usage, alerts, assistant, habits, insights, sorter, spending
+from app.api import auth
+from app.integrations import banks, push
+from app import config
+from app.data import credentials, db, users, vault
+from app.jobs import sync
+from app.domain.categories import CATEGORIES, SPENDING
+from app.integrations.enable_banking import EnableBankingError
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 app = FastAPI(title="bank-sync")
@@ -32,7 +37,7 @@ SPEND_ARGS = sorted(SPENDING)
 def startup():
     db.init()
     if config.ADMIN_EMAIL and db.admin_id() is None:
-        from .import_sqlite import ensure_user
+        from app.data.import_sqlite import ensure_user
         ensure_user(config.ADMIN_EMAIL, admin=True)
     sync.run_scheduler()
 
