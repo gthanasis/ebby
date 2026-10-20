@@ -1,14 +1,15 @@
 /** Subscriptions: services charged most months at a steady-ish amount. */
 
 import * as clock from "../../shared/clock.js";
-import { type Conn, type Row } from "../../shared/db.js";
+import { type Conn } from "../../shared/db.js";
 import * as transactionsRepo from "../../shared/ledger/transactions.js";
-import { median, PyDate, pyRound, sorted, sum } from "../../shared/utils/python.js";
+import { median, PyDate, pyRound, sorted } from "../../shared/utils/python.js";
 import { monthBounds, monthOf, shift, thisMonth } from "../../shared/months.js";
 import { serviceName } from "./services.js";
+import { type Subscription, type Subscriptions, toSubscriptions } from "./converters.js";
 
 /** Services charged in at least 3 of the last 6 months, with a steady-ish monthly cost. */
-export async function subscriptions(conn: Conn): Promise<Row> {
+export async function subscriptions(conn: Conn): Promise<Subscriptions> {
   const since = monthBounds(shift(thisMonth(), -6))[0];
   const byService = new Map<string, Map<string, number>>();
   const last = new Map<string, string>();
@@ -21,7 +22,7 @@ export async function subscriptions(conn: Conn): Promise<Row> {
     last.set(name, (last.get(name) ?? "") > r.date ? last.get(name)! : r.date);
   }
   const today = clock.serverToday();
-  const items = [];
+  const items: Subscription[] = [];
   for (const [name, months] of byService) {
     if (months.size < 3) continue;
     const recent = sorted(months.keys()).slice(-3).map((m) => months.get(m)!);
@@ -34,8 +35,5 @@ export async function subscriptions(conn: Conn): Promise<Row> {
       varies: Math.max(...recent) - Math.min(...recent) > Math.max(2.0, monthly * 0.15), stale,
     });
   }
-  const ordered = sorted(items, (s) => [s.stale ? 1 : 0, -s.monthly]);
-  const active = ordered.filter((s) => !s.stale);
-  const monthly = pyRound(sum(active.map((s) => s.monthly)), 2);
-  return { items: ordered, monthly, yearly: pyRound(monthly * 12, 2), count: active.length };
+  return toSubscriptions(items);
 }

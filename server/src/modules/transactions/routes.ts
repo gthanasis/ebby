@@ -9,9 +9,10 @@ import * as tx from "../../shared/ledger/transactions.js";
 import { CATEGORIES } from "../../shared/categories.js";
 import { localToday, monthBounds, monthOf, shift, thisMonth } from "../../shared/months.js";
 import { serviceTransactionIds } from "../spending/services.js";
-import { PyDate, pyRound, sorted } from "../../shared/utils/python.js";
+import { PyDate, pyRound } from "../../shared/utils/python.js";
 import { body, fail, int } from "../../shared/http.js";
 import * as ingest from "../banks/ingest.js";
+import { toCategories, toCategoryMove, toMonthly, toOverview, toTransactionPage } from "./converters.js";
 
 // Totals only add up euros; rows in other currencies (Revolut pockets) still show in the list.
 
@@ -24,8 +25,7 @@ function month(m: string | null | undefined): [string, string, string] {
 const spent = async (conn: db.Conn, start: string, end: string) => pyRound(await tx.spent(conn, start, end), 2);
 
 export function routes(app: Hono) {
-  app.get("/api/categories", (c) =>
-    c.json(Object.entries(CATEGORIES).map(([id, [label, icon, spending]]) => ({ id, label, icon, spending }))));
+  app.get("/api/categories", (c) => c.json(toCategories(CATEGORIES)));
 
   app.get("/api/overview", async (c) => {
     const [key, start, end] = month(c.req.query("month"));
@@ -48,16 +48,16 @@ export function routes(app: Hono) {
         m.spent += r.spent; m.income += r.income;
         byMonth.set(k, m);
       }
-      const monthly = sorted(byMonth.entries(), ([k]) => k).map(([k, v]) => ({ month: k, spent: pyRound(v.spent, 2), income: pyRound(v.income, 2) }));
+      const monthly = toMonthly(byMonth);
       const merchants = await tx.topMerchants(conn, start, end);
       const income = await tx.income(conn, start, end);
       const count = await tx.spendingCount(conn, start, end);
       const oldestDay = await tx.oldestDay(conn);
-      return {
-        month: key, start, end, current, total, count, income: pyRound(income, 2),
+      return toOverview({
+        month: key, start, end, current, total, count, income,
         prev_month: prevKey, prev_total: prevTotal, prev_to_date: prevToDate,
         by_category: byCategory, daily, monthly, merchants, oldest_month: oldestDay ? monthOf(oldestDay) : null,
-      };
+      });
     }));
   });
 
@@ -72,7 +72,7 @@ export function routes(app: Hono) {
     if (service && category) filter.ids = await db.connect((conn) => serviceTransactionIds(conn, category, service));
     return c.json(await db.connect(async (conn) => {
       const { rows, total, spent: spentSum } = await tx.list(conn, filter, Math.min(limit, 500), offset);
-      return { rows, total, spent: pyRound(spentSum, 2) };
+      return toTransactionPage(rows, total, spentSum);
     }));
   });
 
@@ -95,7 +95,7 @@ export function routes(app: Hono) {
       }
       await ingest.recategorize(conn);
       const others = merchant ? await tx.othersElsewhere(conn, merchant, txId, b.category) : 0;
-      return { ok: true, rule: key, merchant: merchant || null, others };
+      return toCategoryMove(key, merchant, others);
     }));
   });
 }

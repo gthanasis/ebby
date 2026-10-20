@@ -13,8 +13,10 @@ import * as commitments from "./modules/commitments/schemas.js";
 import * as goals from "./modules/goals/schemas.js";
 import * as habits from "./modules/habits/schemas.js";
 import * as plan from "./modules/plan/schemas.js";
+import * as spending from "./modules/spending/schemas.js";
+import * as transactions from "./modules/transactions/schemas.js";
 
-const features = [goals, plan, banks, account, alerts, commitments, habits, assistant];
+const features = [goals, plan, banks, account, alerts, commitments, habits, assistant, spending, transactions];
 
 /** Merges each feature's entries; two features naming the same shape or route is a mistake, not an override. */
 function gather(part: "schemas" | "responses"): Record<string, z.ZodType> {

@@ -11,6 +11,7 @@ import * as transactionsRepo from "../../shared/ledger/transactions.js";
 import { fmt0, fmt2, maxBy, median, PyDate, pyRound, sorted, sum } from "../../shared/utils/python.js";
 import { localToday, monthBounds, monthOf, shift, thisMonth } from "../../shared/months.js";
 import { serviceName } from "./services.js";
+import { type SpendCategory, toSpendCategory, toSpendPayment } from "./converters.js";
 
 type Range = "day" | "week" | "month" | "year";
 
@@ -77,10 +78,8 @@ const minDay = (a: PyDate, b: PyDate) => (a.n <= b.n ? a : b);
 
 /** Free spending between two days, each with the service it went to. */
 export async function rows(conn: Conn, a: PyDate, b: PyDate): Promise<SpendRow[]> {
-  return (await transactionsRepo.spendRows(conn, a.isoformat(), b.isoformat())).map((r) => ({
-    date: r.date, amount: pyRound(r.amount, 2), category: r.category,
-    name: serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc),
-  }));
+  return (await transactionsRepo.spendRows(conn, a.isoformat(), b.isoformat()))
+    .map((r) => toSpendPayment(r, serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc)));
 }
 
 const total = (rs: SpendRow[]) => pyRound(sum(rs.map((r) => r.amount)), 2);
@@ -262,7 +261,7 @@ async function yearView(conn: Conn, year: number, rs: SpendRow[]): Promise<Row> 
 }
 
 /** One category over a period: its total, its usual month, six months of history, and who got it. */
-export async function category(conn: Conn, cat: string, rng: string, off: number): Promise<Row> {
+export async function category(conn: Conn, cat: string, rng: string, off: number): Promise<SpendCategory> {
   const today = localToday();
   const [a, b, key] = bounds(rng, off);
   const rs = a.n <= today.n ? (await rows(conn, a, minDay(b, today))).filter((r) => r.category === cat) : [];
@@ -279,12 +278,10 @@ export async function category(conn: Conn, cat: string, rng: string, off: number
     const [ma, mb] = monthBounds(m).map(PyDate.fromisoformat);
     history.push({ key: m, total: total((await rows(conn, ma, minDay(mb.addDays(-1), today))).filter((r) => r.category === cat)) });
   }
-  return {
-    category: cat, range: rng, off, key, start: a.isoformat(), end: b.isoformat(), month,
-    total: total(rs), count: rs.length, usual_month: pyRound(med(history.slice(0, -1).map((h) => h.total)), 2),
-    history,
-    services: sorted([...services.entries()].map(([n, [v, c]]) => ({ name: n, spent: pyRound(v, 2), count: c })), (s) => -s.spent),
-  };
+  return toSpendCategory(
+    { category: cat, range: rng as Range, off, key, start: a.isoformat(), end: b.isoformat(), month },
+    total(rs), rs.length, med(history.slice(0, -1).map((h) => h.total)), history, services,
+  );
 }
 
 /** What Claude reads to explain a period: the numbers above and every payment in it. */
