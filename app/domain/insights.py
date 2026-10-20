@@ -289,7 +289,12 @@ def budgets_for(plan: dict | None, month: str) -> dict[str, float]:
     limit = (plan.get("limits") or {}).get(month)
     if not limit or not goal:
         return dict(plan["budgets"])
-    return {c: round(v * limit / goal, 2) for c, v in plan["budgets"].items()}
+    scaled = {c: round(v * limit / goal, 2) for c, v in plan["budgets"].items()}
+    # Rounding each budget drifts by cents; the biggest absorbs it, so they add up to the limit you set.
+    if (drift := round(limit - sum(scaled.values()), 2)) and scaled:
+        biggest = max(scaled, key=lambda c: (scaled[c], c))
+        scaled[biggest] = round(scaled[biggest] + drift, 2)
+    return scaled
 
 
 def set_limit(conn, month: str, limit: float) -> dict:
@@ -343,7 +348,7 @@ def pace(conn, month: str) -> dict:
     budgets = budgets_for(plan, month)
     rows = _category_rows(conn, start, end)
     total = round(sum(r["spent"] for r in rows.values()), 2)
-    planned = sum(budgets.values()) if plan else None
+    planned = round(sum(budgets.values()), 2) if plan else None
     expected = planned * elapsed / days if planned else None
 
     categories = []
