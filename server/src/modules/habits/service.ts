@@ -25,6 +25,7 @@ import { readSettings } from "../../shared/settings.js";
 import { accounts, savingsAccountIds } from "../plan/savings.js";
 import * as spending from "../spending/service.js";
 import { spentBetween } from "../plan/today.js";
+import { type Habit, type HabitDetail, type HabitStatus, type HabitWeek, toHabit, toHabitDetail, toWish, toYearlyCost } from "./converters.js";
 
 const WAIT_MS = 48 * 3600 * 1000;
 
@@ -86,8 +87,7 @@ export async function wishlist(conn: Conn): Promise<Row[]> {
   const at = now();
   const out = [];
   for (const r of await wishlistRepo.undecided(conn)) {
-    const readyAt = new Date(parseIso(r.created_at).getTime() + WAIT_MS);
-    out.push({ ...r, ready_at: isoUtc(readyAt, "seconds"), ready: at.getTime() >= readyAt.getTime(), hours_of_work: rate ? pyRound(r.price / rate, 1) : null });
+    out.push(toWish(r, new Date(parseIso(r.created_at).getTime() + WAIT_MS), at, rate));
   }
   return out;
 }
@@ -113,12 +113,7 @@ export async function dueReminders(conn: Conn): Promise<Row[]> {
 
 export async function yearly(conn: Conn): Promise<Row> {
   const today = localToday();
-  const items: Row[] = [];
-  for (const y of await yearlyCostsRepo.all(conn)) {
-    const due = new PyDate(today.year + (y.due_month < today.month ? 1 : 0), y.due_month, 1);
-    const monthsLeft = (due.year - today.year) * 12 + due.month - today.month;
-    items.push({ ...y, monthly: pyRound(y.yearly_amount / 12, 2), next_due: due.isoformat().slice(0, 7), months_left: monthsLeft });
-  }
+  const items = (await yearlyCostsRepo.all(conn)).map((y) => toYearlyCost(y, today));
   const taken = new Set(items.map((i) => i.name.toLowerCase()));
   return {
     items, monthly: pyRound(sum(items.map((i) => i.monthly)), 2),
@@ -170,8 +165,6 @@ const NOUNS: Record<string, [string, string]> = {
 };
 const WEEKS = 8;
 
-/** One week of a habit: its number, what was spent (for the money habits), and whether it was kept. */
-interface Week { start: string; value: number; spent: number | null; status: string; counted: boolean; current: boolean }
 /** A habit worth starting, with why and what it would save a month (null when it's not about money). */
 type Suggestion = Pick<HabitRule, "type" | "category" | "target"> & { why: string; monthly: number | null };
 const WEEKS_A_MONTH = 4.33;
@@ -191,7 +184,7 @@ interface HabitKind {
   title(r: Pick<HabitRule, "target" | "category">): string;
   /** The habit's number for the days a..b: payments, euros, no-spend days or wishlist skips. */
   measure(conn: Conn, r: HabitRule, a: PyDate, b: PyDate, rows: spending.SpendRow[]): Promise<{ value: number; spent: number | null }>;
-  status(n: number, value: number, finished: boolean, daysLeft: number): string;
+  status(n: number, value: number, finished: boolean, daysLeft: number): HabitStatus;
   nudge(r: HabitRule, value: number, st: string, daysLeft: number): string;
   /** It counts money spent in a category, so it has a baseline to save against. */
   tracksMoney: boolean;
@@ -272,7 +265,7 @@ export async function ruleRows(conn: Conn): Promise<HabitRule[]> {
   return habitRulesRepo.all(conn);
 }
 
-export async function habitView(conn: Conn, r: HabitRule, detail = false): Promise<Row> {
+export async function habitView(conn: Conn, r: HabitRule, detail = false): Promise<Habit | HabitDetail> {
   const today = localToday();
   const monday = mondayOf(today);
   const sunday = monday.addDays(6);
@@ -280,7 +273,7 @@ export async function habitView(conn: Conn, r: HabitRule, detail = false): Promi
   const daysLeft = 7 - today.weekday();  // today included
   const kind = kindOf(r.type);
   const rows = await spending.rows(conn, monday.addDays(-7 * WEEKS), sunday);
-  const weeks: Week[] = [];
+  const weeks: HabitWeek[] = [];
   for (let i = WEEKS; i >= 0; i--) {
     const a = monday.addDays(-7 * i), b = a.addDays(6);
     const wk = rows.filter((x) => a.isoformat() <= x.date && x.date <= b.isoformat());
@@ -298,26 +291,19 @@ export async function habitView(conn: Conn, r: HabitRule, detail = false): Promi
   if (kind.tracksMoney && r.baseline) {
     saved = sum(weeks.slice(0, -1).filter((w) => w.counted).map((w) => Math.max(0.0, r.baseline - (w.spent || 0))));
   }
-  const out: Row = {
-    ...r, title: habitTitle(r), value: current.value, status: current.status, streak,
-    saved: pyRound(saved, 2), days_left: daysLeft, nudge: kind.nudge(r, current.value, current.status, daysLeft),
-  };
-  if (detail) {
-    out.weeks = weeks;
-    const days = [];
-    for (let i = 0; i < 7; i++) {
-      const d = monday.addDays(i);
-      if (d.n > today.n) { days.push({ date: d.isoformat(), value: null }); continue; }
-      const m = await kind.measure(conn, r, d, d, rows.filter((x) => x.date === d.isoformat()));
-      // A no-spend day counts once it's over: 1 kept, 0 spent on; today is still open.
-      const value = r.type === "nospend" ? (rows.some((x) => x.date === d.isoformat()) ? 0 : d.n < today.n ? 1 : null) : m.value;
-      days.push({ date: d.isoformat(), value });
-    }
-    out.days = days;
-    const goal = r.goal_id ? await goalsRepo.nameOf(conn, r.goal_id) : null;
-    out.goal = goal ?? null;
+  const habit = toHabit(r, habitTitle(r), current, streak, saved, daysLeft, kind.nudge(r, current.value, current.status, daysLeft));
+  if (!detail) return habit;
+  const days: HabitDetail["days"] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = monday.addDays(i);
+    if (d.n > today.n) { days.push({ date: d.isoformat(), value: null }); continue; }
+    const m = await kind.measure(conn, r, d, d, rows.filter((x) => x.date === d.isoformat()));
+    // A no-spend day counts once it's over: 1 kept, 0 spent on; today is still open.
+    const value = r.type === "nospend" ? (rows.some((x) => x.date === d.isoformat()) ? 0 : d.n < today.n ? 1 : null) : m.value;
+    days.push({ date: d.isoformat(), value });
   }
-  return out;
+  const goal = r.goal_id ? await goalsRepo.nameOf(conn, r.goal_id) : null;
+  return toHabitDetail(habit, weeks, days, goal ?? null);
 }
 
 /** The last WEEKS finished weeks: payments and euros per category, no-spend days, buys over €50. */
