@@ -14,7 +14,7 @@ import { CompiledQuery, Kysely, PostgresDialect, type Selectable, type Transacti
 import pg from "pg";
 
 import { config } from "../config.js";
-import { pyDumps } from "../py.js";
+import { pyDumps } from "../utils/python.js";
 import type { Connections, DB } from "../types/db.js";
 import type { Connection, MetaDocuments, MetaKey } from "../types/entities.js";
 

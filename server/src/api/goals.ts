@@ -8,7 +8,7 @@ import * as db from "../data/db.js";
 import type { Conn, Row } from "../data/db.js";
 import * as habits from "../domain/habits.js";
 import * as spending from "../domain/spending.js";
-import { median, monthDays, PyDate, pyMod, pyRound, sum } from "../py.js";
+import { median, monthDays, PyDate, pyMod, pyRound, sum } from "../utils/python.js";
 import * as goalsRepo from "../data/repos/goals.js";
 import * as common from "./common.js";
 import { body, fail, int, isoDate, num } from "./http.js";

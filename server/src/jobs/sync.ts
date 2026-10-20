@@ -16,7 +16,7 @@ import * as categories from "../core/categories.js";
 import * as banks from "../integrations/banks.js";
 import * as push from "../integrations/push.js";
 import { type Client, EnableBankingError, MAX_HISTORY_DAYS, type Psu } from "../integrations/enable_banking.js";
-import { isoUtc, parseIso } from "../py.js";
+import { isoUtc, parseIso } from "../utils/python.js";
 import { assignCommitments } from "../domain/commitments.js";
 import { autofill } from "../domain/plan.js";
 import { withPayCalendar } from "../domain/months.js";

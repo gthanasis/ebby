@@ -15,7 +15,7 @@ import * as alerts from "../domain/alerts.js";
 import * as banks from "../integrations/banks.js";
 import { EnableBankingError } from "../integrations/enable_banking.js";
 import * as sync from "../jobs/sync.js";
-import { parseIso } from "../py.js";
+import { parseIso } from "../utils/python.js";
 import { body, fail } from "./http.js";
 import { CASH_ACCOUNT } from "../core/constants.js";
 import { questions } from "../domain/questions.js";

@@ -3,7 +3,7 @@
 import * as clock from "../clock.js";
 import { type Conn, type Row } from "../data/db.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
-import { fmt0, PyDate, pyRound, sorted } from "../py.js";
+import { fmt0, PyDate, pyRound, sorted } from "../utils/python.js";
 import type { Goal } from "../types/entities.js";
 import { monthBounds, shift, thisMonth } from "./months.js";
 import { subscriptions } from "./subscriptions.js";

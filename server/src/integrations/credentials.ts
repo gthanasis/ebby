@@ -14,7 +14,7 @@ import type { Conn } from "../data/db.js";
 import * as connectionsRepo from "../data/repos/connections.js";
 import * as credentialsRepo from "../data/repos/credentials.js";
 import * as vault from "../data/vault.js";
-import { isoUtc, pyDumps } from "../py.js";
+import { isoUtc, pyDumps } from "../utils/python.js";
 import { Client, EnableBankingError } from "./enable_banking.js";
 
 export const _clients = new Map<number, Client>();  // per person; dropped whenever their keys change

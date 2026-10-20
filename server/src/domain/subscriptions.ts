@@ -3,7 +3,7 @@
 import * as clock from "../clock.js";
 import { type Conn, type Row } from "../data/db.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
-import { median, PyDate, pyRound, sorted, sum } from "../py.js";
+import { median, PyDate, pyRound, sorted, sum } from "../utils/python.js";
 import { monthBounds, monthOf, shift, thisMonth } from "./months.js";
 import { serviceName } from "./services.js";
 

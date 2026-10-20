@@ -9,8 +9,8 @@
 
 import * as clock from "../clock.js";
 import * as habits from "../domain/habits.js";
-import { fmt2, isoUtc, PyDate, pyRound } from "../py.js";
-import { PyRandom } from "../pyrandom.js";
+import { fmt2, isoUtc, PyDate, pyRound } from "../utils/python.js";
+import { PyRandom } from "../utils/python_random.js";
 import * as db from "../data/db.js";
 import type { Row } from "../data/db.js";
 import * as accountsRepo from "../data/repos/accounts.js";

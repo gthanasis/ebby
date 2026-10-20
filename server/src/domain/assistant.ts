@@ -18,7 +18,7 @@ import * as commitmentsRepo from "../data/repos/commitments.js";
 import * as goalsRepo from "../data/repos/goals.js";
 import * as rulesRepo from "../data/repos/rules.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
-import { dayMonth, fmt0, fmt2, fmt2c, isoUtc, PyDate, pyDumps, pyRound, sorted, sum } from "../py.js";
+import { dayMonth, fmt0, fmt2, fmt2c, isoUtc, PyDate, pyDumps, pyRound, sorted, sum } from "../utils/python.js";
 import * as ai from "./ai.js";
 import * as aiUsage from "./ai_usage.js";
 import { CATEGORIES, SPENDING } from "../core/categories.js";

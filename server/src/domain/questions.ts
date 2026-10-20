@@ -2,7 +2,7 @@
 
 import { type Conn, type Row } from "../data/db.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
-import { pyRound, sorted } from "../py.js";
+import { pyRound, sorted } from "../utils/python.js";
 import { localToday } from "./months.js";
 import { sn } from "./services.js";
 

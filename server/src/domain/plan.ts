@@ -3,7 +3,7 @@
 import * as db from "../data/db.js";
 import { type Conn, type Row } from "../data/db.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
-import { maxBy, median, pyRound, sum } from "../py.js";
+import { maxBy, median, pyRound, sum } from "../utils/python.js";
 import type { Payday, Plan } from "../types/entities.js";
 import { SPENDING } from "../core/categories.js";
 import { committedTotal } from "./commitments.js";

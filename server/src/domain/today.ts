@@ -3,7 +3,7 @@
 import { type Conn, type Row } from "../data/db.js";
 import * as goalsRepo from "../data/repos/goals.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
-import { PyDate, pyRound, sorted, sum } from "../py.js";
+import { PyDate, pyRound, sorted, sum } from "../utils/python.js";
 import { budgetsFor, getPlan, roundTo } from "./plan.js";
 import { categoryRows } from "./pace.js";
 import { committedTotal } from "./commitments.js";

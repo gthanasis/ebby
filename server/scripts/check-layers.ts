@@ -1,7 +1,7 @@
 /**
  * Checks that imports point one way, so each layer can be read without the ones above it:
  *
- *   api → jobs → domain → integrations → data → core → py, clock, config → types
+ *   api → jobs → domain → integrations → data → core → utils, clock, config → types
  *
  * main.ts and server.ts wire it all together and may import anything. Also fails on dynamic import() (a way
  * around the rule), on import cycles, and on SQL outside src/data. `import type` is ignored: it's gone at runtime.
@@ -21,7 +21,7 @@ type Layer = (typeof ORDER)[number];
 function layerOf(file: string): Layer {
   const top = file.split("/")[0];
   if (["main.ts", "server.ts"].includes(file)) return "app";
-  if (["py.ts", "pyrandom.ts", "clock.ts", "config.ts"].includes(file)) return "base";
+  if (["clock.ts", "config.ts"].includes(file) || top === "utils") return "base";
   if ((ORDER as readonly string[]).includes(top)) return top as Layer;
   throw new Error(`${file}: not in any layer; add it to scripts/check-layers.ts`);
 }

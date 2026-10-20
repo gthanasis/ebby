@@ -8,7 +8,7 @@
 
 import { config } from "../config.js";
 import * as credentials from "./credentials.js";
-import { floorDiv, sorted } from "../py.js";
+import { floorDiv, sorted } from "../utils/python.js";
 
 const DAY_MS = 24 * 3600 * 1000;
 // What Enable Banking listed for Greece (personal accounts) in October 2026, for the demo, which has no app of its own.

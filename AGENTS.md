@@ -26,7 +26,8 @@ server/
   src/server.ts       builds the app: the sign-in middleware, the routers, the web app's files
   src/config.ts       the only place that reads the environment: validated settings, and secrets apart
   src/clock.ts        the only place that reads the date or time
-  src/py.ts           Python's rounding, json.dumps and dates, exactly (see "Numbers" below)
+  src/utils/          python.ts: Python's rounding, json.dumps and dates, exactly (see "Numbers" below);
+                      python_random.ts: its random module, for the demo seed
   src/api/            the HTTP routes, one module per area (account, banks, transactions, spending, plan, goals…);
                       http.ts holds errors ({"detail": ...}), body checking and query parsing
   src/jobs/           bank sync, the scheduler, the demo seed
@@ -45,7 +46,7 @@ server/
   test/               unit tests, and test/api/: the API as a black box (below)
 ```
 
-Imports point one way: api → jobs → domain → integrations → data → core → py/clock/config → types
+Imports point one way: api → jobs → domain → integrations → data → core → utils/clock/config → types
 (main.ts and server.ts wire everything). No dynamic `import()`, no cycles, no SQL outside `src/data`;
 `npm run check:layers` enforces it and CI runs it. Something two modules both need goes down a layer, not sideways.
 

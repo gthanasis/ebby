@@ -5,7 +5,7 @@ import { createPrivateKey } from "node:crypto";
 
 import * as clock from "../clock.js";
 import { config } from "../config.js";
-import { isoUtc, PyDate } from "../py.js";
+import { isoUtc, PyDate } from "../utils/python.js";
 
 export const API = "https://api.enablebanking.com";
 

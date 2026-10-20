@@ -6,7 +6,7 @@ import { type Conn, type Row } from "../data/db.js";
 import * as accountsRepo from "../data/repos/accounts.js";
 import * as rulesRepo from "../data/repos/rules.js";
 import * as transactionsRepo from "../data/repos/transactions.js";
-import { pyDumps } from "../py.js";
+import { pyDumps } from "../utils/python.js";
 import { categorize, merchantName } from "../core/categories.js";
 import { assignCommitments } from "./commitments.js";
 import { serviceIdsAnywhere } from "./services.js";

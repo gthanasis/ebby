@@ -5,7 +5,7 @@ import * as db from "../data/db.js";
 import type { Conn, Row } from "../data/db.js";
 import * as wishlistRepo from "../data/repos/wishlist.js";
 import * as push from "../integrations/push.js";
-import { fmt0, sorted } from "../py.js";
+import { fmt0, sorted } from "../utils/python.js";
 import { CATEGORIES } from "../core/categories.js";
 import * as habits from "./habits.js";
 import { commitmentsView } from "./commitments.js";
