@@ -5,15 +5,16 @@ import * as commitmentsRepo from "./repo.js";
 import * as transactionsRepo from "../../shared/ledger/transactions.js";
 import { addMonths } from "../../shared/utils/dates.js";
 import { maxBy, PyDate, pyRound, sorted, sum } from "../../shared/utils/python.js";
-import type { Commitment } from "../../types/entities.js";
+import type { Commitment as CommitmentRow } from "../../types/entities.js";
+import { type Commitment, toCommitment, toCommitmentSuggestion } from "./converters.js";
 import { localToday, monthBounds, monthOf, shift, thisMonth } from "../../shared/months.js";
 import { sn } from "../spending/services.js";
 import { subscriptions } from "../spending/subscriptions.js";
 
-async function commitmentRows(conn: Conn): Promise<Commitment[]> {
-  const out: Commitment[] = [];
+async function commitmentRows(conn: Conn): Promise<CommitmentRow[]> {
+  const out: CommitmentRow[] = [];
   for (const r of await commitmentsRepo.all(conn)) {
-    const c: Commitment = { ...r, services: JSON.parse(r.services) };
+    const c: CommitmentRow = { ...r, services: JSON.parse(r.services) };
     if (c.every_months > 1) Object.assign(c, cycle(c));
     out.push(c);
   }
@@ -22,7 +23,7 @@ async function commitmentRows(conn: Conn): Promise<Commitment[]> {
 
 /** For a cost paid every few months: the next payment (moved on once its date has passed), and what should be put
  * aside towards it by now, a monthly share at a time since the last one. */
-function cycle(c: Commitment): Pick<Commitment, "next_date" | "last_date" | "amount" | "set_aside"> {
+function cycle(c: CommitmentRow): Pick<CommitmentRow, "next_date" | "last_date" | "amount" | "set_aside"> {
   const today = localToday();
   let nxt = c.next_date ? PyDate.fromisoformat(c.next_date) : addMonths(today, c.every_months);
   while (nxt.n < today.n) nxt = addMonths(nxt, c.every_months);
@@ -56,7 +57,7 @@ async function committedSpent(conn: Conn, cid: number, start: string, end: strin
 
 export async function commitmentsView(conn: Conn, month: string): Promise<Row> {
   const [start, end] = monthBounds(month);
-  const items: Row[] = [];
+  const items: Commitment[] = [];
   for (const c of await commitmentRows(conn)) {
     const spent = await committedSpent(conn, c.id, start, end) + c.off_bank;
     const history = [];
@@ -68,7 +69,7 @@ export async function commitmentsView(conn: Conn, month: string): Promise<Row> {
     const count = await transactionsRepo.committedCount(conn, c.id, start, end);
     // A cost paid every few months is over only when a payment goes past its amount, not its monthly share.
     const cap = c.every_months > 1 ? c.amount ?? c.monthly_limit * c.every_months : c.monthly_limit;
-    items.push({ ...c, spent: pyRound(spent, 2), count, over: spent > cap + 0.005, history });
+    items.push(toCommitment(c, spent, count, spent > cap + 0.005, history));
   }
   const taken = new Set(items.flatMap((c) => c.services));
   const suggestions = new Map<string, number>();
@@ -82,7 +83,7 @@ export async function commitmentsView(conn: Conn, month: string): Promise<Row> {
     }
   }
   const list = sorted(suggestions.entries(), ([, m]) => -m).filter(([, m]) => m >= 2)
-    .map(([n, m]) => ({ service: n, monthly: m, limit: Math.max(10, -Math.floor(-m * 1.1 / 10) * 10) }));
+    .map(([n, m]) => toCommitmentSuggestion(n, m));
   return {
     month, items, suggestions: list,
     limit: pyRound(sum(items.map((c) => c.monthly_limit)), 2),
