@@ -10,11 +10,45 @@ categories, and plans the month around payday. One FastAPI app (`app/`) serves t
 docker run -d --name bank-sync-pg -e POSTGRES_USER=bank_sync_owner -e POSTGRES_PASSWORD=owner \
   -e POSTGRES_DB=bank_sync -p 55432:5432 postgres:17-alpine   # once
 uv sync && uv run pytest -q                                    # tests: a real Postgres, a fresh database per run
+uv run ruff check app tests scripts                            # lint (CI runs both)
 cd web && npm ci && npm run build                              # typecheck + build
 cd web && npm run dev:mock                                     # the UI on :5176 with a fake API (web/mock-api.ts)
 ```
 
 `DEMO=1` in `.env` and `bank-sync demo-seed` give the real backend six months of made-up spending.
+
+## Where things are
+
+```
+app/
+  server.py       builds the app: startup, the sign-in middleware, the routers, the web app's files
+  clock.py        the only place that reads the date or time
+  api/            the HTTP routes, one module per area (account, banks, transactions, spending, plan, goals…)
+  domain/         the logic: categories, insights (pay months, plan, pace, goals, commitments), habits,
+                  spending, the sorter, alerts, the assistant
+  integrations/   Enable Banking, its bank list, web push
+  data/           the database and migrations, encryption, credentials, users, demo and import seeding
+  jobs/           bank sync and the scheduler
+tests/
+  api/            the API as a black box (below)
+  test_*.py       units: pay months, bank sync, categories, isolation, auth, encryption, locks…
+```
+
+Routes stay thin: they check input and call the domain. Logic that needs testing lives in `domain/`.
+
+## Tests
+
+- **`tests/api/` is the contract.** A fresh database holds only the demo person, the clock is pinned to
+  `EBBY_NOW`, and every read endpoint is compared with a snapshot in `tests/api/snapshots/`, number for
+  number; `test_writes.py` drives the writes and checks them through the reads. A new GET route fails
+  until it has a snapshot. When a change is meant to alter what a read returns, retake them with
+  `UPDATE_SNAPSHOTS=1 uv run pytest tests/api` and check the diff is exactly that change.
+- **`API_BASE_URL=http://localhost:8000 uv run pytest tests/api`** runs the same tests against another
+  server on the suite's database (`bank_sync_api`), in local mode with the same `EBBY_NOW`.
+- **Unit tests** cover what's easy to get wrong without noticing: pay-month edges, the bank fetching
+  history, isolation between people. Add one with every fix.
+- Anything that reads the time uses `app.clock` (`clock.now()`, `clock.today()`), never `datetime.now()` or
+  `date.today()`, so tests can pin it. Anything a response lists comes out in a fixed order: break ties.
 
 ## Rules the code depends on
 
@@ -44,7 +78,8 @@ cd web && npm run dev:mock                                     # the UI on :5176
 - Match the surrounding code: plain names, comments that say why, not what.
 - A commit title says what changes for the person using ebby ("Sorting a payment ends on one Save & next
   button"), the body says why. No `feat:`/`fix:` prefixes. One concern per commit.
-- Add a test for every fix that would have caught it, and run the whole suite before opening a pull request.
+- Add a test for every fix that would have caught it, and run lint and the whole suite before opening a
+  pull request.
 
 ## Releases
 
