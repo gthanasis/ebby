@@ -28,6 +28,41 @@ const PEOPLE = () => [
   { id: 4, email: "old.flatmate@example.com", name: "Giorgos Antoniou", picture: null, is_admin: false, status: "disabled", ai_budget_usd: 1, ai_spent_usd: 0,
     created_at: "2026-09-10T12:00:00Z", last_login_at: "2026-09-20T12:00:00Z" },
 ];
+// The sorter: payments the rules couldn't place, as /api/sorter lists them, and what the assistant would guess.
+const CATEGORIES: [string, string, string, boolean][] = [
+  ["groceries", "Groceries", "mdi:cart-outline", true], ["eating_out", "Eating out", "mdi:silverware-fork-knife", true],
+  ["delivery", "Delivery", "mdi:moped-outline", true], ["coffee_bars", "Coffee & bars", "mdi:coffee-outline", true],
+  ["car", "Car & transport", "mdi:car-outline", true], ["subscriptions", "Subscriptions & tech", "mdi:laptop", true],
+  ["shopping", "Shopping", "mdi:shopping-outline", true], ["bills", "Bills", "mdi:file-document-outline", true],
+  ["housing", "Rent & home", "mdi:home-outline", true], ["loans", "Loans & mortgage", "mdi:bank-transfer-out", true],
+  ["insurance", "Insurance", "mdi:shield-check-outline", true], ["health", "Health & fitness", "mdi:heart-pulse", true],
+  ["personal_care", "Personal care", "mdi:content-cut", true], ["travel", "Travel", "mdi:airplane", true],
+  ["leisure", "Leisure", "mdi:ticket-outline", true], ["pets", "Pets", "mdi:paw-outline", true],
+  ["kids", "Kids", "mdi:baby-face-outline", true], ["education", "Education", "mdi:school-outline", true],
+  ["gifts", "Gifts & donations", "mdi:gift-outline", true], ["people", "Sent to people", "mdi:account-arrow-right-outline", true],
+  ["cash", "Cash", "mdi:cash", true], ["fees", "Fees & taxes", "mdi:bank-outline", true], ["other", "Other", "mdi:dots-horizontal", true],
+  ["income", "Income", "mdi:arrow-down-circle-outline", false], ["transfer", "Own transfers", "mdi:swap-horizontal", false],
+  ["investments", "Investments", "mdi:chart-line", false], ["card_payment", "Card repayments", "mdi:credit-card-check-outline", false],
+];
+const SORT = () => [
+  { service: "Interamerican", tx_id: "s1", date: "2026-10-14", days_ago: 6, amount: 86.4, count: 1, total: 86.4, how: "Alpha Bank current account",
+    shop: null, description: "INTERAMERICAN ΑΕΑΖ ΠΛΗΡΩΜΗ", same_day: [{ name: "Sklavenitis", amount: 42.17, category: "groceries" }],
+    history: [{ date: "2026-07-14", amount: 86.4 }, { date: "2026-04-14", amount: 86.4 }], guess: null,
+    _guess: { category: "insurance", reason: "Interamerican is an insurer, and the same €86.40 leaves every three months: a quarterly premium." } },
+  { service: "Frontistirio Praxis", tx_id: "s2", date: "2026-10-05", days_ago: 15, amount: 140, count: 1, total: 140, how: "Card ending 4101",
+    shop: "Educational services", description: "FRONTISTIRIO PRAXIS", same_day: [],
+    history: [{ date: "2026-09-05", amount: 140 }], guess: null,
+    _guess: { category: "bills", reason: "A fixed €140 on the 5th of each month looks like a regular bill." } },
+  { service: "Kafe Mikro", tx_id: "s3", date: "2026-10-18", days_ago: 2, amount: 4.2, count: 6, total: 25.2, how: "Card ending 4101",
+    shop: "Eating places", description: "KAFE MIKRO ATHINA", same_day: [{ name: "Wolt", amount: 18.5, category: "delivery" }],
+    history: [{ date: "2026-10-16", amount: 3.8 }, { date: "2026-10-11", amount: 4.2 }], guess: null,
+    _guess: { category: "coffee_bars", reason: "Small amounts most mornings at a place called Kafe: coffee." } },
+  { service: "Trade Republic", tx_id: "s4", date: "2026-10-01", days_ago: 19, amount: 200, count: 1, total: 200, how: "Alpha Bank current account",
+    shop: null, description: "TRADE REPUBLIC BANK GMBH", same_day: [], history: [{ date: "2026-09-01", amount: 200 }], guess: null,
+    _guess: { category: "investments", reason: "€200 to a broker on the 1st each month: a savings plan, not spending." } },
+];
+let sorter = { left: SORT(), answered: [] as ReturnType<typeof SORT> };
+
 const ALLOWANCE = "You've used this month's AI allowance. It resets on 1 November, or add your own Anthropic key in Settings.";
 const overAllowance = () => !state.anthropic && !state.admin && state.spent >= 2;
 let state = fresh();
@@ -62,7 +97,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, next: () => voi
   const url = new URL(req.url ?? "/", "http://mock");
   const route = `${req.method} ${url.pathname}`;
 
-  if (url.pathname === "/__mock/reset") { state = fresh(); return redirect(res, "/"); }
+  if (url.pathname === "/__mock/reset") { state = fresh(); sorter = { left: SORT(), answered: [] }; return redirect(res, "/"); }
   if (url.pathname === "/__mock/ready") {
     state = { ...fresh(), done: true, accounts: { Revolut: 1, "Alpha Bank": 3 }, settings: { owner_names: ["PAPADOPOULOU MARIA", "Maria Papadopoulou"] },
       access: { app_id: "3f2b8c1e-5a4d-4e8f-9b21-7c6d0e1f2a3b", key_fingerprint: "SHA256:28:6e:0d:75:b8:45:1b:c3", verified_at: "2026-10-12T09:30:00Z" } };
@@ -101,6 +136,30 @@ async function handle(req: IncomingMessage, res: ServerResponse, next: () => voi
         onboarding: { bank_access: !!state.access, banks_connected: Object.keys(state.accounts).length, done: state.done },
       });
     case "GET /api/status": return send(res, 200, status());
+    case "GET /api/categories": return send(res, 200, CATEGORIES.map(([id, label, icon, spending]) => ({ id, label, icon, spending })));
+    case "GET /api/sorter":
+      return send(res, 200, { items: sorter.left.map(({ _guess, ...it }) => it), ai: true });
+    case "POST /api/sorter/guess": {
+      const { service } = JSON.parse((await readBody(req)).toString());
+      await wait(900);  // the assistant thinking
+      const it = sorter.left.find((x) => x.service === service);
+      return it ? send(res, 200, it._guess) : send(res, 404, { detail: "Nothing to guess" });
+    }
+    case "POST /api/assistant/answer": {
+      const { service } = JSON.parse((await readBody(req)).toString());
+      const it = sorter.left.find((x) => x.service === service);
+      sorter.left = sorter.left.filter((x) => x.service !== service);
+      if (it) sorter.answered.push(it);
+      await wait(300);
+      return send(res, 200, { moved: it?.count ?? 0, questions: [] });
+    }
+    case "POST /api/sorter/undo": {
+      const { service } = JSON.parse((await readBody(req)).toString());
+      const it = sorter.answered.find((x) => x.service === service);
+      sorter.answered = sorter.answered.filter((x) => x.service !== service);
+      if (it) sorter.left.unshift(it);
+      return send(res, 200, { moved: it?.count ?? 0 });
+    }
     case "GET /api/banks":
       if (!state.access) return send(res, 400, { detail: "Add your Enable Banking application first." });
       return send(res, 200, { country: "GR", banks: BANKS.map((name) => ({ name, logo: null, beta: true, consent_days: name === "Trade Republic" ? 90 : 180 })) });
