@@ -10,8 +10,9 @@ let ready: Promise<{ a: number; b: number }> | null = null;
 async function create() {
   const admin = new pg.Client({ connectionString: process.env.TEST_ADMIN_URL });
   await admin.connect();
-  await admin.query("DROP DATABASE IF EXISTS ebby_ts_test WITH (FORCE)");
-  await admin.query("CREATE DATABASE ebby_ts_test");
+  const name = `ebby_ts_test${process.env.EBBY_TEST_DB_SUFFIX ?? ""}`;
+  await admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+  await admin.query(`CREATE DATABASE ${name}`);
   await admin.end();
   await db.init();
   const a = await ensureUser("a@example.com", true), b = await ensureUser("b@example.com");
