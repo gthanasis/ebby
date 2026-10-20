@@ -5,10 +5,10 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse
 
-from app.integrations import banks
-from app.domain import categories
 from app import config
 from app.data import credentials, db
+from app.domain import categories
+from app.integrations import banks
 from app.integrations.enable_banking import MAX_HISTORY_DAYS, Client, EnableBankingError
 
 log = logging.getLogger("bank-sync")

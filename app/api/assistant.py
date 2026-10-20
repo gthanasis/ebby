@@ -2,17 +2,13 @@
 
 import json
 
-from fastapi import HTTPException
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-
 from pydantic import BaseModel
 
-
-from app.domain import ai, assistant, insights, sorter
 from app.data import db
+from app.domain import ai, assistant, insights, sorter
 from app.domain.categories import CATEGORIES
-from fastapi import APIRouter
-
 
 router = APIRouter()
 

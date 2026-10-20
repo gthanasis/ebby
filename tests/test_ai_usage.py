@@ -4,8 +4,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.domain import ai_usage
 from app import config
+from app.domain import ai_usage
 from app.domain.ai_usage import BudgetExceeded, NoAPIKey, choose_key, cost_usd, month_bounds
 
 MILLION = 1_000_000

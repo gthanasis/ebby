@@ -7,9 +7,9 @@ from typing import NamedTuple
 import anthropic
 from pydantic import BaseModel, Field
 
-from app.domain import ai_usage, insights
 from app import config
 from app.data import credentials, db, users
+from app.domain import ai_usage, insights
 from app.domain.categories import CATEGORIES
 
 log = logging.getLogger("bank-sync")

@@ -1,18 +1,15 @@
 """The monthly plan, its working limits, and settings."""
 
 
-from fastapi import HTTPException
 from typing import Literal
 
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-
+from app.api import common
+from app.data import db
 from app.domain import ai, insights
 from app.integrations import push
-from app.data import db
-from fastapi import APIRouter
-
-from app.api import common
 
 router = APIRouter()
 

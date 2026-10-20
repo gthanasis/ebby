@@ -3,20 +3,16 @@
 import ipaddress
 from urllib.parse import quote
 
-from fastapi import HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
-
 from pydantic import BaseModel
 
-
-from app.domain import alerts, insights
-from app.integrations import banks
 from app import config
 from app.data import credentials, db
-from app.jobs import sync
+from app.domain import alerts, insights
+from app.integrations import banks
 from app.integrations.enable_banking import EnableBankingError
-from fastapi import APIRouter
-
+from app.jobs import sync
 
 router = APIRouter()
 LIVE_SYNC_MINUTES = 15

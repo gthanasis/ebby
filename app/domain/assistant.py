@@ -8,14 +8,13 @@ The conversation is kept server-side and replayed unchanged, so thinking blocks 
 import hashlib
 import json
 import logging
-from datetime import date, datetime, timezone
-
 from collections.abc import Iterator
+from datetime import date, datetime, timezone
 
 import anthropic
 
-from app.domain import ai, ai_usage, insights, spending
 from app.data import db
+from app.domain import ai, ai_usage, insights, spending
 from app.domain.categories import CATEGORIES, SPENDING
 
 log = logging.getLogger("bank-sync")

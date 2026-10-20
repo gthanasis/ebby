@@ -2,15 +2,11 @@
 
 from datetime import date
 
-from fastapi import HTTPException
-
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-
-from app.domain import insights
 from app.data import db
-from fastapi import APIRouter
-
+from app.domain import insights
 
 router = APIRouter()
 

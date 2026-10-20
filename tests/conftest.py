@@ -9,7 +9,7 @@ import os
 
 import psycopg
 import pytest
-from psycopg.conninfo import conninfo_to_dict, make_conninfo
+from psycopg.conninfo import make_conninfo
 
 OWNER = os.environ.get("TEST_DATABASE_OWNER_URL", "postgresql://bank_sync_owner:owner@localhost:55432/postgres")
 TEST_DB = "bank_sync_test"

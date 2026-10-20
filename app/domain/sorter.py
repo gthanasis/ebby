@@ -12,8 +12,8 @@ from datetime import date, datetime, timezone
 import anthropic
 from pydantic import BaseModel, Field
 
-from app.domain import ai, ai_usage, insights, spending
 from app.data import db
+from app.domain import ai, ai_usage, insights, spending
 from app.domain.categories import CATEGORIES
 
 log = logging.getLogger("bank-sync")

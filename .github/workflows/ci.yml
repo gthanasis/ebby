@@ -46,10 +46,12 @@ jobs:
         working-directory: web
         run: npm ci && npm run build
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
-      - name: Tests
+      - name: Lint
         run: |
           uv sync --frozen
-          uv run pytest -q
+          uv run ruff check app tests scripts
+      - name: Tests
+        run: uv run pytest -q
 
   image:
     needs: test

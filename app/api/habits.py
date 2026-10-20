@@ -1,16 +1,12 @@
 """Habits: pay-yourself-first, habit rules, savings accounts, the wishlist, yearly costs."""
 
 
-from fastapi import HTTPException
-
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-
-from app.domain import habits
 from app.data import db
+from app.domain import habits
 from app.domain.categories import CATEGORIES
-from fastapi import APIRouter
-
 
 router = APIRouter()
 
@@ -130,7 +126,8 @@ class YearlyIn(BaseModel):
 def add_yearly(body: YearlyIn):
     if not body.name.strip() or body.yearly_amount <= 0 or not 1 <= body.due_month <= 12:
         raise HTTPException(400, "A yearly cost needs a name, an amount and the month it's due")
-    from datetime import datetime as _dt, timezone as _tz
+    from datetime import datetime as _dt
+    from datetime import timezone as _tz
     with db.connect() as conn:
         conn.execute("INSERT INTO yearly_costs(name, yearly_amount, due_month, created_at) VALUES(?, ?, ?, ?)",
                      (body.name.strip(), body.yearly_amount, body.due_month, _dt.now(_tz.utc).isoformat()))
