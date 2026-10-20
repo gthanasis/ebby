@@ -31,7 +31,7 @@ export const config = {
   get DATABASE_OWNER_URL() { return env("DATABASE_OWNER_URL"); },
   get ADMIN_EMAIL() { return env("ADMIN_EMAIL").trim().toLowerCase(); },
   WEB_DIST: join(ROOT, "web", "dist"),
-  MIGRATIONS: join(ROOT, "app", "data", "migrations"),
+  MIGRATIONS: join(ROOT, "server", "migrations"),
 
   get APP_ID() { return env("EB_APP_ID"); },
   get KEY_PATH() { return expand(env("EB_KEY_PATH", join(this.DATA_DIR, "key.pem"))); },

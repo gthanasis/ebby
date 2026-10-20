@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# The README's screenshots, demo video and GIF, from made-up data (app/demo.py). Nobody's real money.
+# The README's screenshots, demo video and GIF, from made-up data (server/src/data/demo.ts). Nobody's real money.
 #
 #   scripts/make-demo.sh      -> docs/demo.mp4, docs/demo.gif, docs/hero.png, docs/banner-*.png, docs/screens/*.png
 #
-# Needs Docker with the local Postgres from the README (bank-sync-pg on 55432), ffmpeg and uv.
+# Needs Docker with the local Postgres from the README (bank-sync-pg on 55432), ffmpeg, Node and uv (for Playwright).
 # Uses its own database, bank_sync_demo, so your own local data is never touched.
 set -Eeuo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -19,15 +19,15 @@ export DEMO=1 PUBLIC_URL="http://localhost:$PORT" GOOGLE_CLIENT_ID= APP_PASSWORD
 # A public-looking callback, so the Banks page reads as it does in production rather than a local run.
 export EB_REDIRECT_URL="https://spending.example.com/eb-callback"
 
-uv run python -c "
-import psycopg
-with psycopg.connect('$OWNER/postgres', autocommit=True) as pg:
-    pg.execute('DROP DATABASE IF EXISTS bank_sync_demo WITH (FORCE)')
-    pg.execute('CREATE DATABASE bank_sync_demo')"
-uv run bank-sync demo-seed
+(cd server && npm ci --silent && node --input-type=module -e "
+import pg from 'pg'
+const c = new pg.Client('$OWNER/postgres'); await c.connect()
+await c.query('DROP DATABASE IF EXISTS bank_sync_demo WITH (FORCE)'); await c.query('CREATE DATABASE bank_sync_demo'); await c.end()")
+EBBY="npx --prefix server tsx server/src/main.ts"
+$EBBY demo-seed
 npm --prefix web run build >/dev/null
 
-uv run uvicorn app.server:app --port "$PORT" --log-level warning &
+PORT=$PORT EBBY_SCHEDULER=off $EBBY serve >/dev/null &
 SERVER=$!
 for _ in $(seq 1 40); do curl -sf "localhost:$PORT/api/healthz" >/dev/null && break; sleep 0.5; done
 

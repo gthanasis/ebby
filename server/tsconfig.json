@@ -9,9 +9,13 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "outDir": "dist",
-    "rootDir": "src",
-    "types": ["node"]
+    "types": [
+      "node"
+    ],
+    "noEmit": true
   },
-  "include": ["src", "test"]
+  "include": [
+    "src",
+    "test"
+  ]
 }
