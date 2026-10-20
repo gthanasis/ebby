@@ -24,6 +24,7 @@ spending. In the image the commands are `ebby serve`, `ebby demo-seed`, `ebby ad
 server/
   src/main.ts         commands: serve, demo-seed, add-user
   src/server.ts       builds the app: the sign-in middleware, the routers, the web app's files
+  src/config.ts       the only place that reads the environment: validated settings, and secrets apart
   src/clock.ts        the only place that reads the date or time
   src/py.ts           Python's rounding, json.dumps and dates, exactly (see "Numbers" below)
   src/api/            the HTTP routes, one module per area (account, banks, transactions, spending, plan, goals…);
@@ -69,6 +70,9 @@ connections and transactions, and its typed builder is there for new queries.
   one that's merged. During a deploy the previous version keeps running against the new schema, so a
   migration only adds: new tables, new nullable or defaulted columns, new indexes. Taking anything away or
   changing it is a breaking change (below).
+- **Settings come only from `server/src/config.ts`**, the one module that reads `process.env`: `config` for what
+  tunes the app, `secrets` for what must never be logged. A new variable gets a rule there (and a line in
+  `.env.example`); the server checks them all at startup and refuses to start, naming each problem.
 - **Pay months need the payday loaded:** every request (the middleware) and every job loads it with
   `insights.loadPayday()` before using `monthBounds`; forgetting throws rather than silently using the 1st.
 - **Numbers and ids match what Python wrote.** Stored data and transaction ids were first made by a Python app,

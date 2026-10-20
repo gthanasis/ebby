@@ -12,7 +12,7 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 import * as clock from "../clock.js";
-import { config } from "../config.js";
+import { config, secrets } from "../config.js";
 import type { AuthStore } from "../data/users.js";
 
 const AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -31,14 +31,14 @@ const b64 = (data: Buffer) => data.toString("base64url");
 
 function sign(payload: Record<string, unknown>): string {
   const body = b64(Buffer.from(JSON.stringify(payload)));
-  return `${body}.${b64(createHmac("sha256", config.SESSION_SECRET).update(body).digest())}`;
+  return `${body}.${b64(createHmac("sha256", secrets.SESSION_SECRET).update(body).digest())}`;
 }
 
 /** The payload of a cookie we signed that hasn't expired, else null. */
 function unsign(value: string): Record<string, any> | null {
   const i = value.indexOf(".");
   const body = i === -1 ? value : value.slice(0, i), mac = i === -1 ? "" : value.slice(i + 1);
-  const expected = createHmac("sha256", config.SESSION_SECRET).update(body).digest();
+  const expected = createHmac("sha256", secrets.SESSION_SECRET).update(body).digest();
   try {
     const got = Buffer.from(mac, "base64url");
     if (got.length !== expected.length || !timingSafeEqual(got, expected)) return null;
@@ -105,7 +105,7 @@ export function router(store: AuthStore): Hono {
     let claims;
     try {
       const resp = await fetch(TOKEN_URL, { method: "POST", signal: AbortSignal.timeout(15_000), body: new URLSearchParams({
-        code, client_id: config.GOOGLE_CLIENT_ID, client_secret: config.GOOGLE_CLIENT_SECRET,
+        code, client_id: config.GOOGLE_CLIENT_ID, client_secret: secrets.GOOGLE_CLIENT_SECRET,
         redirect_uri: redirectUri(), grant_type: "authorization_code", code_verifier: flow.verifier,
       }) });
       if (!resp.ok) throw new Error(`${resp.status} from the token endpoint`);

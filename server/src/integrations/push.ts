@@ -7,7 +7,7 @@ import { join } from "node:path";
 import webpush from "web-push";
 
 import * as clock from "../clock.js";
-import { config } from "../config.js";
+import { config, secrets } from "../config.js";
 import * as db from "../data/db.js";
 import { first } from "../data/db.js";
 import { isoUtc, pyDumps } from "../py.js";
@@ -16,7 +16,7 @@ const keyFile = () => join(config.DATA_DIR, "vapid.pem");
 
 /** The VAPID private key as PEM: from the environment, else the file next to the data (made once). */
 function vapidPem(): string {
-  if (config.VAPID_PRIVATE_KEY) return config.VAPID_PRIVATE_KEY.replaceAll("\\n", "\n");
+  if (secrets.VAPID_PRIVATE_KEY) return secrets.VAPID_PRIVATE_KEY.replaceAll("\\n", "\n");
   if (!existsSync(keyFile())) {
     const { privateKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
     mkdirSync(config.DATA_DIR, { recursive: true });

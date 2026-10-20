@@ -5,8 +5,6 @@
  * kept, and never sent back: the browser only ever sees public_info.
  */
 
-import { existsSync, readFileSync } from "node:fs";
-
 import Anthropic from "@anthropic-ai/sdk";
 
 import * as clock from "../clock.js";
@@ -78,18 +76,6 @@ export async function saveAnthropic(apiKeyIn: string): Promise<Record<string, un
   const info = { masked: vault.maskApiKey(apiKey) };
   await db.connect((conn) => store(conn, "anthropic", { api_key: apiKey }, info));
   return info;
-}
-
-/** For import-sqlite: the single-user app's Enable Banking application (EB_APP_ID + key.pem) becomes the imported
- * person's own. Does nothing once they have keys of their own. True if it stored them. */
-export async function adoptEnvKey(userId: number): Promise<boolean> {
-  if (!(config.APP_ID && existsSync(config.KEY_PATH))) return false;
-  return db.asUser(userId, () => db.connect(async (conn) => {
-    if ((await conn.execute("SELECT 1 FROM credentials WHERE kind = 'enable_banking'")).one()) return false;
-    const pem = readFileSync(config.KEY_PATH);
-    await store(conn, "enable_banking", { app_id: config.APP_ID, pem: pem.toString() }, { app_id: config.APP_ID, key_fingerprint: vault.validatePem(pem) });
-    return true;
-  }));
 }
 
 export async function anthropicKey(): Promise<string | null> {

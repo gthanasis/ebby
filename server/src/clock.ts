@@ -1,6 +1,6 @@
 /**
- * The one place ebby reads the clock. EBBY_NOW pins it to a moment (an ISO time such as
- * 2026-10-20T09:00:00+03:00), so tests see the same day every run. Read on every call.
+ * The one place ebby reads the clock. EBBY_NOW (config.NOW) pins it to a moment, such as 2026-10-20T09:00:00+03:00,
+ * so tests see the same day every run. Read on every call.
  */
 
 import { config } from "./config.js";
@@ -8,7 +8,7 @@ import { PyDate } from "./py.js";
 
 /** Now, as an instant. */
 export function now(): Date {
-  const pinned = process.env.EBBY_NOW;
+  const pinned = config.NOW;
   return pinned ? new Date(pinned) : new Date();
 }
 

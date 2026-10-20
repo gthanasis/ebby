@@ -45,7 +45,7 @@ describe("vault", () => {
     expect(() => vault.decrypt(s, 1, "anthropic")).toThrow(/No credentials key/);
   });
 
-  it.each([["", "isn't set"], ["not base64!", "valid base64"], [Buffer.alloc(16).toString("base64"), "32 bytes"]])("names a bad master key (%s)", (value, message) => {
+  it.each([["", "isn't set"], ["not base64!", "CREDENTIALS_KEY must be 32 bytes"], [Buffer.alloc(16).toString("base64"), "CREDENTIALS_KEY must be 32 bytes"]])("names a bad master key (%s)", (value, message) => {
     process.env.CREDENTIALS_KEY = value;
     expect(() => vault.encrypt(Buffer.from("x"), 1, "k")).toThrow(message);
   });
