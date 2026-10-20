@@ -136,7 +136,7 @@ function BankAccessStep({ hasAccess, existing, redirectUrl, onSaved }: { hasAcce
                 <dl className="ob-facts">
                   <dt>Application ID</dt><dd className="num">{saved.app_id}</dd>
                   <dt>Key fingerprint</dt><dd className="num">{saved.key_fingerprint}</dd>
-                  <dt>Checked</dt><dd>{DATE.format(new Date(saved.verified_at))}</dd>
+                  <dt>Checked</dt><dd>{saved.verified_at ? DATE.format(new Date(saved.verified_at)) : "–"}</dd>
                 </dl>
               ) : <p>The key is stored encrypted. You can replace it any time.</p>}
             </div>

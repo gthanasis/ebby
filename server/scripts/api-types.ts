@@ -29,7 +29,7 @@ const root = { title: "ApiTypes", type: "object", additionalProperties: false, $
 
 let ts = await compile(root as never, "ApiTypes", {
   bannerComment: "", additionalProperties: false, declareExternallyReferenced: true, unreachableDefinitions: true,
-  format: true, strictIndexSignatures: true, style: { printWidth: 120 },
+  format: true, strictIndexSignatures: false, style: { printWidth: 120 },
 });
 // The wrapper only exists to reach every definition.
 ts = ts.replace(/export interface ApiTypes \{[\s\S]*?\n\}\n/, "")

@@ -464,7 +464,7 @@ async function* streamRound(model: string, system: Anthropic.Beta.BetaTextBlockP
 
 /** The error event for what may go wrong talking to Claude; null for anything else, which is a bug. */
 function toErrorEvent(e: unknown): Row | null {
-  if (aiUsage.isAllowanceError(e)) return { type: "error", text: e.message };
+  if (aiUsage.isAllowanceError(e)) return { type: "error", text: e.message, code: "allowance" };  // the app shows the allowance screen
   if (e instanceof Anthropic.RateLimitError) return { type: "error", text: "The assistant is busy right now. Try again in a moment." };
   if (e instanceof Anthropic.APIConnectionError) return { type: "error", text: "Couldn't reach the assistant. Try again in a moment." };
   if (e instanceof Anthropic.APIError) {

@@ -31,6 +31,8 @@ const READS = [
   "/api/assistant", "/api/sorter",
 ];
 // Reads with no snapshot, and why.
+// Routes with no JSON body to describe: the chat stream sends ChatEvent lines (assistant/schemas.ts).
+const NO_BODY = new Set(["/api/healthz", "/api/assistant/chat/stream"]);
 const SKIPPED: Record<string, string> = { "/api/banks": "asks Enable Banking", "/api/push/key": "a key made per install", "/api/healthz": "no data" };
 
 const fileName = (path: string) => `${path.replace(/^\/api\//, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "")}.json`;
@@ -66,6 +68,17 @@ describe("every read matches its snapshot", () => {
       const parsed = schema.safeParse(got.body);
       expect(parsed.success ? null : parsed.error.issues.slice(0, 3), `${url}: its response schema`).toBeNull();
     }
+  });
+
+  it("every route declares what it returns (src/modules/*/schemas.ts)", () => {
+    const missing = new Set<string>();
+    for (const route of api.app.routes) {
+      if (route.method === "ALL" || !route.path.startsWith("/api/") || NO_BODY.has(route.path)) continue;
+      if (!responses[`${route.method} ${route.path}`]) missing.add(`${route.method} ${route.path}`);
+    }
+    expect([...missing]).toEqual([]);
+    const routes = new Set(api.app.routes.map((r) => `${r.method} ${r.path}`));
+    expect(Object.keys(responses).filter((k) => !routes.has(k)), "schemas for routes that don't exist").toEqual([]);
   });
 
   it("a new GET route gets a snapshot here, or a reason it can't have one", () => {
