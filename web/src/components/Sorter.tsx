@@ -5,8 +5,8 @@ import { hrefFor, type ScreenProps } from "./App";
 import { Card, Crumbs, Icon } from "./ui";
 
 const SPENDING_ORDER = ["groceries", "eating_out", "delivery", "coffee_bars", "car", "shopping", "subscriptions", "bills", "housing",
-  "health", "personal_care", "travel", "leisure", "pets", "people", "cash", "fees", "other"];
-const NOT_SPENDING = ["income", "transfer", "card_payment"];
+  "loans", "insurance", "health", "personal_care", "travel", "leisure", "pets", "kids", "education", "gifts", "people", "cash", "fees", "other"];
+const NOT_SPENDING = ["income", "transfer", "investments", "card_payment"];
 const DAY = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
 /** One payment at a time: what can be told about it, Assistant's guess with a reason, and one tap to

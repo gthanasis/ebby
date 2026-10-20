@@ -299,7 +299,7 @@ def dedupe(conn) -> int:
         for r in rows:
             for m in conn.execute("""
                 SELECT t.id FROM transactions t JOIN accounts a ON a.id = t.account
-                WHERE a.is_card = 0 AND a.bank = ? AND t.amount = ? AND t.category NOT IN ('transfer', 'card_payment', 'income')
+                WHERE a.is_card = 0 AND a.bank = ? AND t.amount = ? AND t.category NOT IN ('transfer', 'investments', 'card_payment', 'income')
                   AND t.date::date - ?::date BETWEEN -1 AND 6
                 ORDER BY abs(t.date::date - ?::date)
             """, (card["bank"], r["amount"], r["date"], r["date"])):

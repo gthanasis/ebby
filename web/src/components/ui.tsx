@@ -7,6 +7,7 @@ import {
   mdiCashMultiple, mdiCellphone, mdiChartPie, mdiCheck, mdiPiggyBankOutline, mdiStairsDown, mdiSwapHorizontal, mdiSync, mdiTicketOutline, mdiTrendingDown, mdiTrendingUp, mdiWalletOutline, mdiCalendarMonthOutline,
 mdiThermometerAlert, mdiSnowflake, mdiCreationOutline, mdiFlagCheckered, mdiChartDonut, mdiCogOutline, mdiRepeat, mdiPlus, mdiTarget, mdiBellOutline, mdiCheckCircleOutline, mdiCloudOutline, mdiPencilOutline, mdiDeleteOutline, mdiMinus, mdiClose, mdiArrowUp, mdiChevronDown,
 mdiHistory, mdiMessageTextOutline, mdiHelpCircleOutline, mdiCalendarRemoveOutline, mdiClockOutline, mdiShieldCheckOutline, mdiGiftOutline, mdiGoogle,
+  mdiBankTransferOut, mdiBabyFaceOutline, mdiSchoolOutline, mdiChartLine,
 mdiContentCopy, mdiFileKeyOutline, mdiKeyOutline, mdiAccountOutline, mdiArrowRight, mdiTrayArrowUp, mdiTimerOutline, mdiLockOutline,
 mdiLogout, mdiAccountPlusOutline, mdiAccountCheckOutline, mdiAccountOffOutline, mdiAccountGroupOutline, mdiTuneVariant,
 } from "@mdi/js";
@@ -30,6 +31,7 @@ const ICONS: Record<string, string> = {
   "mdi:ticket-outline": mdiTicketOutline, "mdi:trending-down": mdiTrendingDown, "mdi:trending-up": mdiTrendingUp,
   "mdi:wallet-outline": mdiWalletOutline,
   "mdi:thermometer-alert": mdiThermometerAlert, "mdi:snowflake": mdiSnowflake, "mdi:creation-outline": mdiCreationOutline, "mdi:flag-checkered": mdiFlagCheckered, "mdi:chart-donut": mdiChartDonut, "mdi:cog-outline": mdiCogOutline, "mdi:repeat": mdiRepeat, "mdi:plus": mdiPlus, "mdi:target": mdiTarget, "mdi:bell-outline": mdiBellOutline, "mdi:check-circle-outline": mdiCheckCircleOutline, "mdi:cloud-outline": mdiCloudOutline, "mdi:pencil-outline": mdiPencilOutline, "mdi:delete-outline": mdiDeleteOutline, "mdi:minus": mdiMinus, "mdi:close": mdiClose, "mdi:arrow-up": mdiArrowUp, "mdi:chevron-down": mdiChevronDown, "mdi:calendar-month-outline": mdiCalendarMonthOutline, "mdi:cellphone": mdiCellphone, "mdi:cash-multiple": mdiCashMultiple, "mdi:chart-pie": mdiChartPie, "mdi:check": mdiCheck, "mdi:piggy-bank-outline": mdiPiggyBankOutline, "mdi:stairs-down": mdiStairsDown, "mdi:history": mdiHistory, "mdi:message-text-outline": mdiMessageTextOutline, "mdi:help-circle-outline": mdiHelpCircleOutline, "mdi:calendar-remove-outline": mdiCalendarRemoveOutline, "mdi:clock-outline": mdiClockOutline, "mdi:shield-check-outline": mdiShieldCheckOutline, "mdi:gift-outline": mdiGiftOutline, "mdi:google": mdiGoogle,
+  "mdi:bank-transfer-out": mdiBankTransferOut, "mdi:baby-face-outline": mdiBabyFaceOutline, "mdi:school-outline": mdiSchoolOutline, "mdi:chart-line": mdiChartLine,
   "mdi:content-copy": mdiContentCopy, "mdi:file-key-outline": mdiFileKeyOutline, "mdi:key-outline": mdiKeyOutline, "mdi:account-outline": mdiAccountOutline,
   "mdi:arrow-right": mdiArrowRight, "mdi:tray-arrow-up": mdiTrayArrowUp, "mdi:timer-outline": mdiTimerOutline, "mdi:lock-outline": mdiLockOutline,
   "mdi:logout": mdiLogout, "mdi:account-plus-outline": mdiAccountPlusOutline, "mdi:account-check-outline": mdiAccountCheckOutline,

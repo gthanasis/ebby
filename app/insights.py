@@ -25,7 +25,8 @@ COMMITTED_SQL = "duplicate_of IS NULL AND commitment_id IS NOT NULL AND currency
 DISCRETIONARY = {"eating_out": 1.0, "delivery": 1.0, "shopping": 1.0, "cash": 1.0, "coffee_bars": 1.0,
                  "leisure": 1.0, "subscriptions": 0.8, "other": 0.8, "travel": 0.8, "people": 0.6,
                  "personal_care": 0.6, "pets": 0.3, "car": 0.4, "health": 0.2, "groceries": 0.3,
-                 "bills": 0.1, "housing": 0.0, "fees": 0.5}
+                 "bills": 0.1, "housing": 0.0, "fees": 0.5, "loans": 0.0, "insurance": 0.1, "kids": 0.2,
+                 "education": 0.3, "gifts": 0.8}
 
 
 # ---------- months ----------
@@ -411,7 +412,7 @@ def subscriptions(conn) -> dict:
         SELECT t.date, t.amount, t.merchant, t.description, t.mcc, t.category, a.is_card FROM transactions t
         JOIN accounts a ON a.id = t.account
         WHERE t.date >= ? AND t.currency = 'EUR' AND t.amount < 0 AND t.duplicate_of IS NULL
-          AND t.category IN ('subscriptions', 'bills', 'health', 'leisure')
+          AND t.category IN ('subscriptions', 'bills', 'health', 'leisure', 'insurance', 'loans', 'education')
     """, (since,)):
         if r["is_card"] and not r["merchant"]:
             continue  # card rows have no name, so they can't be told apart as services
@@ -828,7 +829,8 @@ def services_seen(conn, months: int = 6, transfers: bool = False) -> list[dict]:
 
 
 # Habits stay out of suggestions: those are what the plan is for, not commitments.
-COMMITTABLE = {"bills", "subscriptions", "health", "housing", "eating_out", "leisure", "personal_care", "pets", "fees"}
+COMMITTABLE = {"bills", "subscriptions", "health", "housing", "eating_out", "leisure", "personal_care", "pets", "fees",
+               "loans", "insurance", "education", "kids"}
 
 
 # ---------- cash entries: spending logged by hand, taken out of withdrawals ----------
