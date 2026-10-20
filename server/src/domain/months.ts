@@ -5,6 +5,7 @@
 import * as clock from "../clock.js";
 import * as db from "../data/db.js";
 import { type Conn, type Row } from "../data/db.js";
+import * as transactionsRepo from "../data/repos/transactions.js";
 import { maxBy, median, monthDays, PyDate, pyMod, pyRound } from "../py.js";
 import type { Payday } from "../types/entities.js";
 import { PAYDAY_MIN } from "./constants.js";
@@ -95,8 +96,7 @@ export function dayProgress(month: string): [number, number] {
 export async function detectPayday(conn: Conn): Promise<Row | null> {
   const since = localToday().addDays(-240).isoformat();
   const biggest = new Map<string, Row>();
-  for (const r of await conn.execute(`SELECT date, amount FROM transactions WHERE category = 'income' AND amount >= ? AND currency = 'EUR'
-                                      AND duplicate_of IS NULL AND date >= ? ORDER BY date`, [PAYDAY_MIN, since])) {
+  for (const r of await transactionsRepo.payDeposits(conn, PAYDAY_MIN, since)) {
     const k = r.date.slice(0, 7);
     if (!biggest.has(k) || r.amount > biggest.get(k)!.amount) biggest.set(k, r);
   }

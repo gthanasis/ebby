@@ -14,6 +14,7 @@ import { z } from "zod";
 import * as clock from "../clock.js";
 import * as db from "../data/db.js";
 import type { Conn, Row } from "../data/db.js";
+import * as transactionsRepo from "../data/repos/transactions.js";
 import { fmt2, isoUtc, PyDate, pyRound } from "../py.js";
 import * as ai from "./ai.js";
 import * as aiUsage from "./ai_usage.js";
@@ -41,13 +42,11 @@ export async function items(conn: Conn): Promise<Row[]> {
   const guesses = (await db.getMeta(conn, GUESS_KEY)) || {};
   const today = localToday();
   for (const q of await questions(conn, 50)) {
-    const t = (await conn.execute(`SELECT t.id, t.date, t.amount, t.merchant, t.description, t.mcc, a.name AS account_name, a.bank, a.is_card
-                                   FROM transactions t JOIN accounts a ON a.id = t.account WHERE t.id = ?`, [q.tx_id])).one();
+    const t = await transactionsRepo.withAccount(conn, q.tx_id);
     if (!t) continue;
     const d = PyDate.fromisoformat(t.date);
     const sameDay = (await spending.rows(conn, d, d)).filter((r) => r.name !== q.service).map((r) => ({ name: r.name, amount: r.amount, category: r.category }));
-    const history = (await conn.execute(`SELECT date, amount FROM transactions WHERE (merchant = ? OR description = ?) AND amount < 0 AND duplicate_of IS NULL
-                                         AND id != ? ORDER BY date DESC LIMIT 6`, [t.merchant, t.description, t.id])).rows
+    const history = (await transactionsRepo.earlierToPayee(conn, t.merchant, t.description, t.id))
       .map((r) => ({ date: r.date, amount: pyRound(-r.amount, 2) }));
     out.push({
       service: q.service, tx_id: t.id, date: t.date, days_ago: today.diffDays(d),

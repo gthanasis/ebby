@@ -1,10 +1,14 @@
 /** The commitments table, as written: services stay the JSON text the Python app stored. */
 
 import type { Conn } from "../db.js";
-import type { Insertable } from "kysely";
+import type { Insertable, Selectable } from "kysely";
 import type { Commitments } from "../../types/db.js";
 
 export type CommitmentFields = Omit<Insertable<Commitments>, "id" | "user_id" | "created_at">;
+
+/** Every commitment, by kind and name, services as stored (JSON text). */
+export const all = (conn: Conn): Promise<Selectable<Commitments>[]> =>
+  conn.db.selectFrom("commitments").selectAll().orderBy("kind").orderBy("name").execute();
 
 export async function exists(conn: Conn, id: number): Promise<boolean> {
   return Boolean(await conn.db.selectFrom("commitments").select("id").where("id", "=", id).executeTakeFirst());

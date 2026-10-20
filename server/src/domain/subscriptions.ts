@@ -2,6 +2,7 @@
 
 import * as clock from "../clock.js";
 import { type Conn, type Row } from "../data/db.js";
+import * as transactionsRepo from "../data/repos/transactions.js";
 import { median, PyDate, pyRound, sorted, sum } from "../py.js";
 import { monthBounds, monthOf, shift, thisMonth } from "./months.js";
 import { serviceName } from "./services.js";
@@ -11,12 +12,7 @@ export async function subscriptions(conn: Conn): Promise<Row> {
   const since = monthBounds(shift(thisMonth(), -6))[0];
   const byService = new Map<string, Map<string, number>>();
   const last = new Map<string, string>();
-  for (const r of await conn.execute(`
-    SELECT t.date, t.amount, t.merchant, t.description, t.mcc, t.category, a.is_card FROM transactions t
-    JOIN accounts a ON a.id = t.account
-    WHERE t.date >= ? AND t.currency = 'EUR' AND t.amount < 0 AND t.duplicate_of IS NULL
-      AND t.category IN ('subscriptions', 'bills', 'health', 'leisure', 'insurance', 'loans', 'education')
-  `, [since])) {
+  for (const r of await transactionsRepo.subscriptionCandidates(conn, since)) {
     if (r.is_card && !r.merchant) continue;  // card rows have no name, so they can't be told apart as services
     const name = serviceName(r.merchant, r.description, false, r.mcc);
     if (!byService.has(name)) byService.set(name, new Map());

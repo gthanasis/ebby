@@ -1,11 +1,11 @@
 /** The monthly plan: take-home, what to keep, and a budget per category, worked out from habits or typed in. */
 
 import * as db from "../data/db.js";
-import { type Conn, first, type Row } from "../data/db.js";
+import { type Conn, type Row } from "../data/db.js";
+import * as transactionsRepo from "../data/repos/transactions.js";
 import { maxBy, median, pyRound, sum } from "../py.js";
 import type { Payday, Plan } from "../types/entities.js";
 import { SPENDING } from "./categories.js";
-import { SPEND_ARGS, SPEND_SQL } from "./spend_sql.js";
 import { committedTotal } from "./commitments.js";
 import { detectPayday, monthBounds, setPayday, shift, thisMonth } from "./months.js";
 
@@ -22,9 +22,7 @@ const DISCRETIONARY: Record<string, number> = {
 export async function averages(conn: Conn, months = 6): Promise<Record<string, number>> {
   const end = monthBounds(thisMonth())[0];
   const start = monthBounds(shift(thisMonth(), -months))[0];
-  const rows = (await conn.execute(`
-    SELECT category, -SUM(amount) AS spent FROM transactions WHERE date >= ? AND date < ? AND ${SPEND_SQL} GROUP BY category
-  `, [start, end, ...SPEND_ARGS])).rows;
+  const rows = await transactionsRepo.spentPerCategory(conn, start, end);
   return Object.fromEntries(rows.map((r) => [r.category, Math.max(0.0, r.spent / months)]));
 }
 
@@ -104,9 +102,7 @@ export async function autofill(conn: Conn): Promise<boolean> {
     const moved: number[] = [];
     for (let i = 1; i < 4; i++) {
       const [ms, me] = monthBounds(shift(thisMonth(), -i));
-      moved.push(first((await conn.execute(`SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE account IN (${ids.map(() => "?").join(",")})
-                                   AND amount > 0 AND date >= ? AND date < ? AND duplicate_of IS NULL AND currency = 'EUR'`,
-        [...ids, ms, me])).one()));
+      moved.push(await transactionsRepo.paidInto(conn, ids, ms, me));
     }
     keep = Math.max(0.0, roundTo(median(moved), 50));
   }

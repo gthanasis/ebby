@@ -7,6 +7,8 @@ import { config } from "../config.js";
 import * as credentials from "../data/credentials.js";
 import * as db from "../data/db.js";
 import type { Row } from "../data/db.js";
+import * as accountsRepo from "../data/repos/accounts.js";
+import * as connectionsRepo from "../data/repos/connections.js";
 import * as categories from "../domain/categories.js";
 import * as banks from "../integrations/banks.js";
 import { type Client, EnableBankingError, MAX_HISTORY_DAYS, type Psu } from "../integrations/enable_banking.js";
@@ -41,7 +43,7 @@ export async function completeAuth(address: string): Promise<[string, number]> {
   let query: URLSearchParams;
   try { query = new URL(address.trim()).searchParams; } catch { query = new URLSearchParams(); }
   const state = query.get("state");
-  const row = state ? await db.connect(async (conn) => (await conn.execute("SELECT bank FROM connections WHERE auth_state = ?", [state])).one()) : null;
+  const row = state ? await db.connect((conn) => connectionsRepo.byAuthState(conn, state)) : null;
   if (!row) throw new Error("That address isn't from the latest connection attempt. Start again.");
   if (!query.has("code")) throw new Error(`The bank didn't return a code (${query.get("error") ?? "no details"}).`);
   const bank = row.bank;
@@ -82,8 +84,7 @@ export async function syncBank(client: Client, connRow: Row, psu: Psu = null): P
   const bank = connRow.bank;
   let error: Row;
   try {
-    const accounts = await db.connect(async (conn) =>
-      (await conn.execute("SELECT id, uid, is_card FROM accounts WHERE uid IS NOT NULL AND bank = ?", [bank])).rows);
+    const accounts = await db.connect((conn) => accountsRepo.syncable(conn, bank));
     const days = connRow.backfill || !connRow.last_sync ? MAX_HISTORY_DAYS : psu ? LIVE_LOOKBACK_DAYS : config.SYNC_LOOKBACK_DAYS;
     let changed = 0;
     for (const acc of accounts) {
@@ -91,8 +92,7 @@ export async function syncBank(client: Client, connRow: Row, psu: Psu = null): P
         changed += await db.connect((conn) => db.saveWindow(conn, acc.id, Boolean(acc.is_card), start.isoformat(), end.isoformat(), rows));
       }
       const balance = pickBalance(await client.balances(acc.uid, psu));
-      await db.connect((conn) => conn.execute("UPDATE accounts SET balance = ?, balance_at = ?, synced_at = ? WHERE id = ?",
-        [balance, nowIso(), nowIso(), acc.id]));
+      await db.connect((conn) => accountsRepo.setBalance(conn, acc.id, balance, nowIso(), nowIso()));
     }
     const pairs = await db.connect(async (conn) => {
       const made = await db.dedupe(conn);

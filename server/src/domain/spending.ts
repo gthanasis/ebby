@@ -7,9 +7,8 @@
  */
 
 import type { Conn, Row } from "../data/db.js";
-import { first } from "../data/db.js";
+import * as transactionsRepo from "../data/repos/transactions.js";
 import { fmt0, fmt2, maxBy, median, PyDate, pyRound, sorted, sum } from "../py.js";
-import { SPEND_ARGS, SPEND_SQL } from "./spend_sql.js";
 import { localToday, monthBounds, monthOf, shift, thisMonth } from "./months.js";
 import { serviceName } from "./services.js";
 
@@ -19,8 +18,6 @@ const USUAL_COUNT: Record<string, number> = { day: 8, week: 8, month: 6 };
 export const HABITS = new Set(["delivery", "eating_out", "coffee_bars", "people", "groceries"]);
 // A drop here is usually timing (not charged yet), not something you did.
 export const TIMED = new Set(["bills", "health", "car", "subscriptions", "pets", "insurance", "loans", "education"]);
-let T = SPEND_SQL;
-for (const col of ["duplicate_of", "commitment_id", "currency", "category IN"]) T = T.replace(col, `t.${col}`);
 
 export interface SpendRow { date: string; amount: number; category: string; name: string }
 
@@ -50,9 +47,7 @@ const minDay = (a: PyDate, b: PyDate) => (a.n <= b.n ? a : b);
 
 /** Free spending between two days, each with the service it went to. */
 export async function rows(conn: Conn, a: PyDate, b: PyDate): Promise<SpendRow[]> {
-  return (await conn.execute(`SELECT t.date, -t.amount AS amount, t.category, t.merchant, t.description, t.mcc, a.is_card
-      FROM transactions t JOIN accounts a ON a.id = t.account WHERE t.date >= ? AND t.date <= ? AND ${T}
-      ORDER BY t.date, t.amount`, [a.isoformat(), b.isoformat(), ...SPEND_ARGS])).rows.map((r) => ({
+  return (await transactionsRepo.spendRows(conn, a.isoformat(), b.isoformat())).map((r) => ({
     date: r.date, amount: pyRound(r.amount, 2), category: r.category,
     name: serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc),
   }));
@@ -71,7 +66,7 @@ function byCategory(rs: SpendRow[]): Map<string, [number, number]> {
 }
 
 async function firstDay(conn: Conn): Promise<PyDate | null> {
-  const row = first((await conn.execute("SELECT MIN(date) FROM transactions")).one());
+  const row = await transactionsRepo.oldestDay(conn);
   return row ? PyDate.fromisoformat(row) : null;
 }
 

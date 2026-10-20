@@ -10,12 +10,18 @@
 
 import * as clock from "../clock.js";
 import * as db from "../data/db.js";
-import { type Conn, first, type Row } from "../data/db.js";
+import { type Conn, type Row } from "../data/db.js";
+import * as accountsRepo from "../data/repos/accounts.js";
+import * as goalsRepo from "../data/repos/goals.js";
+import * as habitRulesRepo from "../data/repos/habit_rules.js";
+import * as transactionsRepo from "../data/repos/transactions.js";
+import * as wishlistRepo from "../data/repos/wishlist.js";
+import * as yearlyCostsRepo from "../data/repos/yearly_costs.js";
 import type { SpendRow } from "./spending.js";
 import { fmt0, fmtG, isoUtc, maxBy, parseIso, PyDate, pyRound, sorted, sum } from "../py.js";
 import { CATEGORIES } from "./categories.js";
 import { CASH_ACCOUNT, PAYDAY_MIN } from "./constants.js";
-import type { HabitRule, Wish, YearlyCost } from "../types/entities.js";
+import type { HabitRule } from "../types/entities.js";
 import { getPlan } from "./plan.js";
 import { localToday, monthBounds, thisMonth } from "./months.js";
 import { spentBetween } from "./today.js";
@@ -28,10 +34,7 @@ const now = () => clock.now();
 
 // ---------- pay yourself first ----------
 
-async function accounts(conn: Conn): Promise<Row[]> {
-  return (await conn.execute("SELECT id, bank, name, is_card FROM accounts WHERE is_card = 0 AND id != ? ORDER BY bank, name",
-    [CASH_ACCOUNT])).rows;
-}
+const accounts = (conn: Conn) => accountsRepo.own(conn, CASH_ACCOUNT);
 
 export async function savingsAccountIds(conn: Conn): Promise<string[]> {
   const chosen = await db.getMeta(conn, "savings_accounts");
@@ -44,8 +47,7 @@ export async function savingsAccountIds(conn: Conn): Promise<string[]> {
 }
 
 export async function lastPayday(conn: Conn): Promise<Row | null> {
-  const r = (await conn.execute(`SELECT date, amount FROM transactions WHERE category = 'income' AND amount >= ? AND currency = 'EUR'
-                                 AND duplicate_of IS NULL ORDER BY date DESC LIMIT 1`, [PAYDAY_MIN])).one();
+  const r = await transactionsRepo.lastPay(conn, PAYDAY_MIN);
   return r ? { date: r.date, amount: pyRound(r.amount, 2) } : null;
 }
 
@@ -56,8 +58,7 @@ export async function payYourselfFirst(conn: Conn): Promise<Row> {
   const since = payday ? payday.date : monthBounds(thisMonth())[0];
   let saved = 0.0;
   if (ids.length) {
-    saved = first((await conn.execute(`SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE account IN (${ids.map(() => "?").join(",")})
-                                        AND date >= ? AND duplicate_of IS NULL AND currency = 'EUR'`, [...ids, since])).one());
+    saved = await transactionsRepo.netInto(conn, ids, since);
   }
   return {
     target: plan ? plan.keep : null, saved: pyRound(saved, 2), since, payday,
@@ -98,7 +99,7 @@ export async function wishlist(conn: Conn): Promise<Row[]> {
   const rate = await hourlyRate(conn);
   const at = now();
   const out = [];
-  for (const r of await conn.execute<Wish>("SELECT * FROM wishlist WHERE decision IS NULL ORDER BY created_at")) {
+  for (const r of await wishlistRepo.undecided(conn)) {
     const readyAt = new Date(parseIso(r.created_at).getTime() + WAIT_MS);
     out.push({ ...r, ready_at: isoUtc(readyAt, "seconds"), ready: at.getTime() >= readyAt.getTime(), hours_of_work: rate ? pyRound(r.price / rate, 1) : null });
   }
@@ -107,16 +108,15 @@ export async function wishlist(conn: Conn): Promise<Row[]> {
 
 export async function skippedTotal(conn: Conn, sinceDays = 365): Promise<number> {
   const since = isoUtc(new Date(now().getTime() - sinceDays * 86_400_000));
-  return pyRound(first((await conn.execute("SELECT COALESCE(SUM(price), 0) FROM wishlist WHERE decision = 'skipped' AND decided_at >= ?", [since])).one()), 2);
+  return pyRound(await wishlistRepo.skippedSince(conn, since), 2);
 }
 
 export async function addWish(conn: Conn, name: string, price: number): Promise<number> {
-  await conn.execute("INSERT INTO wishlist(name, price, created_at) VALUES(?, ?, ?)", [name.trim(), price, isoUtc(now(), "seconds")]);
-  return first((await conn.execute("SELECT lastval()")).one());
+  return wishlistRepo.add(conn, name.trim(), price, isoUtc(now(), "seconds"));
 }
 
 export async function decideWish(conn: Conn, wid: number, decision: string) {
-  await conn.execute("UPDATE wishlist SET decision = ?, decided_at = ? WHERE id = ? AND decision IS NULL", [decision, isoUtc(now(), "seconds"), wid]);
+  await wishlistRepo.decide(conn, wid, decision, isoUtc(now(), "seconds"));
 }
 
 export async function dueReminders(conn: Conn): Promise<Row[]> {
@@ -128,7 +128,7 @@ export async function dueReminders(conn: Conn): Promise<Row[]> {
 export async function yearly(conn: Conn): Promise<Row> {
   const today = localToday();
   const items: Row[] = [];
-  for (const y of await conn.execute<YearlyCost>("SELECT * FROM yearly_costs ORDER BY due_month")) {
+  for (const y of await yearlyCostsRepo.all(conn)) {
     const due = new PyDate(today.year + (y.due_month < today.month ? 1 : 0), y.due_month, 1);
     const monthsLeft = (due.year - today.year) * 12 + due.month - today.month;
     items.push({ ...y, monthly: pyRound(y.yearly_amount / 12, 2), next_due: due.isoformat().slice(0, 7), months_left: monthsLeft });
@@ -143,10 +143,7 @@ export async function yearly(conn: Conn): Promise<Row> {
 /** Charges that come once a year: insurance and annual fees in the last 15 months. */
 export async function yearlySuggestions(conn: Conn): Promise<Row[]> {
   const since = localToday().addDays(-460).isoformat();
-  const rows = (await conn.execute(`SELECT date, amount, description, merchant FROM transactions
-    WHERE date >= ? AND amount < -30 AND duplicate_of IS NULL AND currency = 'EUR' AND status != 'OFFSET'
-      AND (description LIKE '%ΑΣΦΑΛ%' OR description LIKE '%ΑSFΑL%' OR description LIKE '%ΕΤΗΣΙΑ%' OR description LIKE '%INTERAMERICAN%'
-           OR description LIKE '%ΙΝΤΕRΑΜΕRΙCΑΝ%' OR mcc LIKE '63%')`, [since])).rows;
+  const rows = await transactionsRepo.yearlyCharges(conn, since);
   const groups = new Map<string, { name: string; months: Map<string, number>; dates: string[] }>();
   for (const r of rows) {
     const d: string = r.description;
@@ -207,8 +204,7 @@ export function habitTitle(r: Pick<HabitRule, "type" | "target" | "category">): 
 }
 
 async function boughtWishes(conn: Conn, a: PyDate, b: PyDate): Promise<number[]> {
-  return (await conn.execute("SELECT price FROM wishlist WHERE decision = 'bought' AND decided_at >= ? AND decided_at < ?",
-    [a.addDays(-7).isoformat(), b.addDays(2).isoformat()])).rows.map((r) => r.price);
+  return wishlistRepo.boughtPrices(conn, a.addDays(-7).isoformat(), b.addDays(2).isoformat());
 }
 
 /** The habit's number for the days a..b: payments, euros, no-spend days or wishlist skips. */
@@ -260,7 +256,7 @@ function nudge(r: HabitRule, m: { value: number }, st: string, daysLeft: number)
 }
 
 export async function ruleRows(conn: Conn): Promise<HabitRule[]> {
-  return (await conn.execute<HabitRule>("SELECT * FROM habit_rules ORDER BY created_at, id")).rows;
+  return habitRulesRepo.all(conn);
 }
 
 export async function habitView(conn: Conn, r: HabitRule, detail = false): Promise<Row> {
@@ -305,7 +301,7 @@ export async function habitView(conn: Conn, r: HabitRule, detail = false): Promi
       days.push({ date: d.isoformat(), value });
     }
     out.days = days;
-    const goal = r.goal_id ? (await conn.execute("SELECT id, name FROM goals WHERE id = ?", [r.goal_id])).one() : null;
+    const goal = r.goal_id ? await goalsRepo.nameOf(conn, r.goal_id) : null;
     out.goal = goal ?? null;
   }
   return out;
@@ -326,8 +322,8 @@ async function weeklyStats(conn: Conn): Promise<{ cats: Map<string, [number, num
   const spentDays = new Set(rows.map((x) => x.date));
   let free = 0;
   for (let i = 0; i < WEEKS * 7; i++) if (!spentDays.has(a.addDays(i).isoformat())) free += 1;
-  const start = first((await conn.execute("SELECT MIN(date) FROM transactions")).one());
-  return { cats, nospend: free / WEEKS, enough: Boolean(start) && start <= a.isoformat() };
+  const start = await transactionsRepo.oldestDay(conn);
+  return { cats, nospend: free / WEEKS, enough: Boolean(start) && start! <= a.isoformat() };
 }
 
 /** Habits one step better than how you spend now, biggest saving first. Three at most. */
@@ -394,7 +390,7 @@ export async function addRule(conn: Conn, type: string, category: string | null,
     const c = (await weeklyStats(conn)).cats.get(category);
     baseline = c ? pyRound(c[1] / WEEKS, 2) : 0.0;
   }
-  await conn.execute("INSERT INTO habit_rules(type, category, target, baseline, goal_id, created_at) VALUES(?, ?, ?, ?, ?, ?)",
-    [type, type === "nospend" ? null : category, target, baseline, goalId, isoUtc(now(), "seconds")]);
-  return first((await conn.execute("SELECT lastval()")).one());
+  return habitRulesRepo.add(conn, {
+    type, category: type === "nospend" ? null : category, target, baseline, goal_id: goalId, created_at: isoUtc(now(), "seconds"),
+  });
 }

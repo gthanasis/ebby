@@ -8,7 +8,10 @@ import * as clock from "../clock.js";
 import { config, secrets } from "../config.js";
 import * as credentials from "../data/credentials.js";
 import * as db from "../data/db.js";
-import { type Conn, first, type Row } from "../data/db.js";
+import { type Conn, type Row } from "../data/db.js";
+import * as aiUsageRepo from "../data/repos/ai_usage.js";
+import * as goalsRepo from "../data/repos/goals.js";
+import * as transactionsRepo from "../data/repos/transactions.js";
 import * as users from "../data/users.js";
 import { fmt0, fmt2, isoUtc, PyDate, sorted, sum } from "../py.js";
 import * as aiUsage from "./ai_usage.js";
@@ -60,8 +63,7 @@ export interface Claude { client: Anthropic; ownKey: boolean; feature: string } 
 export async function client(feature: string): Promise<Claude> {
   const person = await users.me(db.currentUser()!);
   const now = clock.now();
-  const spent = await db.connect(async (conn) => first((await conn.execute(
-    "SELECT COALESCE(SUM(cost_usd), 0) FROM ai_usage WHERE at >= ? AND NOT own_key", [aiUsage.monthBounds(now)[0]])).one()));
+  const spent = await db.connect((conn) => aiUsageRepo.spentOnOwnerKey(conn, aiUsage.monthBounds(now)[0]));
   const [key, own] = aiUsage.chooseKey({ ownKey: await credentials.anthropicKey(), sharedKey: secrets.ANTHROPIC_API_KEY,
     isAdmin: person.is_admin, spent, budget: person.ai_budget_usd, today: now });
   // The workspace belongs to the owner's key; someone's own key bills wherever it's scoped.
@@ -72,10 +74,10 @@ export async function client(feature: string): Promise<Claude> {
 /** Logs what one response cost, which is what the allowance counts. */
 export async function record(claude: Claude, model: string, usage: aiUsage.Usage) {
   const cost = aiUsage.costUsd(model, usage);
-  await db.connect((conn) => conn.execute(`INSERT INTO ai_usage(feature, model, input, cache_read, cache_write, output, cost_usd, own_key)
-                                           VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
-    [claude.feature, model, usage.input_tokens || 0, usage.cache_read_input_tokens || 0, usage.cache_creation_input_tokens || 0,
-      usage.output_tokens || 0, cost, claude.ownKey]));
+  await db.connect((conn) => aiUsageRepo.add(conn, {
+    feature: claude.feature, model, input: usage.input_tokens || 0, cache_read: usage.cache_read_input_tokens || 0,
+    cache_write: usage.cache_creation_input_tokens || 0, output: usage.output_tokens || 0, cost_usd: cost, own_key: claude.ownKey,
+  }));
 }
 
 /** The model for the chat and the sorter: the one picked in Settings, else ASSISTANT_MODEL. */
@@ -123,13 +125,10 @@ async function context(conn: Conn): Promise<string> {
     lines.push(`\nSubscriptions: ${subs.count} active, €${fmt0(subs.monthly)}/month: `
       + subs.items.map((s: Row) => `${s.name} €${fmt0(s.monthly)}${s.stale ? " (no charge recently)" : ""}`).join(", "));
   }
-  const goals = (await conn.execute("SELECT * FROM goals ORDER BY target_date")).rows;
+  const goals = await goalsRepo.all(conn);
   if (goals.length) lines.push("\nSaving for: " + goals.map((g) => `${g.name} €${fmt0(g.price)} by ${g.target_date} (€${fmt0(g.saved)} saved)`).join("; "));
   lines.push("\nTransactions, last 90 days (date,amount,category,merchant,account):");
-  for (const r of await conn.execute(`
-    SELECT t.date, t.amount, t.currency, t.category, t.merchant, t.description, t.mcc, t.commitment_id, a.name AS account, a.is_card
-    FROM transactions t JOIN accounts a ON a.id = t.account WHERE t.date >= ? AND t.duplicate_of IS NULL ORDER BY t.date
-  `, [since])) {
+  for (const r of await transactionsRepo.forContext(conn, since)) {
     const name = serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc).replaceAll(",", " ");
     const cur = r.currency === "EUR" ? "" : ` ${r.currency}`;
     const label = r.commitment_id ? "Committed" : (CATEGORIES[r.category] ?? [r.category])[0];

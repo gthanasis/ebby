@@ -37,8 +37,8 @@ server/
     reference/        fixed reference data: what merchant category codes mean
   src/integrations/   Enable Banking, its bank list, web push
   src/data/           the database, encryption, credentials, users, the demo seed
-    repos/            one module per table (goals, commitments, rules, transactions…): the routes read and write
-                      through these, never with SQL of their own
+    repos/            one module per table (goals, commitments, rules, transactions…): the routes, the domain and the
+                      jobs read and write through these; SQL lives nowhere else
   src/types/          db.ts: the tables, generated from migrations/ (npm run db:types after adding one; CI checks);
                       entities.ts: rows as the app reads them, and the JSON documents kept in meta
   src/jobs/           bank sync and the scheduler

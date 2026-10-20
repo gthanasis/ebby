@@ -14,3 +14,7 @@ export async function dropPaymentRulesMatching(conn: Conn, merchant: string, cat
   await conn.execute(`DELETE FROM rules WHERE category = ? AND merchant IN (
                         SELECT 'tx:' || id FROM transactions WHERE merchant = ?)`, [category, merchant]);
 }
+
+export async function remove(conn: Conn, merchant: string) {
+  await conn.db.deleteFrom("rules").where("merchant", "=", merchant).execute();
+}
