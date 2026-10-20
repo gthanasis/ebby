@@ -77,3 +77,37 @@ def test_demo_seed_fills_only_the_demo_person(users):
         assert db.get_meta(conn, "plan") and db.get_meta(conn, "onboarded")
     with db.as_user(users["a"]), db.connect() as conn:
         assert conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0] == 3  # A untouched
+
+
+SANDBOX = [{"name": "Mock ASPSP", "psu_types": ["personal"]}, {"name": "Genome", "psu_types": ["personal"]}]
+
+
+def test_a_sandbox_app_doesnt_decide_anyone_elses_banks(monkeypatch, users):
+    """Enable Banking lists what the asking app can reach, so a sandbox app first in line
+    mustn't leave everyone else (or that person, once on production keys) with Mock ASPSP."""
+    monkeypatch.setattr(banks, "_cache", {})
+    monkeypatch.setattr(Client, "aspsps", lambda self, country: SANDBOX if self.app_id == "sandbox" else ASPSPS)
+    credentials._clients.clear()
+
+    def upload(user, app_id):
+        with db.as_user(user), db.connect() as conn:
+            credentials.store(conn, "enable_banking", {"app_id": app_id, "pem": "-----BEGIN PRIVATE KEY-----"}, {"app_id": app_id})
+            credentials.forget_client()
+
+    def offered(user):
+        with db.as_user(user):
+            return [b["name"] for b in banks.available()]
+
+    try:
+        upload(users["a"], "sandbox")
+        upload(users["b"], "production-b")
+        assert offered(users["a"]) == ["Genome", "Mock ASPSP"]
+        assert "Alpha Bank" in offered(users["b"])
+
+        upload(users["a"], "production-a")  # swaps the sandbox key for a production one
+        assert "Alpha Bank" in offered(users["a"])
+    finally:
+        for user in (users["a"], users["b"]):
+            with db.as_user(user), db.connect() as conn:
+                conn.execute("DELETE FROM credentials WHERE kind = 'enable_banking'")
+        credentials._clients.clear()
