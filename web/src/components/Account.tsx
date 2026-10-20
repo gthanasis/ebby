@@ -99,7 +99,7 @@ export function BankAccessScreen({ me, onChanged }: { me: Me; onChanged: () => v
         <dl className="facts">
           <dt>Application ID</dt><dd className="num">{key.app_id}</dd>
           <dt>Key fingerprint</dt><dd className="num">{key.key_fingerprint}</dd>
-          <dt>Last checked</dt><dd>{DAY.format(new Date(key.verified_at))}</dd>
+          <dt>Last checked</dt><dd>{key.verified_at ? DAY.format(new Date(key.verified_at)) : "–"}</dd>
         </dl>
         {!replacing && !removing && (
           <div className="row-actions">
@@ -145,7 +145,7 @@ export function AiScreen({ me, onChanged }: { me: Me; onChanged: () => void }) {
       {own ? (
         <Card>
           <CardHeader icon="mdi:key-outline" title="Your Anthropic key" aside={<span className="pill-status ok"><Icon icon="mdi:check" />No limit</span>} />
-          <p className="ai-own num"><span>Key ending <b>{own.masked}</b></span><span className="muted small">Added {DAY.format(new Date(own.verified_at))}</span></p>
+          <p className="ai-own num"><span>Key ending <b>{own.masked}</b></span><span className="muted small">Added {own.verified_at ? DAY.format(new Date(own.verified_at)) : "–"}</span></p>
           {removing ? (
             <Confirm title="Remove your key?" action="Remove key" onCancel={() => setRemoving(false)}
               onConfirm={() => removeCredential("anthropic").then(() => { setRemoving(false); onChanged(); })}>

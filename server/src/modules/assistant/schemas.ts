@@ -31,7 +31,7 @@ export const AssistantState = z.strictObject({
 export const ChatEvent = z.discriminatedUnion("type", [
   z.strictObject({ type: z.literal("text"), text: z.string() }),
   z.strictObject({ type: z.literal("status"), text: z.string() }),
-  z.strictObject({ type: z.literal("error"), text: z.string() }),
+  z.strictObject({ type: z.literal("error"), text: z.string(), code: z.literal("allowance").optional() }),
   z.strictObject({ type: z.literal("done"), conversation: z.number(), items: z.array(ChatItem) }),
 ]);
 
