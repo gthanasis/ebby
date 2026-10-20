@@ -64,6 +64,9 @@ export class NoAPIKey extends Error {
   constructor() { super("AI features need an Anthropic key. Add your own in Settings."); }
 }
 
+/** The allowance is used up or there's no key at all: not a failure, and the message is fit to show. */
+export const isAllowanceError = (e: unknown): e is BudgetExceeded | NoAPIKey => e instanceof BudgetExceeded || e instanceof NoAPIKey;
+
 /** The key to call Claude with, and whether it is the user's own (which has no limit). */
 export function chooseKey(o: { ownKey: string | null; sharedKey: string; isAdmin: boolean; spent: number; budget: number; today: Date | PyDate }): [string, boolean] {
   if (o.ownKey) return [o.ownKey, true];

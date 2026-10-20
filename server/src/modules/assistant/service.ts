@@ -170,28 +170,132 @@ async function goals(conn: Conn): Promise<Row[]> {
   return out;
 }
 
+interface Read {
+  status: string;  // shown while it runs
+  run: (conn: Conn, args: Row) => Promise<unknown>;
+}
+
+const READS: Record<string, Read> = {
+  find_payments: { status: "Searching your payments", run: find },
+  totals: { status: "Adding it up", run: totals },
+  get_overview: { status: "Looking at the month", run: (conn, args) => overview(conn, month(args.month)) },
+  get_plan: { status: "Checking your plan", run: (conn) => plan(conn) },
+  list_goals: { status: "Checking your goals", run: (conn) => goals(conn) },
+};
+
+const readOf = (name: string): Read | undefined => (Object.hasOwn(READS, name) ? READS[name] : undefined);
+
 async function runRead(conn: Conn, name: string, args: Row): Promise<unknown> {
-  if (name === "get_overview") return overview(conn, month(args.month));
-  if (name === "find_payments") return find(conn, args);
-  if (name === "totals") return totals(conn, args);
-  if (name === "get_plan") return plan(conn);
-  if (name === "list_goals") return goals(conn);
-  throw new Error(name);
+  const read = readOf(name);
+  if (!read) throw new Error(name);
+  return read.run(conn, args);
 }
 
 // ---------- actions (proposed by Claude, run only on the user's confirm) ----------
 
 const now = () => isoUtc(clock.now(), "seconds");
 
+interface Action {
+  /** Checks the draft's arguments before it's stored, rewriting them in place. Returns the error Claude sees. */
+  prepare?: (conn: Conn, args: Row) => Promise<string | null>;
+  /** Makes the change. Returns a short result line for the chat. */
+  run: (conn: Conn, p: Row) => Promise<string>;
+  /** What the change card adds under the summary. */
+  detail?: (conn: Conn, p: Row) => Promise<string | null>;
+}
+
+const ACTIONS: Record<string, Action> = {
+  set_category: {
+    async run(conn, p) {
+      const n = await setServiceCategory(conn, p.service, p.category);
+      return `Moved ${n} ${p.service} payments to ${CATEGORIES[p.category][0]}.`;
+    },
+  },
+  set_payment_category: {
+    async prepare(conn, args) {
+      const txId = await txFromRef(conn, args.transaction_id);
+      if (!txId) return "No payment with that id; use an id from find_payments.";
+      args.transaction_id = txId;
+      return null;
+    },
+    async run(conn, p) {
+      // The same rule the Spending list saves when one payment's category is changed.
+      const tx = await transactionsRepo.dateAndAmount(conn, p.transaction_id);
+      if (!tx) throw new Error("That payment is no longer there.");
+      await rulesRepo.set(conn, `tx:${p.transaction_id}`, p.category);
+      await ingest.recategorize(conn);
+      return `Moved the €${fmt2c(Math.abs(tx.amount))} payment on ${dayMonth(PyDate.fromisoformat(tx.date.slice(0, 10)))} to ${CATEGORIES[p.category][0]}.`;
+    },
+    /** The payment it's about, so the card shows which one it is. */
+    async detail(conn, p) {
+      const r = await transactionsRepo.payeeOf(conn, p.transaction_id);
+      if (!r) return null;
+      const name = serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc);
+      return `${name} · €${fmt2c(Math.abs(r.amount))} · ${dayMonth(PyDate.fromisoformat(r.date.slice(0, 10)), true)}`;
+    },
+  },
+  commitment: {
+    async run(conn, p) {
+      await commitmentsRepo.add(conn, {
+        name: p.name, kind: p.kind, monthly_limit: p.monthly_limit, note: p.note ?? "", services: pyDumps(p.services ?? []),
+        off_bank: Math.max(0, p.off_bank ?? 0), created_at: now(),
+      });
+      await assignCommitments(conn);
+      return `${p.name} is committed, limit €${fmt0(p.monthly_limit)} a month.`;
+    },
+  },
+  budget: {
+    async run(conn, p) {
+      const current = await getPlan(conn);
+      if (!current) throw new Error("Set up the plan first.");
+      current.budgets[p.category] = Number(p.amount);
+      await db.setMeta(conn, "plan", current);
+      return `${CATEGORIES[p.category][0]} budget is now €${fmt0(p.amount)} a month.`;
+    },
+  },
+  plan: {
+    async run(conn, p) {
+      const current = await getPlan(conn);
+      await savePlan(conn, p.take_home, p.keep, current ? current.budgets : null);
+      return `Plan updated: take-home €${fmt0(p.take_home)}, keep €${fmt0(p.keep)}.`;
+    },
+  },
+  goal: {
+    async run(conn, p) {
+      if (PyDate.fromisoformat(p.target_date).n <= clock.serverToday().n) throw new Error("The goal date has to be in the future.");
+      await goalsRepo.add(conn, { name: p.name, price: p.price, saved: 0, target_date: p.target_date, created_at: clock.serverToday().isoformat() });
+      return `Added ${p.name}: €${fmt0(p.price)} by ${p.target_date}.`;
+    },
+  },
+  goal_saved: {
+    async run(conn, p) {
+      await goalsRepo.addSaved(conn, p.goal_id, p.add);
+      return "Goal updated.";
+    },
+  },
+  wish: {
+    async run(conn, p) {
+      await habits.addWish(conn, p.name, p.price);
+      return `${p.name} is on the thinking-about-it list. I'll ask again in two days.`;
+    },
+  },
+  log_cash: {
+    async run(conn, p) {
+      await logCash(conn, p.amount, p.category, p.note ?? "", p.date || localToday().isoformat());
+      const left = (await cashView(conn, p.date ? monthOf(p.date) : thisMonth())).unaccounted;
+      return `Logged €${fmt2c(p.amount)} cash as ${CATEGORIES[p.category][0]}. €${fmt0(left)} of this month's cash is still unaccounted for.`;
+    },
+  },
+};
+
+const actionOf = (kind: string): Action | undefined => (Object.hasOwn(ACTIONS, kind) ? ACTIONS[kind] : undefined);
+
 async function propose(conn: Conn, conversation: number, name: string, args: Row): Promise<Row> {
   const kind = name.replace(/^propose_/, "");
   const summary = String(args.summary ?? "").trim() || kind.replaceAll("_", " ");
   delete args.summary;
-  if (kind === "set_payment_category") {
-    const txId = await txFromRef(conn, args.transaction_id);
-    if (!txId) return { error: "No payment with that id; use an id from find_payments." };
-    args.transaction_id = txId;
-  }
+  const error = await actionOf(kind)?.prepare?.(conn, args);
+  if (error) return { error };
   return { status: "waiting for the user's confirmation", action_id: await assistantRepo.addAction(conn, conversation, kind, pyDumps(args), summary, now()) };
 }
 
@@ -202,51 +306,9 @@ export async function runAction(actionId: number): Promise<string> {
     if (!row || row.status !== "pending") throw new Error("That change was already handled.");
     const p = JSON.parse(row.params);
     const kind: string = row.kind;
-    let result: string;
-    if (kind === "set_category") {
-      const n = await setServiceCategory(conn, p.service, p.category);
-      result = `Moved ${n} ${p.service} payments to ${CATEGORIES[p.category][0]}.`;
-    } else if (kind === "set_payment_category") {
-      // The same rule the Spending list saves when one payment's category is changed.
-      const tx = await transactionsRepo.dateAndAmount(conn, p.transaction_id);
-      if (!tx) throw new Error("That payment is no longer there.");
-      await rulesRepo.set(conn, `tx:${p.transaction_id}`, p.category);
-      await ingest.recategorize(conn);
-      result = `Moved the €${fmt2c(Math.abs(tx.amount))} payment on ${dayMonth(PyDate.fromisoformat(tx.date.slice(0, 10)))} to ${CATEGORIES[p.category][0]}.`;
-    } else if (kind === "commitment") {
-      await commitmentsRepo.add(conn, {
-        name: p.name, kind: p.kind, monthly_limit: p.monthly_limit, note: p.note ?? "", services: pyDumps(p.services ?? []),
-        off_bank: Math.max(0, p.off_bank ?? 0), created_at: now(),
-      });
-      await assignCommitments(conn);
-      result = `${p.name} is committed, limit €${fmt0(p.monthly_limit)} a month.`;
-    } else if (kind === "budget") {
-      const current = await getPlan(conn);
-      if (!current) throw new Error("Set up the plan first.");
-      current.budgets[p.category] = Number(p.amount);
-      await db.setMeta(conn, "plan", current);
-      result = `${CATEGORIES[p.category][0]} budget is now €${fmt0(p.amount)} a month.`;
-    } else if (kind === "plan") {
-      const current = await getPlan(conn);
-      await savePlan(conn, p.take_home, p.keep, current ? current.budgets : null);
-      result = `Plan updated: take-home €${fmt0(p.take_home)}, keep €${fmt0(p.keep)}.`;
-    } else if (kind === "goal") {
-      if (PyDate.fromisoformat(p.target_date).n <= clock.serverToday().n) throw new Error("The goal date has to be in the future.");
-      await goalsRepo.add(conn, { name: p.name, price: p.price, saved: 0, target_date: p.target_date, created_at: clock.serverToday().isoformat() });
-      result = `Added ${p.name}: €${fmt0(p.price)} by ${p.target_date}.`;
-    } else if (kind === "goal_saved") {
-      await goalsRepo.addSaved(conn, p.goal_id, p.add);
-      result = "Goal updated.";
-    } else if (kind === "wish") {
-      await habits.addWish(conn, p.name, p.price);
-      result = `${p.name} is on the thinking-about-it list. I'll ask again in two days.`;
-    } else if (kind === "log_cash") {
-      await logCash(conn, p.amount, p.category, p.note ?? "", p.date || localToday().isoformat());
-      const left = (await cashView(conn, p.date ? monthOf(p.date) : thisMonth())).unaccounted;
-      result = `Logged €${fmt2c(p.amount)} cash as ${CATEGORIES[p.category][0]}. €${fmt0(left)} of this month's cash is still unaccounted for.`;
-    } else {
-      throw new Error(`Unknown change: ${kind}`);
-    }
+    const action = actionOf(kind);
+    if (!action) throw new Error(`Unknown change: ${kind}`);
+    const result = await action.run(conn, p);
     await assistantRepo.setActionStatus(conn, actionId, "done");
     await store(conn, row.conversation, "user", [{ type: "text", text: `[I confirmed: ${row.summary}. Result: ${result}]` }]);
     return result;
@@ -288,16 +350,26 @@ async function history(conn: Conn, conversation: number): Promise<Anthropic.Beta
   return msgs;
 }
 
-/** The payment a single-payment change is about, so the card shows which one it is. */
 async function detail(conn: Conn, kind: string, params: string): Promise<string | null> {
-  if (kind !== "set_payment_category") return null;
-  const r = await transactionsRepo.payeeOf(conn, JSON.parse(params).transaction_id);
-  if (!r) return null;
-  const name = serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc);
-  return `${name} · €${fmt2c(Math.abs(r.amount))} · ${dayMonth(PyDate.fromisoformat(r.date.slice(0, 10)), true)}`;
+  const action = actionOf(kind);
+  return action?.detail ? action.detail(conn, JSON.parse(params)) : null;
 }
 
 const CONTEXT = "[Context";
+
+/** One stored content block as the tab shows it, or null when it isn't shown. */
+function blockToItem(role: string, block: Row, actions: Map<number, Row>): Row | null {
+  if (role === "assistant") return block.type === "text" && (block.text || "").trim() ? { type: "bot", text: block.text } : null;
+  if (role !== "user") return null;
+  if (block.type === "tool_result") {
+    let res: any = {};
+    try { res = typeof block.content === "string" ? JSON.parse(block.content) : {}; } catch { res = {}; }
+    return res && typeof res === "object" && actions.has(res.action_id) ? { type: "action", ...actions.get(res.action_id) } : null;
+  }
+  if (block.type !== "text" || block.text.startsWith(CONTEXT)) return null;
+  if (block.text.startsWith("[I ")) return { type: "note", text: block.text.replace(/^\[+|\]+$/g, "") };
+  return { type: "me", text: block.text };
+}
 
 /** What the Assistant tab shows: your messages, Claude's text, and change cards. */
 export async function display(conversation: number | null = null): Promise<Row> {
@@ -311,25 +383,13 @@ export async function display(conversation: number | null = null): Promise<Row> 
     const items: Row[] = [];
     for (const r of await assistantRepo.messages(conn, conv)) {
       for (const block of JSON.parse(r.content)) {
-        const t = block.type;
-        if (r.role === "user" && t === "text" && block.text.startsWith(CONTEXT)) continue;
-        if (r.role === "user" && t === "text" && !block.text.startsWith("[I ")) items.push({ type: "me", text: block.text });
-        else if (r.role === "user" && t === "text") items.push({ type: "note", text: block.text.replace(/^\[+|\]+$/g, "") });
-        else if (r.role === "user" && t === "tool_result") {
-          let res: any = {};
-          try { res = typeof block.content === "string" ? JSON.parse(block.content) : {}; } catch { res = {}; }
-          if (res && typeof res === "object" && actions.has(res.action_id)) items.push({ type: "action", ...actions.get(res.action_id) });
-        } else if (r.role === "assistant" && t === "text" && (block.text || "").trim()) items.push({ type: "bot", text: block.text });
+        const item = blockToItem(r.role, block, actions);
+        if (item) items.push(item);
       }
     }
     return { conversation: conv, items };
   });
 }
-
-const TOOL_STATUS: Record<string, string> = {
-  find_payments: "Searching your payments", totals: "Adding it up", get_overview: "Looking at the month",
-  get_plan: "Checking your plan", list_goals: "Checking your goals",
-};
 
 /** The little the assistant knows before any tool call, sent with each message. It goes into the message rather
  * than the system prompt so the conversation stays append-only and the prompt caches. */
@@ -379,34 +439,15 @@ export async function* chatEvents(text: string): AsyncGenerator<Row> {
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const messages = await db.connect((conn) => history(conn, conv));
-    let claude;
-    try {
-      claude = await ai.client("assistant");
-    } catch (e) {
-      if (e instanceof aiUsage.BudgetExceeded || e instanceof aiUsage.NoAPIKey) { yield { type: "error", text: e.message }; return; }
-      throw e;
-    }
     let response: Anthropic.Beta.BetaMessage;
     try {
-      const stream = claude.client.beta.messages.stream({
-        model, max_tokens: 16000, system, tools: TOOLS as any, messages,
-        output_config: { effort: "low" }, cache_control: { type: "ephemeral" }, ...ai.fallback(model),
-      } as any);
-      for await (const event of stream as AsyncIterable<any>) {
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") yield { type: "text", text: event.delta.text };
-      }
-      response = await stream.finalMessage();
+      response = yield* streamRound(model, system, messages);
     } catch (e) {
-      if (e instanceof Anthropic.RateLimitError) { yield { type: "error", text: "The assistant is busy right now. Try again in a moment." }; return; }
-      if (e instanceof Anthropic.APIConnectionError) { yield { type: "error", text: "Couldn't reach the assistant. Try again in a moment." }; return; }
-      if (e instanceof Anthropic.APIError) {
-        console.error(`assistant failed (${e.status}): ${e.message}`);
-        yield { type: "error", text: "The assistant couldn't answer right now. Try again in a moment." };
-        return;
-      }
-      throw e;
+      const error = toErrorEvent(e);
+      if (!error) throw e;
+      yield error;
+      return;
     }
-    await ai.record(claude, model, response.usage);
     const content = response.content.map((b) => withoutNulls(b as Row));
     await db.connect((conn) => store(conn, conv, "assistant", content));
     if (response.stop_reason === "refusal") {
@@ -415,21 +456,55 @@ export async function* chatEvents(text: string): AsyncGenerator<Row> {
     }
     const uses = response.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use");
     if (response.stop_reason !== "tool_use" || !uses.length) break;
-    for (const u of uses) if (u.name in TOOL_STATUS) yield { type: "status", text: `${TOOL_STATUS[u.name]}…` };
-    await db.connect(async (conn) => {
-      const results = [];
-      for (const u of uses) {
-        try {
-          const args = { ...(u.input as Row) };
-          const out = u.name.startsWith("propose_") ? await propose(conn, conv, u.name, args) : await runRead(conn, u.name, args);
-          results.push({ type: "tool_result", tool_use_id: u.id, content: pyDumps(out, { ensureAscii: false }) });
-        } catch (e: any) {  // report to Claude, which can explain or retry
-          console.warn(`assistant tool ${u.name} failed: ${e?.message ?? e}`);
-          results.push({ type: "tool_result", tool_use_id: u.id, content: `Error: ${e?.message ?? e}`, is_error: true });
-        }
-      }
-      await store(conn, conv, "user", results);
-    });
+    for (const u of uses) {
+      const read = readOf(u.name);
+      if (read) yield { type: "status", text: `${read.status}…` };
+    }
+    await db.connect((conn) => runTools(conn, conv, uses));
   }
   yield { type: "done", ...(await display(conv)) };
+}
+
+/** One request: its text as it arrives, then the whole message, its cost recorded. */
+async function* streamRound(model: string, system: Anthropic.Beta.BetaTextBlockParam[], messages: Anthropic.Beta.BetaMessageParam[]): AsyncGenerator<Row, Anthropic.Beta.BetaMessage> {
+  const claude = await ai.client("assistant");
+  const stream = claude.client.beta.messages.stream({
+    model, max_tokens: 16000, system, tools: TOOLS as any, messages,
+    output_config: { effort: "low" }, cache_control: { type: "ephemeral" }, ...ai.fallback(model),
+  } as any);
+  for await (const event of stream as AsyncIterable<any>) {
+    if (event.type === "content_block_delta" && event.delta.type === "text_delta") yield { type: "text", text: event.delta.text };
+  }
+  const response = await stream.finalMessage();
+  await ai.record(claude, model, response.usage);
+  return response;
+}
+
+/** The error event for what may go wrong talking to Claude; null for anything else, which is a bug. */
+function toErrorEvent(e: unknown): Row | null {
+  if (aiUsage.isAllowanceError(e)) return { type: "error", text: e.message };
+  if (e instanceof Anthropic.RateLimitError) return { type: "error", text: "The assistant is busy right now. Try again in a moment." };
+  if (e instanceof Anthropic.APIConnectionError) return { type: "error", text: "Couldn't reach the assistant. Try again in a moment." };
+  if (e instanceof Anthropic.APIError) {
+    console.error(`assistant failed (${e.status}): ${e.message}`);
+    return { type: "error", text: "The assistant couldn't answer right now. Try again in a moment." };
+  }
+  return null;
+}
+
+/** Runs the round's tool calls and stores their results; a failing tool is reported to Claude, which can explain or
+ * retry. */
+async function runTools(conn: Conn, conv: number, uses: Anthropic.Beta.BetaToolUseBlock[]) {
+  const results = [];
+  for (const u of uses) {
+    try {
+      const args = { ...(u.input as Row) };
+      const out = u.name.startsWith("propose_") ? await propose(conn, conv, u.name, args) : await runRead(conn, u.name, args);
+      results.push({ type: "tool_result", tool_use_id: u.id, content: pyDumps(out, { ensureAscii: false }) });
+    } catch (e: any) {
+      console.warn(`assistant tool ${u.name} failed: ${e?.message ?? e}`);
+      results.push({ type: "tool_result", tool_use_id: u.id, content: `Error: ${e?.message ?? e}`, is_error: true });
+    }
+  }
+  await store(conn, conv, "user", results);
 }
