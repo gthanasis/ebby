@@ -3,6 +3,7 @@
 import * as clock from "../clock.js";
 import * as db from "../data/db.js";
 import type { Conn, Row } from "../data/db.js";
+import * as wishlistRepo from "../data/repos/wishlist.js";
 import * as push from "../integrations/push.js";
 import { fmt0, sorted } from "../py.js";
 import { CATEGORIES } from "./categories.js";
@@ -58,7 +59,7 @@ export async function checkWishlist(conn: Conn): Promise<number> {
   const hours = w.hours_of_work ? ` That's about ${fmt0(w.hours_of_work, false)} hours of work.` : "";
   const title = due.length === 1 ? `Still want ${w.name}?` : `Still want ${w.name} and ${due.length - 1} more?`;
   const sent = await push.send(title, `You added it two days ago, €${fmt0(w.price)}.${hours}`, "/#/goals/section=wishlist", "wishlist");
-  if (sent) await conn.execute(`UPDATE wishlist SET reminded = 1 WHERE id IN (${due.map(() => "?").join(",")})`, due.map((x) => x.id));
+  if (sent) await wishlistRepo.markReminded(conn, due.map((x) => x.id));
   return sent;
 }
 

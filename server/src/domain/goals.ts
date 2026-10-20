@@ -2,9 +2,9 @@
 
 import * as clock from "../clock.js";
 import { type Conn, type Row } from "../data/db.js";
+import * as transactionsRepo from "../data/repos/transactions.js";
 import { fmt0, PyDate, pyRound, sorted } from "../py.js";
 import type { Goal } from "../types/entities.js";
-import { SPEND_ARGS, SPEND_SQL } from "./spend_sql.js";
 import { monthBounds, shift, thisMonth } from "./months.js";
 import { subscriptions } from "./subscriptions.js";
 
@@ -23,11 +23,7 @@ export async function goalView(conn: Conn, goal: Goal): Promise<Row> {
 export async function cuts(conn: Conn, neededMonthly: number): Promise<Row[]> {
   const start = monthBounds(shift(thisMonth(), -3))[0];
   const end = monthBounds(thisMonth())[0];
-  const stats = new Map((await conn.execute(`
-    SELECT category, -SUM(amount) / 3.0 AS monthly, COUNT(*) FILTER (WHERE amount < 0) / 3.0 AS per_month,
-           -SUM(amount) / GREATEST(1, COUNT(*) FILTER (WHERE amount < 0)) AS avg FROM transactions
-    WHERE date >= ? AND date < ? AND ${SPEND_SQL} GROUP BY category
-  `, [start, end, ...SPEND_ARGS])).rows.map((r) => [r.category, r]));
+  const stats = new Map((await transactionsRepo.threeMonthHabits(conn, start, end)).map((r) => [r.category, r]));
   const options: Row[] = [];
   const d = stats.get("delivery"), e = stats.get("eating_out"), c = stats.get("coffee_bars"), s = stats.get("shopping"), x = stats.get("cash");
   if (d && d.per_month >= 4) options.push({ category: "delivery", text: "1 fewer delivery a week", detail: `you average €${fmt0(d.avg)} an order`, monthly: pyRound(d.avg * 4.33, 2) });

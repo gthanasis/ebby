@@ -12,14 +12,18 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import * as clock from "../clock.js";
 import * as db from "../data/db.js";
-import { type Conn, first, type Row } from "../data/db.js";
+import { type Conn, type Row } from "../data/db.js";
+import * as assistantRepo from "../data/repos/assistant.js";
+import * as commitmentsRepo from "../data/repos/commitments.js";
+import * as goalsRepo from "../data/repos/goals.js";
+import * as rulesRepo from "../data/repos/rules.js";
+import * as transactionsRepo from "../data/repos/transactions.js";
 import { dayMonth, fmt0, fmt2, fmt2c, isoUtc, PyDate, pyDumps, pyRound, sorted, sum } from "../py.js";
 import * as ai from "./ai.js";
 import * as aiUsage from "./ai_usage.js";
 import { CATEGORIES, SPENDING } from "./categories.js";
 import { ASSISTANT } from "./prompts/assistant.js";
 import * as spending from "./spending.js";
-import type { Goal } from "../types/entities.js";
 import { assignCommitments, commitmentsView, committedTotal } from "./commitments.js";
 import { cashView, logCash } from "./cash.js";
 import { extraPay } from "./extra_pay.js";
@@ -103,19 +107,8 @@ async function overview(conn: Conn, m: string): Promise<Row> {
 
 /** Every payment the filters allow, newest first, named the way the app shows payees. */
 async function payments(conn: Conn, args: Row): Promise<Row[]> {
-  const where = ["t.duplicate_of IS NULL", "t.status != 'OFFSET'"];
-  const params: unknown[] = [];
-  if (args.month) {
-    const [start, end] = monthBounds(args.month);
-    where.push("t.date >= ? AND t.date < ?"); params.push(start, end);
-  } else {
-    if (args.from) { where.push("t.date >= ?"); params.push(args.from); }
-    if (args.to) { where.push("t.date <= ?"); params.push(args.to); }
-  }
-  if (args.category) { where.push("t.category = ?"); params.push(args.category); }
-  if (args.amount) { where.push("ABS(ABS(t.amount) - ?) <= ?"); params.push(Math.abs(args.amount), Math.max(1.0, Math.abs(args.amount) * 0.1)); }
-  const rows = (await conn.execute(`SELECT t.id, t.date, t.amount, t.merchant, t.description, t.mcc, t.category, a.is_card
-    FROM transactions t JOIN accounts a ON a.id = t.account WHERE ${where.join(" AND ")} ORDER BY t.date DESC, t.id`, params)).rows;
+  const [start, end] = args.month ? monthBounds(args.month) : [];
+  const rows = await transactionsRepo.search(conn, { start, end, from: args.from, to: args.to, category: args.category, amount: args.amount });
   const text = (args.text || "").trim().toLowerCase();
   const out = [];
   for (const r of rows) {
@@ -155,7 +148,7 @@ const ref = (txId: string) => createHash("sha1").update(txId).digest("hex").slic
 
 async function txFromRef(conn: Conn, r: string): Promise<string | null> {
   const want = r.trim().toLowerCase();
-  return (await conn.execute("SELECT id FROM transactions")).rows.map((x) => x.id).find((id) => ref(id) === want) ?? null;
+  return (await transactionsRepo.allIds(conn)).find((id) => ref(id) === want) ?? null;
 }
 
 async function plan(conn: Conn): Promise<Row> {
@@ -167,7 +160,7 @@ async function plan(conn: Conn): Promise<Row> {
 
 async function goals(conn: Conn): Promise<Row[]> {
   const out = [];
-  for (const r of await conn.execute<Goal>("SELECT * FROM goals ORDER BY target_date")) {
+  for (const r of await goalsRepo.all(conn)) {
     const g = await goalView(conn, r);
     out.push({ id: g.id, name: g.name, price: g.price, saved: g.saved, target_date: g.target_date, weekly: g.weekly, monthly: g.monthly });
   }
@@ -196,15 +189,13 @@ async function propose(conn: Conn, conversation: number, name: string, args: Row
     if (!txId) return { error: "No payment with that id; use an id from find_payments." };
     args.transaction_id = txId;
   }
-  await conn.execute("INSERT INTO assistant_actions(conversation, kind, params, summary, created_at) VALUES(?, ?, ?, ?, ?)",
-    [conversation, kind, pyDumps(args), summary, now()]);
-  return { status: "waiting for the user's confirmation", action_id: first((await conn.execute("SELECT lastval()")).one()) };
+  return { status: "waiting for the user's confirmation", action_id: await assistantRepo.addAction(conn, conversation, kind, pyDumps(args), summary, now()) };
 }
 
 /** Executes a confirmed proposal. Returns a short result line for the chat. */
 export async function runAction(actionId: number): Promise<string> {
   return db.connect(async (conn) => {
-    const row = (await conn.execute("SELECT * FROM assistant_actions WHERE id = ?", [actionId])).one();
+    const row = await assistantRepo.action(conn, actionId);
     if (!row || row.status !== "pending") throw new Error("That change was already handled.");
     const p = JSON.parse(row.params);
     const kind: string = row.kind;
@@ -214,16 +205,16 @@ export async function runAction(actionId: number): Promise<string> {
       result = `Moved ${n} ${p.service} payments to ${CATEGORIES[p.category][0]}.`;
     } else if (kind === "set_payment_category") {
       // The same rule the Spending list saves when one payment's category is changed.
-      const tx = (await conn.execute("SELECT date, amount FROM transactions WHERE id = ?", [p.transaction_id])).one();
+      const tx = await transactionsRepo.dateAndAmount(conn, p.transaction_id);
       if (!tx) throw new Error("That payment is no longer there.");
-      await conn.execute("INSERT INTO rules(merchant, category) VALUES(?, ?) ON CONFLICT(user_id, merchant) DO UPDATE SET category = excluded.category",
-        [`tx:${p.transaction_id}`, p.category]);
+      await rulesRepo.set(conn, `tx:${p.transaction_id}`, p.category);
       await db.recategorize(conn);
       result = `Moved the €${fmt2c(Math.abs(tx.amount))} payment on ${dayMonth(PyDate.fromisoformat(tx.date.slice(0, 10)))} to ${CATEGORIES[p.category][0]}.`;
     } else if (kind === "commitment") {
-      await conn.execute(`INSERT INTO commitments(name, kind, monthly_limit, note, services, off_bank, created_at)
-                          VALUES(?, ?, ?, ?, ?, ?, ?)`,
-      [p.name, p.kind, p.monthly_limit, p.note ?? "", pyDumps(p.services ?? []), Math.max(0, p.off_bank ?? 0), now()]);
+      await commitmentsRepo.add(conn, {
+        name: p.name, kind: p.kind, monthly_limit: p.monthly_limit, note: p.note ?? "", services: pyDumps(p.services ?? []),
+        off_bank: Math.max(0, p.off_bank ?? 0), created_at: now(),
+      });
       await assignCommitments(conn);
       result = `${p.name} is committed, limit €${fmt0(p.monthly_limit)} a month.`;
     } else if (kind === "budget") {
@@ -238,11 +229,10 @@ export async function runAction(actionId: number): Promise<string> {
       result = `Plan updated: take-home €${fmt0(p.take_home)}, keep €${fmt0(p.keep)}.`;
     } else if (kind === "goal") {
       if (PyDate.fromisoformat(p.target_date).n <= clock.serverToday().n) throw new Error("The goal date has to be in the future.");
-      await conn.execute("INSERT INTO goals(name, price, saved, target_date, created_at) VALUES(?, ?, 0, ?, ?)",
-        [p.name, p.price, p.target_date, clock.serverToday().isoformat()]);
+      await goalsRepo.add(conn, { name: p.name, price: p.price, saved: 0, target_date: p.target_date, created_at: clock.serverToday().isoformat() });
       result = `Added ${p.name}: €${fmt0(p.price)} by ${p.target_date}.`;
     } else if (kind === "goal_saved") {
-      await conn.execute("UPDATE goals SET saved = GREATEST(0, saved + ?) WHERE id = ?", [p.add, p.goal_id]);
+      await goalsRepo.addSaved(conn, p.goal_id, p.add);
       result = "Goal updated.";
     } else if (kind === "wish") {
       const habits = await import("./habits.js");
@@ -255,7 +245,7 @@ export async function runAction(actionId: number): Promise<string> {
     } else {
       throw new Error(`Unknown change: ${kind}`);
     }
-    await conn.execute("UPDATE assistant_actions SET status = 'done' WHERE id = ?", [actionId]);
+    await assistantRepo.setActionStatus(conn, actionId, "done");
     await store(conn, row.conversation, "user", [{ type: "text", text: `[I confirmed: ${row.summary}. Result: ${result}]` }]);
     return result;
   });
@@ -263,9 +253,9 @@ export async function runAction(actionId: number): Promise<string> {
 
 export async function cancelAction(actionId: number) {
   await db.connect(async (conn) => {
-    const row = (await conn.execute("SELECT * FROM assistant_actions WHERE id = ? AND status = 'pending'", [actionId])).one();
+    const row = await assistantRepo.pendingAction(conn, actionId);
     if (row) {
-      await conn.execute("UPDATE assistant_actions SET status = 'cancelled' WHERE id = ?", [actionId]);
+      await assistantRepo.setActionStatus(conn, actionId, "cancelled");
       await store(conn, row.conversation, "user", [{ type: "text", text: `[I cancelled: ${row.summary}]` }]);
     }
   });
@@ -274,8 +264,7 @@ export async function cancelAction(actionId: number) {
 // ---------- conversation ----------
 
 async function store(conn: Conn, conversation: number, role: string, content: unknown[]) {
-  await conn.execute("INSERT INTO assistant_messages(conversation, role, content, created_at) VALUES(?, ?, ?, ?)",
-    [conversation, role, pyDumps(content, { ensureAscii: false }), now()]);
+  await assistantRepo.addMessage(conn, conversation, role, pyDumps(content, { ensureAscii: false }), now());
 }
 
 export async function currentConversation(conn: Conn): Promise<number> {
@@ -289,7 +278,7 @@ export async function newConversation() {
 /** API messages, merging consecutive same-role turns (confirm notes follow tool results). */
 async function history(conn: Conn, conversation: number): Promise<Anthropic.Beta.BetaMessageParam[]> {
   const msgs: any[] = [];
-  for (const r of await conn.execute("SELECT role, content FROM assistant_messages WHERE conversation = ? ORDER BY id", [conversation])) {
+  for (const r of await assistantRepo.messages(conn, conversation)) {
     const content = JSON.parse(r.content);
     if (msgs.length && msgs[msgs.length - 1].role === r.role) msgs[msgs.length - 1].content = [...msgs[msgs.length - 1].content, ...content];
     else msgs.push({ role: r.role, content });
@@ -300,8 +289,7 @@ async function history(conn: Conn, conversation: number): Promise<Anthropic.Beta
 /** The payment a single-payment change is about, so the card shows which one it is. */
 async function detail(conn: Conn, kind: string, params: string): Promise<string | null> {
   if (kind !== "set_payment_category") return null;
-  const r = (await conn.execute(`SELECT t.date, t.amount, t.merchant, t.description, t.mcc, a.is_card FROM transactions t
-                                 JOIN accounts a ON a.id = t.account WHERE t.id = ?`, [JSON.parse(params).transaction_id])).one();
+  const r = await transactionsRepo.payeeOf(conn, JSON.parse(params).transaction_id);
   if (!r) return null;
   const name = serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc);
   return `${name} · €${fmt2c(Math.abs(r.amount))} · ${dayMonth(PyDate.fromisoformat(r.date.slice(0, 10)), true)}`;
@@ -314,12 +302,12 @@ export async function display(conversation: number | null = null): Promise<Row> 
   return db.connect(async (conn) => {
     const conv = conversation || await currentConversation(conn);
     const actions = new Map<number, Row>();
-    for (const r of await conn.execute("SELECT id, kind, params, summary, status FROM assistant_actions WHERE conversation = ?", [conv])) {
+    for (const r of await assistantRepo.actions(conn, conv)) {
       const { params, ...rest } = r;
       actions.set(r.id, { ...rest, detail: await detail(conn, r.kind, params) });
     }
     const items: Row[] = [];
-    for (const r of await conn.execute("SELECT role, content FROM assistant_messages WHERE conversation = ? ORDER BY id", [conv])) {
+    for (const r of await assistantRepo.messages(conn, conv)) {
       for (const block of JSON.parse(r.content)) {
         const t = block.type;
         if (r.role === "user" && t === "text" && block.text.startsWith(CONTEXT)) continue;
@@ -380,7 +368,7 @@ export async function* chatEvents(text: string): AsyncGenerator<Row> {
   const [conv, model] = await db.connect(async (conn) => {
     const c = await currentConversation(conn);
     // A reply leaves earlier unconfirmed drafts behind; they stay visible but can't run anymore.
-    await conn.execute("UPDATE assistant_actions SET status = 'expired' WHERE conversation = ? AND status = 'pending'", [c]);
+    await assistantRepo.expirePending(conn, c);
     await store(conn, c, "user", [{ type: "text", text: await context(conn) }, { type: "text", text }]);
     return [c, await ai.assistantModel(conn)] as const;
   });

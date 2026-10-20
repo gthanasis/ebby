@@ -1,16 +1,13 @@
 /** Pace: a pay month's spending against the plan, category by category, in plain words. */
 
 import { type Conn, type Row } from "../data/db.js";
+import * as transactionsRepo from "../data/repos/transactions.js";
 import { fmt0, pyRound, sorted, sum } from "../py.js";
-import { SPEND_ARGS, SPEND_SQL } from "./spend_sql.js";
 import { dayProgress, monthBounds, thisMonth } from "./months.js";
 import { budgetsFor, getPlan } from "./plan.js";
 
 export async function categoryRows(conn: Conn, start: string, end: string): Promise<Map<string, { spent: number; count: number }>> {
-  const rows = (await conn.execute(`
-    SELECT category, -SUM(amount) AS spent, COUNT(*) FILTER (WHERE amount < 0) AS count FROM transactions
-    WHERE date >= ? AND date < ? AND ${SPEND_SQL} GROUP BY category
-  `, [start, end, ...SPEND_ARGS])).rows;
+  const rows = await transactionsRepo.spentAndCountByCategory(conn, start, end);
   return new Map(rows.map((r) => [r.category, { spent: pyRound(r.spent, 2), count: r.count }]));
 }
 

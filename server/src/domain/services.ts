@@ -2,7 +2,9 @@
  * and moving a service's payments to another category. */
 
 import * as db from "../data/db.js";
-import { type Conn, first, type Row } from "../data/db.js";
+import { type Conn, type Row } from "../data/db.js";
+import * as rulesRepo from "../data/repos/rules.js";
+import * as transactionsRepo from "../data/repos/transactions.js";
 import { PyDate, pyRound, sorted, sum } from "../py.js";
 import { MCC_NAMES } from "./reference/mcc.js";
 import { monthBounds, shift } from "./months.js";
@@ -36,15 +38,7 @@ export function serviceName(merchant: string | null, description: string | null,
 export const sn = (r: Row) => serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc);
 
 async function serviceRows(conn: Conn, category: string, name: string, start?: string | null, end?: string | null): Promise<Row[]> {
-  const where = ["t.category = ?", "t.currency = 'EUR'", "t.duplicate_of IS NULL", "t.commitment_id IS NULL"];
-  const args: unknown[] = [category];
-  if (start) { where.push("t.date >= ?"); args.push(start); }
-  if (end) { where.push("t.date < ?"); args.push(end); }
-  const rows = (await conn.execute(`
-    SELECT t.id, t.date, t.amount, t.merchant, t.description, t.mcc, a.is_card FROM transactions t
-    JOIN accounts a ON a.id = t.account WHERE ${where.join(" AND ")}
-  `, args)).rows;
-  return rows.filter((r) => sn(r) === name);
+  return (await transactionsRepo.servicePayments(conn, category, start, end)).filter((r) => sn(r) === name);
 }
 
 export async function serviceDetail(conn: Conn, category: string, name: string, month: string): Promise<Row> {
@@ -52,8 +46,7 @@ export async function serviceDetail(conn: Conn, category: string, name: string, 
   const rows = await serviceRows(conn, category, name, start, end);
   const spent = pyRound(-sum(rows.map((r) => r.amount)), 2);
   const count = rows.filter((r) => r.amount < 0).length;
-  const categoryTotal = first((await conn.execute(`SELECT -COALESCE(SUM(amount), 0) FROM transactions WHERE date >= ? AND date < ?
-    AND category = ? AND currency = 'EUR' AND duplicate_of IS NULL AND commitment_id IS NULL`, [start, end, category])).one());
+  const categoryTotal = await transactionsRepo.categorySpent(conn, start, end, category);
   const weekdays = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
   const perDay = new Map<string, number>();
   for (const r of rows) {
@@ -82,17 +75,14 @@ export async function serviceTransactionIds(conn: Conn, category: string, name: 
 }
 
 export async function serviceIdsAnywhere(conn: Conn, name: string): Promise<Row[]> {
-  const rows = (await conn.execute(`SELECT t.id, t.merchant, t.description, t.mcc, a.is_card FROM transactions t
-                                    JOIN accounts a ON a.id = t.account WHERE t.status != 'OFFSET'`)).rows;
-  return rows.filter((r) => sn(r) === name);
+  return (await transactionsRepo.payees(conn)).filter((r) => sn(r) === name);
 }
 
 /** All payments to a service go to category, now and in future (rules keyed by merchant). */
 export async function setServiceCategory(conn: Conn, name: string, category: string): Promise<number> {
   const rows = await serviceIdsAnywhere(conn, name);
   for (const r of rows) {
-    await conn.execute("INSERT INTO rules(merchant, category) VALUES(?, ?) ON CONFLICT(user_id, merchant) DO UPDATE SET category = excluded.category",
-      [r.merchant || `tx:${r.id}`, category]);
+    await rulesRepo.set(conn, r.merchant || `tx:${r.id}`, category);
   }
   await db.recategorize(conn);
   return rows.length;
@@ -101,7 +91,7 @@ export async function setServiceCategory(conn: Conn, name: string, category: str
 /** Undo setServiceCategory: drop the service's rules so its payments go back to being worked out. */
 export async function clearServiceCategory(conn: Conn, name: string): Promise<number> {
   const rows = await serviceIdsAnywhere(conn, name);
-  for (const r of rows) await conn.execute("DELETE FROM rules WHERE merchant = ?", [r.merchant || `tx:${r.id}`]);
+  for (const r of rows) await rulesRepo.remove(conn, r.merchant || `tx:${r.id}`);
   await db.recategorize(conn);
   return rows.length;
 }

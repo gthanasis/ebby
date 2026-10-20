@@ -1,8 +1,9 @@
 /** The Home card: today, this week and this pay month against the plan. */
 
-import { type Conn, first, type Row } from "../data/db.js";
+import { type Conn, type Row } from "../data/db.js";
+import * as goalsRepo from "../data/repos/goals.js";
+import * as transactionsRepo from "../data/repos/transactions.js";
 import { PyDate, pyRound, sorted, sum } from "../py.js";
-import { SPEND_ARGS, SPEND_SQL } from "./spend_sql.js";
 import { budgetsFor, getPlan, roundTo } from "./plan.js";
 import { categoryRows } from "./pace.js";
 import { committedTotal } from "./commitments.js";
@@ -10,9 +11,7 @@ import { localToday, monthBounds, shift, thisMonth } from "./months.js";
 
 /** Spending from start up to and including end. */
 export async function spentBetween(conn: Conn, start: PyDate, end: PyDate): Promise<number> {
-  const row = (await conn.execute(`SELECT -COALESCE(SUM(amount), 0) FROM transactions WHERE date >= ? AND date <= ? AND ${SPEND_SQL}`,
-    [start.isoformat(), end.isoformat(), ...SPEND_ARGS])).one();
-  return pyRound(first(row), 2);
+  return pyRound(await transactionsRepo.spentThrough(conn, start.isoformat(), end.isoformat()), 2);
 }
 
 /** This pay month so far, for Today: each day's spending, the average day, where the month ends at that pace,
@@ -23,9 +22,8 @@ export async function todayView(conn: Conn): Promise<Row> {
   const month = thisMonth();
   const [firstDay, end] = monthBounds(month).map(PyDate.fromisoformat);
   const length = end.diffDays(firstDay);
-  const byDay = new Map((await conn.execute(
-    `SELECT date, -SUM(amount) AS spent FROM transactions WHERE date >= ? AND date <= ? AND ${SPEND_SQL} GROUP BY date`,
-    [firstDay.isoformat(), today.isoformat(), ...SPEND_ARGS])).rows.map((r) => [r.date, pyRound(r.spent, 2)]));
+  const byDay = new Map((await transactionsRepo.spentPerDayThrough(conn, firstDay.isoformat(), today.isoformat()))
+    .map((r) => [r.date, pyRound(r.spent, 2)]));
   const days = Array.from({ length }, (_, i) => firstDay.addDays(i)).map((d) => ({
     date: d.isoformat(), spent: d.n <= today.n ? (byDay.get(d.isoformat()) ?? 0.0) : null,
   }));
@@ -47,7 +45,7 @@ async function ideal(conn: Conn, length: number): Promise<Row | null> {
   const plan = await getPlan(conn);
   if (!plan) return null;
   const goals = [];
-  for (const r of await conn.execute("SELECT name, price, saved, target_date FROM goals ORDER BY target_date")) {
+  for (const r of await goalsRepo.progress(conn)) {
     const daysLeft = Math.max(1, PyDate.fromisoformat(r.target_date).diffDays(localToday()));
     goals.push({ name: r.name, price: r.price, target_date: r.target_date, monthly: pyRound(Math.max(0.0, r.price - r.saved) / (daysLeft / 30.44), 2) });
   }
