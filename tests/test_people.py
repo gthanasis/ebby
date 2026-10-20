@@ -8,9 +8,13 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
-from app import ai, ai_usage, auth, config, credentials, db, server, sync
-from app import users as people  # `users` is the fixture with the test people's ids
-from app.enable_banking import Client, EnableBankingError
+from app.domain import ai, ai_usage
+from app.api import auth
+from app import config, server
+from app.data import credentials, db
+from app.jobs import sync
+from app.data import users as people  # `users` is the fixture with the test people's ids
+from app.integrations.enable_banking import Client, EnableBankingError
 
 APP_ID = "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0"
 ORIGIN = {"Origin": "http://testserver"}
@@ -60,7 +64,7 @@ def test_writes_must_come_from_the_app(signed_in):
 
 
 def test_disabling_someone_signs_them_out(signed_in, users):
-    from app.import_sqlite import ensure_user
+    from app.data.import_sqlite import ensure_user
     c = ensure_user("c@example.com")
     token = secrets.token_urlsafe(32)
     server._store.create_session(c, auth.hash_token(token), datetime.now(timezone.utc) + timedelta(days=1), None)
@@ -105,7 +109,7 @@ def test_bad_bank_keys_are_refused(signed_in, monkeypatch):
 
 
 def test_onboarding_needs_a_bank(signed_in, users):
-    from app.import_sqlite import ensure_user
+    from app.data.import_sqlite import ensure_user
     d = ensure_user("d@example.com")
     token = secrets.token_urlsafe(32)
     server._store.create_session(d, auth.hash_token(token), datetime.now(timezone.utc) + timedelta(days=1), None)
@@ -147,14 +151,14 @@ class TestAllowance:
             ai.client("assistant")
 
     def test_spending_on_your_own_key_doesnt_count(self, users):
-        from app.import_sqlite import ensure_user
+        from app.data.import_sqlite import ensure_user
         e = ensure_user("e@example.com")
         self._spend(e, 50, own=True)
         with db.as_user(e):
             assert ai.client("assistant").own_key is False  # still on the shared key, allowance untouched
 
     def test_your_own_key_has_no_limit(self, users):
-        from app.import_sqlite import ensure_user
+        from app.data.import_sqlite import ensure_user
         f = ensure_user("f@example.com")
         self._spend(f, 99)
         with db.as_user(f), db.connect() as conn:
@@ -179,7 +183,7 @@ class TestAllowance:
 
 
 def test_import_carries_over_the_old_enable_banking_app(monkeypatch, tmp_path):
-    from app.import_sqlite import ensure_user
+    from app.data.import_sqlite import ensure_user
     pem_file = tmp_path / "key.pem"
     pem_file.write_bytes(_pem())
     monkeypatch.setattr(config, "APP_ID", APP_ID)

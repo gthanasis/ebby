@@ -10,7 +10,8 @@ They nudge behaviour rather than report it, so each one answers a single questio
 import json
 from datetime import date, datetime, timedelta, timezone
 
-from . import db, insights
+from app.data import db
+from app.domain import insights
 
 SAVINGS_HINTS = ("αποταμίευση", "saving", "spare", "fund", "pocket")
 PAYDAY_MIN = 1000  # an income deposit at least this big counts as pay
@@ -200,7 +201,7 @@ def _monday(d: date) -> date:
 
 
 def _cat_label(c: str | None) -> str:
-    from .categories import CATEGORIES
+    from app.domain.categories import CATEGORIES
     return CATEGORIES[c][0].lower() if c in CATEGORIES else "spending"
 
 
@@ -223,7 +224,7 @@ def _bought_wishes(conn, a: date, b: date) -> list[float]:
 
 def _measure(conn, r: dict, a: date, b: date, rows: list[dict]) -> dict:
     """The habit's number for the days a..b: payments, euros, no-spend days or wishlist skips."""
-    from . import spending  # late: spending imports insights
+    from app.domain import spending  # late: spending imports insights
     today = insights.local_today()
     mine = [x for x in rows if x["category"] == r["category"]]
     if r["type"] == "fewer":
@@ -285,7 +286,7 @@ def _rule_rows(conn) -> list[dict]:
 
 
 def habit_view(conn, r: dict, detail: bool = False) -> dict:
-    from . import spending
+    from app.domain import spending
     today = insights.local_today()
     monday = _monday(today)
     sunday = monday + timedelta(days=6)
@@ -332,7 +333,7 @@ def habit_view(conn, r: dict, detail: bool = False) -> dict:
 
 def _weekly_stats(conn) -> dict:
     """The last WEEKS finished weeks: payments and euros per category, no-spend days, buys over €50."""
-    from . import spending
+    from app.domain import spending
     monday = _monday(insights.local_today())
     a = monday - timedelta(weeks=WEEKS)
     rows = spending._rows(conn, a, monday - timedelta(days=1))

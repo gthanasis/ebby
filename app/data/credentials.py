@@ -10,8 +10,9 @@ from datetime import datetime, timezone
 
 import anthropic
 
-from . import config, db, vault
-from .enable_banking import Client, EnableBankingError
+from app import config
+from app.data import db, vault
+from app.integrations.enable_banking import Client, EnableBankingError
 
 _clients: dict[int, Client] = {}  # per person; dropped whenever their keys change
 _lock = threading.Lock()

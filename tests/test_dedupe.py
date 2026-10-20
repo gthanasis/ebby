@@ -2,8 +2,8 @@
 
 import json
 
-from app import db
-from app.import_sqlite import ensure_user
+from app.data import db
+from app.data.import_sqlite import ensure_user
 
 
 def _tx(entry, amount, booked, value, text, mcc=None):

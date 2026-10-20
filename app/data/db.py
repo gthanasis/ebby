@@ -10,8 +10,8 @@ from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict
 from psycopg_pool import ConnectionPool
 
-from . import config
-from .categories import categorize, merchant_name
+from app import config
+from app.domain.categories import categorize, merchant_name
 
 MIGRATIONS = Path(__file__).parent / "migrations"
 
@@ -273,7 +273,7 @@ def recategorize(conn):
     for r in conn.execute("SELECT id, account, raw, mcc FROM transactions").fetchall():
         row = _row(r["account"], cards.get(r["account"], False), json.loads(r["raw"]), rules, r["mcc"], owners)
         conn.execute("UPDATE transactions SET merchant = ?, category = ? WHERE id = ?", (row[7], row[9], r["id"]))
-    from . import insights  # late: insights imports db
+    from app.domain import insights  # late: insights imports db
     insights.assign_commitments(conn)
 
 

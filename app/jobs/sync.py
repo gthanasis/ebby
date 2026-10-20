@@ -5,8 +5,11 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse
 
-from . import banks, categories, config, credentials, db
-from .enable_banking import MAX_HISTORY_DAYS, Client, EnableBankingError
+from app.integrations import banks
+from app.domain import categories
+from app import config
+from app.data import credentials, db
+from app.integrations.enable_banking import MAX_HISTORY_DAYS, Client, EnableBankingError
 
 log = logging.getLogger("bank-sync")
 
@@ -98,7 +101,7 @@ def _sync_bank(client: Client, conn_row: dict, psu: dict | None = None) -> bool:
                              (balance, now_iso(), now_iso(), acc["id"]))
         with db.connect() as conn:
             pairs = db.dedupe(conn)
-            from . import insights
+            from app.domain import insights
             insights.assign_commitments(conn)  # new rows from this sync
             insights.autofill(conn)  # first import: set the plan up from the transactions
             db.update_connection(conn, bank, last_sync=now_iso(), last_error=None, backfill=0)
@@ -129,7 +132,7 @@ def _pick_balance(balances: list):
 
 def _weekly_read_due() -> bool:
     """Mondays from 09:00 local time, once per ISO week."""
-    from . import ai, alerts
+    from app.domain import ai, alerts
     now = alerts.local_now()
     if not ai.available() or now.weekday() != 0 or now.hour < 9:
         return False
@@ -145,7 +148,8 @@ def _weekly_read_due() -> bool:
 def run_scheduler():
     """Background loop, for each active person: sync every SYNC_HOURS (banks allow about 4 unattended
     fetches a day), then cool-down alerts, and the weekly read on Monday mornings."""
-    from . import ai, ai_usage, alerts, push
+    from app.domain import ai, ai_usage, alerts
+    from app.integrations import push
     if config.DEMO:
         return  # made-up banks: nothing to sync, no alerts to send
 

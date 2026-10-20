@@ -9,7 +9,8 @@ import threading
 import time
 from urllib.parse import quote
 
-from . import config, credentials
+from app import config
+from app.data import credentials
 
 DAY = 24 * 3600
 # What Enable Banking listed for Greece (personal accounts) in October 2026, for the demo, which has no app of its own.

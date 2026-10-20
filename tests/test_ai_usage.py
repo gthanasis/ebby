@@ -4,8 +4,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from app import ai_usage, config
-from app.ai_usage import BudgetExceeded, NoAPIKey, choose_key, cost_usd, month_bounds
+from app.domain import ai_usage
+from app import config
+from app.domain.ai_usage import BudgetExceeded, NoAPIKey, choose_key, cost_usd, month_bounds
 
 MILLION = 1_000_000
 FULL = {

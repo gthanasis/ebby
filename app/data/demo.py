@@ -10,7 +10,8 @@ import json
 import random
 from datetime import date, datetime, timedelta, timezone
 
-from . import db, habits, insights
+from app.data import db
+from app.domain import habits, insights
 
 EMAIL = "demo@spending.local"
 DAYS = 185
@@ -98,7 +99,7 @@ def _history(today: date) -> dict[str, list]:
 
 def seed(email: str = EMAIL) -> dict:
     """Replaces the demo user's data with a fresh made-up history. Returns counts."""
-    from .import_sqlite import ensure_user
+    from app.data.import_sqlite import ensure_user
     user_id = ensure_user(email, admin=True)
     today = insights.local_today()
     rows = _history(today)

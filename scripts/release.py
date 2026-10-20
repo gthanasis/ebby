@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 LABELS = ("release:patch", "release:minor", "release:major", "release:none")
-MIGRATIONS = "app/migrations/"
+MIGRATIONS = "app/data/migrations/"
 ENV_EXAMPLE = ".env.example"
 
 # Statements the previous version can't run beside: it still reads what these take away or change.

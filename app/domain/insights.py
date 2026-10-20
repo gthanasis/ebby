@@ -12,8 +12,8 @@ import time
 from collections import defaultdict
 from datetime import date, timedelta
 
-from . import db
-from .categories import CATEGORIES, SPENDING
+from app.data import db
+from app.domain.categories import CATEGORIES, SPENDING
 
 # Debit-card copies (duplicate_of set) are left out: their current-account row is the one that counts.
 # Free spending: what the plan's budgets, alerts and cuts are about. Committed rows are kept apart.
@@ -256,7 +256,7 @@ def autofill(conn) -> bool:
     pay = detect_payday(conn)
     if not pay:
         return False
-    from . import habits
+    from app.domain import habits
     day = pay["day"] if pay["day"] <= 28 else "last"
     db.set_meta(conn, "settings", {**(db.get_meta(conn, "settings") or {}), "payday": day, "autofilled": True})
     set_payday(day)
@@ -538,7 +538,7 @@ def cuts(conn, needed_monthly: float) -> list[dict]:
 def local_today() -> date:
     from datetime import datetime
     from zoneinfo import ZoneInfo
-    from . import config
+    from app import config
     return datetime.now(ZoneInfo(config.TIMEZONE)).date()
 
 

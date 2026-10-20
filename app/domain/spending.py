@@ -9,8 +9,8 @@ half-finished month is compared with half-finished months.
 import statistics
 from datetime import date, timedelta
 
-from . import insights
-from .insights import SPEND_ARGS, SPEND_SQL
+from app.domain import insights
+from app.domain.insights import SPEND_ARGS, SPEND_SQL
 
 RANGES = ("day", "week", "month", "year")
 USUAL_COUNT = {"day": 8, "week": 8, "month": 6}

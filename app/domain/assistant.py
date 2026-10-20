@@ -14,8 +14,10 @@ from collections.abc import Iterator
 
 import anthropic
 
-from . import ai, ai_usage, config, db, insights, spending
-from .categories import CATEGORIES, SPENDING
+from app.domain import ai, ai_usage, insights, spending
+from app import config
+from app.data import db
+from app.domain.categories import CATEGORIES, SPENDING
 
 log = logging.getLogger("bank-sync")
 MAX_TOOL_ROUNDS = 6
@@ -269,7 +271,7 @@ def run_action(action_id: int) -> str:
             conn.execute("UPDATE goals SET saved = MAX(0, saved + ?) WHERE id = ?", (p["add"], p["goal_id"]))
             result = "Goal updated."
         elif kind == "wish":
-            from . import habits
+            from app.domain import habits
             habits.add_wish(conn, p["name"], p["price"])
             result = f"{p['name']} is on the thinking-about-it list. I'll ask again in two days."
         elif kind == "log_cash":

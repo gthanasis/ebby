@@ -21,13 +21,13 @@ cd web && npm run dev:mock                                     # the UI on :5176
 - **Every person's data is fenced by Postgres row-level security.** A new table that holds someone's data gets
   `user_id bigint NOT NULL DEFAULT app_user() REFERENCES users(id) ON DELETE CASCADE`, and its migration
   enables and forces row-level security and creates the `own_rows` policy on it, as the loop at the end of
-  `app/migrations/001_schema.sql` does for the first tables. Code reads and writes through `db.connect()` inside
+  `app/data/migrations/001_schema.sql` does for the first tables. Code reads and writes through `db.connect()` inside
   `db.as_user(...)`; never filter by user by hand. `tests/test_isolation.py` must keep passing.
 - **ebby runs as several pods at once.** Nothing that must be the same everywhere may live in a pod's memory.
   "Only one at a time" is a Postgres advisory lock (`db.advisory_lock`), and a cache is fine only if a stale
   value for a minute is. Files on disk aren't shared either: settings and keys come from the environment or
   the database.
-- **Migrations are new numbered files** in `app/migrations/` (`002_….sql`), applied at startup. Never edit
+- **Migrations are new numbered files** in `app/data/migrations/` (`002_….sql`), applied at startup. Never edit
   one that's merged. During a deploy the previous version keeps running against the new schema, so a
   migration only adds: new tables, new nullable or defaulted columns, new indexes. Taking anything away or
   changing it is a breaking change (below).
