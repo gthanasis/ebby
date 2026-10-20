@@ -9,6 +9,7 @@ import type { Conn, Row } from "../data/db.js";
 import * as habits from "../domain/habits.js";
 import * as spending from "../domain/spending.js";
 import { median, monthDays, PyDate, pyMod, pyRound, sum } from "../py.js";
+import * as goalsRepo from "../data/repos/goals.js";
 import * as common from "./common.js";
 import { body, fail, int, isoDate, num } from "./http.js";
 import { committedTotal } from "../domain/commitments.js";
@@ -24,7 +25,7 @@ function addMonths(d: PyDate, n: number): PyDate {
 
 /** Suggested until you have a savings total: three months of your fixed costs and usual spending, in a year. */
 async function safetyNet(conn: Conn): Promise<Row | null> {
-  if ((await conn.execute("SELECT 1 FROM goals WHERE kind = 'save'")).one()) return null;
+  if (await goalsRepo.hasSavingsTotal(conn)) return null;
   const month = thisMonth();
   let totals: number[] = [];
   for (let i = 1; i < 7; i++) {
@@ -46,8 +47,10 @@ export function routes(app: Hono) {
     const b = await body(c, z.object({ name: z.string(), price: num, target_date: isoDate, saved: num.default(0), kind: z.string().default("buy") }));
     if (!b.name.trim() || b.price <= 0 || PyDate.fromisoformat(b.target_date).n <= clock.serverToday().n) fail(400, "A goal needs a name, a price and a date in the future");
     return c.json(await db.connect(async (conn) => {
-      await conn.execute("INSERT INTO goals(name, price, saved, target_date, created_at, kind) VALUES(?, ?, ?, ?, ?, ?)",
-        [b.name.trim(), b.price, Math.max(0, b.saved), b.target_date, clock.serverToday().isoformat(), ["buy", "save"].includes(b.kind) ? b.kind : "buy"]);
+      await goalsRepo.add(conn, {
+        name: b.name.trim(), price: b.price, saved: Math.max(0, b.saved), target_date: b.target_date,
+        created_at: clock.serverToday().isoformat(), kind: ["buy", "save"].includes(b.kind) ? b.kind : "buy",
+      });
       return common.goals(conn);
     }));
   });
@@ -76,13 +79,15 @@ export function routes(app: Hono) {
       saved: num.nullable().default(null), add: num.nullable().default(null),
     }));
     return c.json(await db.connect(async (conn) => {
-      const row = (await conn.execute("SELECT * FROM goals WHERE id = ?", [goalId])).one();
+      const row = await goalsRepo.get(conn, goalId);
       if (!row) fail(404, "No such goal");
       const g = { ...row! };
-      for (const k of ["name", "price", "saved"] as const) if (b[k] != null) g[k] = b[k];
+      if (b.name != null) g.name = b.name;
+      if (b.price != null) g.price = b.price;
+      if (b.saved != null) g.saved = b.saved;
       if (b.target_date) g.target_date = b.target_date;
       if (b.add) g.saved = Math.max(0, g.saved + b.add);
-      await conn.execute("UPDATE goals SET name = ?, price = ?, saved = ?, target_date = ? WHERE id = ?", [g.name, g.price, g.saved, g.target_date, goalId]);
+      await goalsRepo.update(conn, goalId, { name: g.name, price: g.price, saved: g.saved, target_date: g.target_date });
       return common.goals(conn);
     }));
   });
@@ -90,7 +95,7 @@ export function routes(app: Hono) {
   app.delete("/api/goals/:goalId", async (c) => {
     const goalId = int(c.req.param("goalId"), "goal_id", 0);
     return c.json(await db.connect(async (conn) => {
-      await conn.execute("DELETE FROM goals WHERE id = ?", [goalId]);
+      await goalsRepo.remove(conn, goalId);
       return common.goals(conn);
     }));
   });

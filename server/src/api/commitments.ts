@@ -7,6 +7,7 @@ import * as clock from "../clock.js";
 import * as db from "../data/db.js";
 import type { Conn } from "../data/db.js";
 import { isoUtc, PyDate, pyDumps, pyRound } from "../py.js";
+import * as commitmentsRepo from "../data/repos/commitments.js";
 import { body, bool, fail, int, integer, num } from "./http.js";
 import { assignCommitments, commitmentsView, servicesSeen } from "../domain/commitments.js";
 import { resplit } from "../domain/plan.js";
@@ -37,6 +38,12 @@ function check(b: Commitment) {
   if (!b.services.length && b.off_bank <= 0 && b.every_months === 1) fail(400, "Pick the payments it covers, or the amount you pay outside your accounts");
 }
 
+/** The row's columns: services stored as JSON text, as the Python app wrote them. */
+const columns = (b: Commitment) => ({
+  name: b.name.trim(), kind: b.kind, monthly_limit: b.monthly_limit, note: b.note.trim(), services: pyDumps(b.services),
+  off_bank: Math.max(0, b.off_bank), every_months: b.every_months, amount: b.amount, next_date: b.next_date,
+});
+
 async function after(conn: Conn) {
   await assignCommitments(conn);
   await resplit(conn);
@@ -56,9 +63,7 @@ export function routes(app: Hono) {
     const b = await body(c, CommitmentIn);
     check(b);
     return c.json(await db.connect(async (conn) => {
-      await conn.execute(`INSERT INTO commitments(name, kind, monthly_limit, note, services, off_bank, created_at, every_months, amount, next_date)
-                          VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [b.name.trim(), b.kind, b.monthly_limit, b.note.trim(), pyDumps(b.services), Math.max(0, b.off_bank), isoUtc(clock.now()), b.every_months, b.amount, b.next_date]);
+      await commitmentsRepo.add(conn, { ...columns(b), created_at: isoUtc(clock.now()) });
       return after(conn);
     }));
   });
@@ -68,10 +73,8 @@ export function routes(app: Hono) {
     const b = await body(c, CommitmentIn);
     check(b);
     return c.json(await db.connect(async (conn) => {
-      if (!(await conn.execute("SELECT 1 FROM commitments WHERE id = ?", [cid])).one()) fail(404, "No such commitment");
-      await conn.execute(`UPDATE commitments SET name = ?, kind = ?, monthly_limit = ?, note = ?, services = ?, off_bank = ?,
-                          every_months = ?, amount = ?, next_date = ? WHERE id = ?`,
-      [b.name.trim(), b.kind, b.monthly_limit, b.note.trim(), pyDumps(b.services), Math.max(0, b.off_bank), b.every_months, b.amount, b.next_date, cid]);
+      if (!(await commitmentsRepo.exists(conn, cid))) fail(404, "No such commitment");
+      await commitmentsRepo.update(conn, cid, columns(b));
       return after(conn);
     }));
   });
@@ -79,7 +82,7 @@ export function routes(app: Hono) {
   app.delete("/api/commitments/:cid", async (c) => {
     const cid = int(c.req.param("cid"), "cid", 0);
     return c.json(await db.connect(async (conn) => {
-      await conn.execute("DELETE FROM commitments WHERE id = ?", [cid]);
+      await commitmentsRepo.remove(conn, cid);
       return after(conn);
     }));
   });

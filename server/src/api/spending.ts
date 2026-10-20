@@ -5,6 +5,8 @@ import { z } from "zod";
 
 import * as clock from "../clock.js";
 import * as db from "../data/db.js";
+import * as rulesRepo from "../data/repos/rules.js";
+import * as transactionsRepo from "../data/repos/transactions.js";
 import * as ai from "../domain/ai.js";
 import * as aiUsage from "../domain/ai_usage.js";
 import { CATEGORIES } from "../domain/categories.js";
@@ -89,11 +91,8 @@ export function routes(app: Hono) {
     if (!(b.to in CATEGORIES)) fail(400, "Unknown category");
     const moved = await db.connect(async (conn) => {
       const ids = await serviceTransactionIds(conn, b.category, b.name);
-      const rows = ids.length ? (await conn.execute(`SELECT id, merchant FROM transactions WHERE id IN (${ids.map(() => "?").join(",")})`, ids)).rows : [];
-      for (const r of rows) {
-        await conn.execute("INSERT INTO rules(merchant, category) VALUES(?, ?) ON CONFLICT(user_id, merchant) DO UPDATE SET category = excluded.category",
-          [r.merchant || `tx:${r.id}`, b.to]);
-      }
+      const rows = await transactionsRepo.merchantsOf(conn, ids);
+      for (const r of rows) await rulesRepo.set(conn, r.merchant || `tx:${r.id}`, b.to);
       await db.recategorize(conn);
       return rows.length;
     });
