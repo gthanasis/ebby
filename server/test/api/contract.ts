@@ -23,7 +23,8 @@ function clearCaches() {
 
 /** Points the app at a fresh database named `name`, seeds the demo person into it and pins the clock. Returns a
  * request function and a teardown that puts everything back. */
-export async function contractApp(name: string) {
+export async function contractApp(base: string) {
+  const name = `${base}${process.env.EBBY_TEST_DB_SUFFIX ?? ""}`;
   const saved = { url: process.env.DATABASE_URL, owner: process.env.DATABASE_OWNER_URL, now: process.env.EBBY_NOW, google: process.env.GOOGLE_CLIENT_ID };
   await db.close();
   const admin = new pg.Client({ connectionString: process.env.TEST_ADMIN_URL });
