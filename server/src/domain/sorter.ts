@@ -37,7 +37,7 @@ function how(row: Row): string {
 /** Every payee waiting in Other, each with what can be told about its latest payment. */
 export async function items(conn: Conn): Promise<Row[]> {
   const out = [];
-  const guesses = (await db.getMeta<Record<string, Row>>(conn, GUESS_KEY)) || {};
+  const guesses = (await db.getMeta(conn, GUESS_KEY)) || {};
   const today = insights.localToday();
   for (const q of await insights.questions(conn, 50)) {
     const t = (await conn.execute(`SELECT t.id, t.date, t.amount, t.merchant, t.description, t.mcc, a.name AS account_name, a.bank, a.is_card
@@ -78,7 +78,7 @@ function context(item: Row): string {
 
 /** Claude's guess for a payee, made once and kept. */
 export async function guess(conn: Conn, service: string): Promise<Row | null> {
-  const guesses = (await db.getMeta<Record<string, Row>>(conn, GUESS_KEY)) || {};
+  const guesses = (await db.getMeta(conn, GUESS_KEY)) || {};
   if (service in guesses) return guesses[service];
   const item = (await items(conn)).find((i) => i.service === service);
   if (!item || !(await ai.available())) return null;

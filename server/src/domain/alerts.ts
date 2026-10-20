@@ -16,7 +16,7 @@ export const quietHours = () => { const h = localNow().hour; return !(9 <= h && 
 
 /** Categories that crossed a level since the last alert this month. */
 export async function pending(conn: Conn, month: string): Promise<Row[]> {
-  const sent = ((await db.getMeta<any>(conn, "alerts_sent")) || {})[month] || {};
+  const sent = ((await db.getMeta(conn, "alerts_sent")) || {})[month] || {};
   const out = [];
   for (const c of (await insights.pace(conn, month)).categories) {
     const level = LEVELS[c.status];
@@ -27,7 +27,7 @@ export async function pending(conn: Conn, month: string): Promise<Row[]> {
 
 /** Warns once a month per commitment that goes past its limit. No other advice: it's a chosen cost. */
 export async function checkCommitments(conn: Conn, month: string): Promise<number> {
-  const sent: number[] = ((await db.getMeta<any>(conn, "commitment_alerts")) || {})[month] || [];
+  const sent: number[] = ((await db.getMeta(conn, "commitment_alerts")) || {})[month] || [];
   const over = (await insights.commitmentsView(conn, month)).items.filter((c: Row) => c.over && !sent.includes(c.id));
   if (!over.length) return 0;
   let title: string, body: string;
@@ -41,7 +41,7 @@ export async function checkCommitments(conn: Conn, month: string): Promise<numbe
   }
   const delivered = await push.send(title, body, "/#/committed/", `committed-${month}`);
   if (delivered) {
-    const state = (await db.getMeta<any>(conn, "commitment_alerts")) || {};
+    const state = (await db.getMeta(conn, "commitment_alerts")) || {};
     await db.setMeta(conn, "commitment_alerts", { [month]: [...(state[month] || []), ...over.map((c: Row) => c.id)] });
   }
   return delivered;
@@ -64,7 +64,7 @@ export async function check(): Promise<number> {
   if (quietHours()) return 0;  // left pending; the next check after 09:00 sends them
   const month = insights.thisMonth();
   return db.connect(async (conn) => {
-    const settings = (await db.getMeta<any>(conn, "settings")) || {};
+    const settings = (await db.getMeta(conn, "settings")) || {};
     if (settings.alerts ?? true) await checkCommitments(conn, month);
     await checkWishlist(conn);
     if (!(await insights.getPlan(conn)) || !(settings.alerts ?? true)) return 0;
@@ -84,7 +84,7 @@ export async function check(): Promise<number> {
     const sent = await push.send(title, body, `/#/spending/category=${top.category}`, `cooldown-${month}`);
     if (!sent) return 0;  // no device subscribed yet; keep it pending rather than mark it seen
     console.info(`cool-down alert for ${due.map((c) => c.category).join(", ")}: ${sent} device(s)`);
-    const state = (await db.getMeta<any>(conn, "alerts_sent")) || {};
+    const state = (await db.getMeta(conn, "alerts_sent")) || {};
     await db.setMeta(conn, "alerts_sent", { [month]: { ...(state[month] || {}), ...Object.fromEntries(due.map((c) => [c.category, c.level])) } });
     return sent;
   });

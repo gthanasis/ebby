@@ -75,8 +75,8 @@ export async function record(claude: Claude, model: string, usage: aiUsage.Usage
 
 /** The model for the chat and the sorter: the one picked in Settings, else ASSISTANT_MODEL. */
 export async function assistantModel(conn: Conn): Promise<string> {
-  const picked = (await db.getMeta<any>(conn, "settings"))?.assistant_model;
-  return ASSISTANT_MODELS[picked] ?? config.ASSISTANT_MODEL;
+  const picked = (await db.getMeta(conn, "settings"))?.assistant_model;
+  return (picked && ASSISTANT_MODELS[picked]) || config.ASSISTANT_MODEL;
 }
 
 /** Request arguments that retry a declined request on another model. Haiku has no such fallback. */

@@ -8,12 +8,18 @@
 import { randomBytes } from "node:crypto";
 
 import * as clock from "../clock.js";
+import type { Selectable } from "kysely";
+
 import * as db from "../data/db.js";
+import type { Commitments } from "../types/db.js";
 import { type Conn, first, type Row } from "../data/db.js";
 import { fmt0, maxBy, median, monthDays, monthName, PyDate, pyDumps, pyMod, pyRound, sorted, sum } from "../py.js";
 import { CATEGORIES, SPENDING } from "./categories.js";
 import { CASH_ACCOUNT, PAYDAY_MIN } from "./constants.js";
 import { MCC_NAMES } from "./reference/mcc.js";
+import type { Commitment, Goal, Payday, Plan } from "../types/entities.js";
+
+export type { Payday };
 
 // Debit-card copies (duplicate_of set) are left out: their current-account row is the one that counts.
 // Free spending: what the plan's budgets, alerts and cuts are about. Committed rows are kept apart.
@@ -40,15 +46,14 @@ const DISCRETIONARY: Record<string, number> = {
 // made on another pod reaches this one within that minute.
 export let PAYDAY_TTL = 60_000;
 export const _paydays = new Map<number, [number, Payday]>();
-export type Payday = number | "last";
 
 /** The current person's payday. Read from their settings before the month functions below are used. */
 export async function loadPayday(): Promise<Payday> {
   const user = db.currentUser()!;
   const hit = _paydays.get(user);
   if (hit && performance.now() - hit[0] < PAYDAY_TTL) return hit[1];
-  const day = await db.connect(async (conn) => (await db.getMeta<any>(conn, "settings"))?.payday || 1);
-  const value: Payday = day === "last" ? "last" : parseInt(day, 10);
+  const day = await db.connect(async (conn) => (await db.getMeta(conn, "settings"))?.payday || 1);
+  const value: Payday = day === "last" ? "last" : Number(day);
   _paydays.set(user, [performance.now(), value]);
   return value;
 }
@@ -202,7 +207,7 @@ export async function suggestBudgets(conn: Conn, takeHome: number, keep: number)
   return Object.fromEntries(Object.entries(avg).map(([c, a]) => [c, round10(a * Math.max(0.2, 1 - hi * (DISCRETIONARY[c] ?? 0.7)))]));
 }
 
-export const getPlan = (conn: Conn) => db.getMeta<any>(conn, "plan");
+export const getPlan = (conn: Conn) => db.getMeta(conn, "plan");
 
 /** The habit-based split, scaled so it adds up to exactly what's free to spend. */
 export async function autoBudgets(conn: Conn, takeHome: number, keep: number): Promise<Record<string, number>> {
@@ -219,12 +224,12 @@ export async function autoBudgets(conn: Conn, takeHome: number, keep: number): P
 /** split "auto" keeps the budgets following income, savings and fixed costs; "custom" keeps what you typed. Left
  * out, the plan keeps the split it had (plans from before this were custom). */
 export async function savePlan(conn: Conn, takeHome: number, keep: number, budgets: Record<string, number> | null,
-                               split: string | null = null): Promise<Row> {
-  const current = (await getPlan(conn)) || {};
+                               split: Plan["split"] | null = null): Promise<Plan> {
+  const current: Partial<Plan> = (await getPlan(conn)) || {};
   split = split || current.split || (budgets == null ? "auto" : "custom");
   if (split === "auto") budgets = await autoBudgets(conn, takeHome, keep);
   const chosen: Record<string, number> = (budgets && Object.keys(budgets).length ? budgets : null) || current.budgets || {};
-  const plan = {
+  const plan: Plan = {
     take_home: takeHome, keep, split,
     budgets: Object.fromEntries(Object.entries(chosen).filter(([c, v]) => SPENDING.has(c) && v > 0).map(([c, v]) => [c, Number(v)])),
     limits: current.limits ?? {},
@@ -248,7 +253,7 @@ export async function autofill(conn: Conn): Promise<boolean> {
   if (!pay) return false;
   const habits = await import("./habits.js");
   const day: Payday = pay.day <= 28 ? pay.day : "last";
-  await db.setMeta(conn, "settings", { ...((await db.getMeta<any>(conn, "settings")) || {}), payday: day, autofilled: true });
+  await db.setMeta(conn, "settings", { ...((await db.getMeta(conn, "settings")) || {}), payday: day, autofilled: true });
   setPayday(day);
   const takeHome = pyRound(pay.amount);
   const ids = await habits.savingsAccountIds(conn);
@@ -272,12 +277,12 @@ export async function autofill(conn: Conn): Promise<boolean> {
 
 /** The budgets that apply to a pay month. The plan's budgets are the goal; a month can carry a working limit on the
  * way down to it, which scales every budget in proportion. */
-export function budgetsFor(plan: Row | null, month: string): Record<string, number> {
+export function budgetsFor(plan: Pick<Plan, "budgets"> & Partial<Plan> | null, month: string): Record<string, number> {
   if (!plan) return {};
-  const goal = sum(Object.values<number>(plan.budgets));
+  const goal = sum(Object.values(plan.budgets));
   const limit = (plan.limits || {})[month];
   if (!limit || !goal) return { ...plan.budgets };
-  const scaled: Record<string, number> = Object.fromEntries(Object.entries<number>(plan.budgets).map(([c, v]) => [c, pyRound(v * limit / goal, 2)]));
+  const scaled: Record<string, number> = Object.fromEntries(Object.entries(plan.budgets).map(([c, v]) => [c, pyRound(v * limit / goal, 2)]));
   // Rounding each budget drifts by cents; the biggest absorbs it, so they add up to the limit you set.
   const drift = pyRound(limit - sum(Object.values(scaled)), 2);
   if (drift && Object.keys(scaled).length) {
@@ -287,8 +292,8 @@ export function budgetsFor(plan: Row | null, month: string): Record<string, numb
   return scaled;
 }
 
-export async function setLimit(conn: Conn, month: string, limit: number): Promise<Row> {
-  const plan = await getPlan(conn);
+export async function setLimit(conn: Conn, month: string, limit: number): Promise<Plan> {
+  const plan = (await getPlan(conn))!;
   plan.limits = plan.limits || {};
   plan.limits[month] = Number(limit);
   await db.setMeta(conn, "plan", plan);
@@ -481,7 +486,7 @@ async function monthsSpent(conn: Conn, start: string, end: string): Promise<{ mo
 
 // ---------- goals ----------
 
-export async function goalView(conn: Conn, goal: Row): Promise<Row> {
+export async function goalView(conn: Conn, goal: Goal): Promise<Row> {
   const remaining = Math.max(0.0, goal.price - goal.saved);
   const days = Math.max(1, PyDate.fromisoformat(goal.target_date).diffDays(clock.serverToday()));
   const weekly = remaining / (days / 7);
@@ -703,10 +708,10 @@ export async function serviceTransactionIds(conn: Conn, category: string, name: 
 
 // ---------- commitments: fixed and chosen costs, kept apart from free spending ----------
 
-async function commitmentRows(conn: Conn): Promise<Row[]> {
-  const out = [];
-  for (const r of await conn.execute("SELECT * FROM commitments ORDER BY kind, name")) {
-    const c: Row = { ...r, services: JSON.parse(r.services) };
+async function commitmentRows(conn: Conn): Promise<Commitment[]> {
+  const out: Commitment[] = [];
+  for (const r of await conn.execute<Selectable<Commitments>>("SELECT * FROM commitments ORDER BY kind, name")) {
+    const c: Commitment = { ...r, services: JSON.parse(r.services) };
     if (c.every_months > 1) Object.assign(c, cycle(c));
     out.push(c);
   }
@@ -721,7 +726,7 @@ function addMonths(d: PyDate, n: number): PyDate {
 
 /** For a cost paid every few months: the next payment (moved on once its date has passed), and what should be put
  * aside towards it by now, a monthly share at a time since the last one. */
-function cycle(c: Row): Row {
+function cycle(c: Commitment): Pick<Commitment, "next_date" | "last_date" | "amount" | "set_aside"> {
   const today = localToday();
   let nxt = c.next_date ? PyDate.fromisoformat(c.next_date) : addMonths(today, c.every_months);
   while (nxt.n < today.n) nxt = addMonths(nxt, c.every_months);
@@ -770,7 +775,7 @@ export async function commitmentsView(conn: Conn, month: string): Promise<Row> {
     const count = first((await conn.execute(`SELECT COUNT(*) FROM transactions WHERE commitment_id = ? AND date >= ? AND date < ? AND amount < 0 AND ${COMMITTED_SQL}`,
       [c.id, start, end])).one());
     // A cost paid every few months is over only when a payment goes past its amount, not its monthly share.
-    const cap = c.every_months > 1 ? c.amount : c.monthly_limit;
+    const cap = c.every_months > 1 ? c.amount ?? c.monthly_limit * c.every_months : c.monthly_limit;
     items.push({ ...c, spent: pyRound(spent, 2), count, over: spent > cap + 0.005, history });
   }
   const taken = new Set(items.flatMap((c) => c.services));
@@ -911,7 +916,7 @@ export function orthodoxEaster(y: number): PyDate {
 /** The next three bonuses, soonest first, when 14 salaries is on. Rough amounts from your pay: a month at
  * Christmas, half a month at Easter and in summer. The monthly budget doesn't count on them. */
 export async function extraPay(conn: Conn): Promise<Row[]> {
-  if (!(await db.getMeta<any>(conn, "settings"))?.extra_pay) return [];
+  if (!(await db.getMeta(conn, "settings"))?.extra_pay) return [];
   const plan = await getPlan(conn);
   const pay = plan ? plan.take_home : 0;
   const today = localToday();

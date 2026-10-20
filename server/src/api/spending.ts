@@ -31,7 +31,7 @@ export function routes(app: Hono) {
     if (!spending.RANGES.includes(range) || off > 0) fail(400, RANGE_ERROR);
     return c.json(await db.connect(async (conn) => {
       const v = await spending.view(conn, range, off);
-      const cached = await db.getMeta<any>(conn, `explain:${range}:${v.start}`);
+      const cached = await db.getMeta(conn, `explain:${range}:${v.start}`);
       // A read stays until the period's spending changes.
       v.explanation = cached && cached.total === v.total ? cached : null;
       v.ai = await ai.available();

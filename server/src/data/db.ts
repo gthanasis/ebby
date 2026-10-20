@@ -10,12 +10,14 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { CompiledQuery, Kysely, PostgresDialect, type Transaction } from "kysely";
+import { CompiledQuery, Kysely, PostgresDialect, type Selectable, type Transaction } from "kysely";
 import pg from "pg";
 
 import { config } from "../config.js";
 import { categorize, merchantName } from "../domain/categories.js";
 import { pyDumps } from "../py.js";
+import type { Connections, DB } from "../types/db.js";
+import type { Connection, MetaDocuments, MetaKey } from "../types/entities.js";
 
 // ---------- what Postgres hands back, made to match what the Python app returned ----------
 
@@ -32,10 +34,11 @@ pg.types.setTypeParser(1184, (v) => {
 
 export type Row = Record<string, any>;
 
-export class Result {
-  constructor(readonly rows: Row[], readonly rowCount: number) {}
-  one(): Row | undefined { return this.rows[0]; }
-  all(): Row[] { return this.rows; }
+/** A query's rows. R is what the caller knows the SQL selects; raw SQL itself isn't checked against it. */
+export class Result<R = Row> {
+  constructor(readonly rows: R[], readonly rowCount: number) {}
+  one(): R | undefined { return this.rows[0]; }
+  all(): R[] { return this.rows; }
   [Symbol.iterator]() { return this.rows[Symbol.iterator](); }
 }
 
@@ -46,23 +49,23 @@ const placeholders = (sql: string) => { let i = 0; return sql.replace(/\?/g, () 
 
 /** One transaction, read like the Python app's connection: execute(sql, params). */
 export class Conn {
-  constructor(private readonly db: Kysely<any> | Transaction<any>) {}
-  async execute(sql: string, params: unknown[] = []): Promise<Result> {
+  constructor(readonly db: Kysely<DB> | Transaction<DB>) {}
+  async execute<R = Row>(sql: string, params: unknown[] = []): Promise<Result<R>> {
     const res = await this.db.executeQuery(CompiledQuery.raw(placeholders(sql), params as any[]));
-    return new Result(res.rows as Row[], Number(res.numAffectedRows ?? res.rows.length));
+    return new Result(res.rows as R[], Number(res.numAffectedRows ?? res.rows.length));
   }
 }
 
-let _db: Kysely<any> | null = null;
+let _db: Kysely<DB> | null = null;
 let _pool: pg.Pool | null = null;
 
-export function kysely(): Kysely<any> {
+export function kysely(): Kysely<DB> {
   if (!_db) {
     if (!config.DATABASE_URL) throw new Error("DATABASE_URL is not set");
     _pool = new pg.Pool({ connectionString: config.DATABASE_URL, max: 10 });
     // An idle connection the server dropped (a restart, a failover): the pool replaces it on the next query.
     _pool.on("error", (e) => console.warn(`database connection lost: ${e.message}`));
-    _db = new Kysely<any>({ dialect: new PostgresDialect({ pool: _pool }) });
+    _db = new Kysely<DB>({ dialect: new PostgresDialect({ pool: _pool }) });
   }
   return _db;
 }
@@ -183,8 +186,8 @@ export async function userByEmail(email: string): Promise<Row | null> {
 
 // ---------- connections and meta ----------
 
-export async function connections(conn: Conn): Promise<Row[]> {
-  return (await conn.execute("SELECT * FROM connections ORDER BY bank")).rows.map((r) => ({
+export async function connections(conn: Conn): Promise<Connection[]> {
+  return (await conn.execute<Selectable<Connections>>("SELECT * FROM connections ORDER BY bank")).rows.map((r): Connection => ({
     ...r, last_error: r.last_error ? JSON.parse(r.last_error) : null,
   }));
 }
@@ -198,11 +201,17 @@ export async function updateConnection(conn: Conn, bank: string, fields: Record<
   await conn.execute(`UPDATE connections SET ${keys.map((k) => `${k} = ?`).join(", ")} WHERE bank = ?`, [...Object.values(values), bank]);
 }
 
-export async function getMeta<T = any>(conn: Conn, key: string, fallback: T | null = null): Promise<T | null> {
-  const row = (await conn.execute("SELECT value FROM meta WHERE key = ?", [key])).one();
-  return row ? JSON.parse(row.value) : fallback;
+/** A document kept in meta, typed by its key (types/entities.ts MetaDocuments); null when there's none. */
+export async function getMeta<K extends MetaKey>(conn: Conn, key: K): Promise<MetaDocuments[K] | null>;
+/** A document under a key made at runtime (explain:<range>:<start>). */
+export async function getMeta(conn: Conn, key: `explain:${string}`): Promise<Row | null>;
+export async function getMeta(conn: Conn, key: string): Promise<unknown> {
+  const row = (await conn.execute<{ value: string }>("SELECT value FROM meta WHERE key = ?", [key])).one();
+  return row ? JSON.parse(row.value) : null;
 }
 
+export async function setMeta<K extends MetaKey>(conn: Conn, key: K, value: MetaDocuments[K]): Promise<void>;
+export async function setMeta(conn: Conn, key: `explain:${string}`, value: Row): Promise<void>;
 export async function setMeta(conn: Conn, key: string, value: unknown) {
   await conn.execute("INSERT INTO meta(key, value) VALUES(?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value",
     [key, pyDumps(value)]);
@@ -230,7 +239,7 @@ export function txKey(tx: Row): string {
 }
 
 export async function ownerNames(conn: Conn): Promise<string[]> {
-  return (await getMeta<any>(conn, "settings"))?.owner_names || [];
+  return (await getMeta(conn, "settings"))?.owner_names || [];
 }
 
 export type TxRow = [string, string, string | null, number, string, string, string, string, string | null, string, string];
