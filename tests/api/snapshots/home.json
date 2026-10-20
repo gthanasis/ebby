@@ -1,0 +1,231 @@
+{
+ "body": {
+  "fresh_at": "2026-10-20T06:00:00+00:00",
+  "month": {
+   "average": 65.56,
+   "categories": [
+    {
+     "category": "housing",
+     "count": 1,
+     "spent": 650.0
+    },
+    {
+     "category": "delivery",
+     "count": 15,
+     "spent": 319.59
+    },
+    {
+     "category": "eating_out",
+     "count": 15,
+     "spent": 177.82
+    },
+    {
+     "category": "groceries",
+     "count": 8,
+     "spent": 163.2
+    },
+    {
+     "category": "bills",
+     "count": 3,
+     "spent": 122.0
+    },
+    {
+     "category": "coffee_bars",
+     "count": 9,
+     "spent": 57.61
+    },
+    {
+     "category": "subscriptions",
+     "count": 4,
+     "spent": 49.57
+    },
+    {
+     "category": "health",
+     "count": 1,
+     "spent": 45.0
+    },
+    {
+     "category": "cash",
+     "count": 1,
+     "spent": 40.0
+    },
+    {
+     "category": "car",
+     "count": 6,
+     "spent": 38.05
+    },
+    {
+     "category": "people",
+     "count": 1,
+     "spent": 25.0
+    },
+    {
+     "category": "shopping",
+     "count": 1,
+     "spent": 16.65
+    }
+   ],
+   "days": [
+    {
+     "date": "2026-09-25",
+     "spent": 13.29
+    },
+    {
+     "date": "2026-09-26",
+     "spent": 9.63
+    },
+    {
+     "date": "2026-09-27",
+     "spent": 47.28
+    },
+    {
+     "date": "2026-09-28",
+     "spent": 12.63
+    },
+    {
+     "date": "2026-09-29",
+     "spent": 3.42
+    },
+    {
+     "date": "2026-09-30",
+     "spent": 0.0
+    },
+    {
+     "date": "2026-10-01",
+     "spent": 677.29
+    },
+    {
+     "date": "2026-10-02",
+     "spent": 99.9
+    },
+    {
+     "date": "2026-10-03",
+     "spent": 99.95
+    },
+    {
+     "date": "2026-10-04",
+     "spent": 43.67
+    },
+    {
+     "date": "2026-10-05",
+     "spent": 27.1
+    },
+    {
+     "date": "2026-10-06",
+     "spent": 86.95
+    },
+    {
+     "date": "2026-10-07",
+     "spent": 45.13
+    },
+    {
+     "date": "2026-10-08",
+     "spent": 61.71
+    },
+    {
+     "date": "2026-10-09",
+     "spent": 94.59
+    },
+    {
+     "date": "2026-10-10",
+     "spent": 29.36
+    },
+    {
+     "date": "2026-10-11",
+     "spent": 35.81
+    },
+    {
+     "date": "2026-10-12",
+     "spent": 36.67
+    },
+    {
+     "date": "2026-10-13",
+     "spent": 5.32
+    },
+    {
+     "date": "2026-10-14",
+     "spent": 25.12
+    },
+    {
+     "date": "2026-10-15",
+     "spent": 45.0
+    },
+    {
+     "date": "2026-10-16",
+     "spent": 8.85
+    },
+    {
+     "date": "2026-10-17",
+     "spent": 65.36
+    },
+    {
+     "date": "2026-10-18",
+     "spent": 38.69
+    },
+    {
+     "date": "2026-10-19",
+     "spent": 28.99
+    },
+    {
+     "date": "2026-10-20",
+     "spent": 62.78
+    },
+    {
+     "date": "2026-10-21",
+     "spent": null
+    },
+    {
+     "date": "2026-10-22",
+     "spent": null
+    }
+   ],
+   "elapsed": 26,
+   "end": "2026-10-23",
+   "ideal": {
+    "budget": 1958.65,
+    "day": 69.95,
+    "fixed": 45.0,
+    "goals": [
+     {
+      "monthly": 137.61,
+      "name": "Lisbon in March",
+      "price": 900.0,
+      "target_date": "2027-03-15"
+     },
+     {
+      "monthly": 258.74,
+      "name": "Safety net",
+      "price": 4500.0,
+      "target_date": "2027-08-16"
+     }
+    ],
+    "income": 2400.0,
+    "savings": 0.0,
+    "targets": {
+     "bills": 125.68,
+     "car": 84.06,
+     "cash": 41.62,
+     "coffee_bars": 94.67,
+     "delivery": 240.75,
+     "eating_out": 136.29,
+     "groceries": 324.81,
+     "health": 62.84,
+     "housing": 564.74,
+     "leisure": 10.61,
+     "people": 10.61,
+     "shopping": 136.29,
+     "subscriptions": 41.62,
+     "travel": 84.06
+    }
+   },
+   "length": 28,
+   "month": "2026-10",
+   "projected": 1835.6,
+   "spent": 1704.49,
+   "start": "2026-09-25",
+   "today": "2026-10-20"
+  },
+  "payday_hint": null
+ },
+ "status": 200
+}

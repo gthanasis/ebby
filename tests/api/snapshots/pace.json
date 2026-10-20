@@ -1,0 +1,129 @@
+{
+ "body": {
+  "categories": [
+   {
+    "budget": 692.0,
+    "category": "housing",
+    "count": 1,
+    "habit": "1 payments, €650 on average. Plan was €692.",
+    "spent": 650.0,
+    "status": "fine"
+   },
+   {
+    "budget": 295.0,
+    "category": "delivery",
+    "count": 15,
+    "habit": "15 orders, about 4 a week. Plan was €295.",
+    "spent": 319.59,
+    "status": "over"
+   },
+   {
+    "budget": 167.0,
+    "category": "eating_out",
+    "count": 15,
+    "habit": "15 meals, €12 each. Plan was €167.",
+    "spent": 177.82,
+    "status": "over"
+   },
+   {
+    "budget": 398.0,
+    "category": "groceries",
+    "count": 8,
+    "habit": "8 payments, €20 on average. Plan was €398.",
+    "spent": 163.2,
+    "status": "fine"
+   },
+   {
+    "budget": 154.0,
+    "category": "bills",
+    "count": 3,
+    "habit": "3 payments, €41 on average. Plan was €154.",
+    "spent": 122.0,
+    "status": "fine"
+   },
+   {
+    "budget": 116.0,
+    "category": "coffee_bars",
+    "count": 9,
+    "habit": "9 visits, €6 each. Plan was €116.",
+    "spent": 57.61,
+    "status": "fine"
+   },
+   {
+    "budget": 51.0,
+    "category": "subscriptions",
+    "count": 4,
+    "habit": "4 payments, €12 on average. Plan was €51.",
+    "spent": 49.57,
+    "status": "fine"
+   },
+   {
+    "budget": 77.0,
+    "category": "health",
+    "count": 1,
+    "habit": "1 payments, €45 on average. Plan was €77.",
+    "spent": 45.0,
+    "status": "fine"
+   },
+   {
+    "budget": 51.0,
+    "category": "cash",
+    "count": 1,
+    "habit": "1 withdrawals, €40 each. Plan was €51.",
+    "spent": 40.0,
+    "status": "fine"
+   },
+   {
+    "budget": 103.0,
+    "category": "car",
+    "count": 6,
+    "habit": "6 payments, €6 on average. Plan was €103.",
+    "spent": 38.05,
+    "status": "fine"
+   },
+   {
+    "budget": 13.0,
+    "category": "people",
+    "count": 1,
+    "habit": "1 payments, €25 on average. Plan was €13.",
+    "spent": 25.0,
+    "status": "over"
+   },
+   {
+    "budget": 167.0,
+    "category": "shopping",
+    "count": 1,
+    "habit": "1 payments, €17 on average. Plan was €167.",
+    "spent": 16.65,
+    "status": "fine"
+   },
+   {
+    "budget": 13.0,
+    "category": "leisure",
+    "count": 0,
+    "habit": "",
+    "spent": 0.0,
+    "status": "fine"
+   },
+   {
+    "budget": 103.0,
+    "category": "travel",
+    "count": 0,
+    "habit": "",
+    "spent": 0.0,
+    "status": "fine"
+   }
+  ],
+  "days": 28,
+  "elapsed": 26,
+  "end": "2026-10-23",
+  "expected_to_date": 2228.57,
+  "month": "2026-10",
+  "planned": 2400.0,
+  "projected": 1835.6,
+  "start": "2026-09-25",
+  "take_home": 2400.0,
+  "total": 1704.49
+ },
+ "status": 200
+}

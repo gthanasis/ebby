@@ -1,0 +1,14 @@
+{
+ "body": {
+  "ai": false,
+  "cash": {
+   "logged": -0.0,
+   "unaccounted": 40.0,
+   "withdrawn": 40.0
+  },
+  "conversation": 1,
+  "items": [],
+  "questions": []
+ },
+ "status": 200
+}
