@@ -7,11 +7,13 @@ export const euroRound = (v: number | null | undefined) => (v == null ? "–" : 
 const MONTH = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" });
 const MONTH_SHORT = new Intl.DateTimeFormat("en-GB", { month: "short" });
 const DAY = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" });
+const DAY_SHORT = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
 
 const monthDate = (m: string) => new Date(`${m}-01T12:00:00`);
 export const monthLabel = (m: string) => MONTH.format(monthDate(m));
 export const monthShort = (m: string) => MONTH_SHORT.format(monthDate(m));
 export const dayLabel = (d: string) => DAY.format(new Date(`${d}T12:00:00`));
+export const shortDay = (d: string) => DAY_SHORT.format(new Date(`${d}T12:00:00`));
 
 export function shiftMonth(m: string, delta: number): string {
   const [y, mo] = m.split("-").map(Number);

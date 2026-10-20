@@ -83,7 +83,7 @@ export async function list(conn: Conn, f: ListFilter, limit: number, offset: num
   const [sqlWhere, args] = where(f);
   const rows = (await conn.execute(`
     SELECT t.id, t.date, t.amount, t.currency, t.status, t.description, t.merchant, t.mcc, t.category,
-      t.commitment_id, a.name AS account_name, a.is_card
+      t.commitment_id, a.name AS account_name, a.is_card, NULLIF(t.raw::json->>'booking_date', t.date) AS booked
     FROM transactions t JOIN accounts a ON a.id = t.account ${sqlWhere}
     ORDER BY t.date DESC, t.id LIMIT ? OFFSET ?
   `, [...args, limit, offset])).rows;

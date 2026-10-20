@@ -40,6 +40,7 @@ export function toTransaction(r: Row): Transaction {
   return {
     id: r.id, date: r.date, amount: r.amount, currency: r.currency, status: r.status, description: r.description, merchant: r.merchant,
     mcc: r.mcc, category: r.category, commitment_id: r.commitment_id, account_name: r.account_name, is_card: r.is_card,
+    booked: r.booked ?? null,
   };
 }
 

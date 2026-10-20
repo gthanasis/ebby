@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { setCategory, useApi, type Category, type Commitments, type Transaction } from "../lib/api";
-import { dayLabel, euro, euroRound, monthLabel } from "../lib/format";
+import { dayLabel, euro, euroRound, monthLabel, shortDay } from "../lib/format";
 import { hrefFor, type Route } from "./App";
 import { MonthNav } from "./Spending";
 import { Card, Crumbs, Icon, Select } from "./ui";
@@ -143,6 +143,7 @@ function Row({ t, categories, byId, onChanged, onMoved }: {
         <b>{title}</b>
         <span className="muted small">
           {t.account_name}
+          {t.booked && <span> · booked {shortDay(t.booked)}</span>}
           {t.status === "PDNG" && <span className="pending"> · pending</span>}
         </span>
         <Select variant="sm" value={t.category} disabled={saving}

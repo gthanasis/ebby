@@ -4,6 +4,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -6.45,
+    "booked": null,
     "category": "coffee_bars",
     "commitment_id": null,
     "currency": "EUR",
@@ -18,6 +19,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -26.26,
+    "booked": null,
     "category": "delivery",
     "commitment_id": null,
     "currency": "EUR",
@@ -32,6 +34,7 @@
    {
     "account_name": "Alpha Μισθοδοσία",
     "amount": -5.98,
+    "booked": null,
     "category": "groceries",
     "commitment_id": null,
     "currency": "EUR",
@@ -46,6 +49,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -7.66,
+    "booked": null,
     "category": "coffee_bars",
     "commitment_id": null,
     "currency": "EUR",
@@ -60,6 +64,7 @@
    {
     "account_name": "Alpha Bank Bonus Visa",
     "amount": -32.7,
+    "booked": null,
     "category": "eating_out",
     "commitment_id": null,
     "currency": "EUR",

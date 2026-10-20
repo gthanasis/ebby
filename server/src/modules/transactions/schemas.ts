@@ -18,6 +18,7 @@ export const Transaction = z.strictObject({
   id: z.string(), date: z.string(), amount: z.number(), currency: z.string(), status: z.string(), description: z.string(),
   merchant: z.string(), mcc: z.string().nullable(), category: z.string(), commitment_id: z.number().nullable(),
   account_name: z.string(), is_card: z.number(),
+  booked: z.string().nullable(),  // the day the bank booked it, when that isn't the day you paid
 });
 
 /** One page of the list; total and spent cover every match, not just the page. */

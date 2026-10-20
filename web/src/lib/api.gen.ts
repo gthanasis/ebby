@@ -853,6 +853,7 @@ export interface Transaction {
   commitment_id: number | null;
   account_name: string;
   is_card: number;
+  booked: string | null;
 }
 export interface TransactionPage {
   rows: Transaction[];

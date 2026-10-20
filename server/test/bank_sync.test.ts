@@ -8,6 +8,7 @@ import * as sync from "../src/modules/banks/sync.js";
 import { PyDate } from "../src/shared/utils/python.js";
 import { users } from "./fixtures.js";
 import * as ingest from "../src/modules/banks/ingest.js";
+import * as transactionsRepo from "../src/shared/ledger/transactions.js";
 
 type Row = Record<string, any>;
 const tx = (day: string, amount: number, text: string, out = true, extra: Row = {}): Row => ({
@@ -75,6 +76,16 @@ describe("fetching from the bank", () => {
     const card = ingest.txRow("card", true, tx("2026-10-03", 9.9, "Αγορά", true, { merchant_category_code: "5812" }), {});
     expect([card[7], card[8], card[9]]).toEqual(["", "5812", "eating_out"]);  // no name on card rows, only the code
     expect(ingest.txRow("card", true, tx("2026-10-03", 9.9, "Αγορά", true, { merchant_category_code: "5812" }), { [`tx:${card[0]}`]: "leisure" })[9]).toBe("leisure");
+  });
+
+  it("a payment is dated the day you paid, not the day the bank booked it", () => {
+    const at = (fields: Record<string, string>) => ingest.paidOn({ status: "BOOK", ...fields });
+    expect(at({ booking_date: "2026-09-22", value_date: "2026-09-17" })).toBe("2026-09-17");  // Alpha's account row
+    expect(at({ booking_date: "2026-09-19", value_date: "2026-09-21" })).toBe("2026-09-19");  // its card row
+    expect(at({ booking_date: "2026-09-22", value_date: "2026-09-17", transaction_date: "2026-09-16" })).toBe("2026-09-16");
+    expect(at({ booking_date: "2026-09-22" })).toBe("2026-09-22");
+    // Pending rows are replaced by their booking window, so they stay inside it.
+    expect(at({ status: "PDNG", booking_date: "2026-09-22", value_date: "2026-09-17" })).toBe("2026-09-22");
   });
 
   it("a row without the bank's reference gets the same id the Python app gave it", () => {
@@ -146,6 +157,9 @@ describe("debit cards", () => {
         expect(counted).toEqual([{ date: "2026-10-15", amount: -66.91 }, { date: "2026-10-17", amount: -23.1 }]);
       }
       expect(JSON.parse((await conn.execute("SELECT raw FROM transactions WHERE id LIKE '%a1'")).one()!.raw).booking_date).toBe("2026-10-19");
+      // The list shows the day you paid, and the bank's booking day beside it.
+      const listed = (await transactionsRepo.list(conn, {}, 10, 0)).rows.map((r) => [r.date, r.booked]);
+      expect(listed).toEqual([["2026-10-17", "2026-10-19"], ["2026-10-15", "2026-10-19"]]);
     }));
   });
 });
