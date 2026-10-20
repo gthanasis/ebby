@@ -16,6 +16,7 @@ import * as credentialsRepo from "./credentials_repo.js";
 import * as vault from "../../shared/vault.js";
 import { isoUtc, pyDumps } from "../../shared/utils/python.js";
 import { Client, EnableBankingError } from "./enable_banking.js";
+import { type Credentials, toCredentials } from "./converters.js";
 
 export const _clients = new Map<number, Client>();  // per person; dropped whenever their keys change
 
@@ -33,14 +34,13 @@ async function load(conn: Conn, kind: string): Promise<any | null> {
   if (!row) return null;
   const sealed = { keyId: row.key_id, nonce: row.nonce, ciphertext: row.ciphertext };
   const secret = JSON.parse(vault.decrypt(sealed, db.currentUser()!, kind).toString());
-  if (vault.needsRotation(sealed)) await store(conn, kind, secret, (await publicInfo(conn))[kind] ?? {});
+  if (vault.needsRotation(sealed)) await store(conn, kind, secret, (await publicInfo(conn))[kind as keyof Credentials] ?? {});
   return secret;
 }
 
 /** What's safe to show: {kind: public_info + verified_at}. */
-export async function publicInfo(conn: Conn): Promise<Record<string, any>> {
-  return Object.fromEntries((await credentialsRepo.publicInfo(conn))
-    .map((r) => [r.kind, { ...r.public_info, verified_at: r.verified_at ?? null }]));
+export async function publicInfo(conn: Conn): Promise<Credentials> {
+  return toCredentials(await credentialsRepo.publicInfo(conn));
 }
 
 /** Checks the keys with Enable Banking before keeping them. Throws Error with a message to show. */

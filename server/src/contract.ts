@@ -5,13 +5,28 @@
 
 import type { z } from "zod";
 
+import * as account from "./modules/account/schemas.js";
+import * as alerts from "./modules/alerts/schemas.js";
+import * as banks from "./modules/banks/schemas.js";
 import * as goals from "./modules/goals/schemas.js";
 import * as plan from "./modules/plan/schemas.js";
 
-const features = [goals, plan];
+const features = [goals, plan, banks, account, alerts];
+
+/** Merges each feature's entries; two features naming the same shape or route is a mistake, not an override. */
+function gather(part: "schemas" | "responses"): Record<string, z.ZodType> {
+  const out: Record<string, z.ZodType> = {};
+  for (const f of features) {
+    for (const [k, v] of Object.entries(f[part] as Record<string, z.ZodType>)) {
+      if (k in out) throw new Error(`${part}: ${k} is declared by two features`);
+      out[k] = v;
+    }
+  }
+  return out;
+}
 
 /** Every named shape, for the web app's types. */
-export const schemas: Record<string, z.ZodType> = Object.assign({}, ...features.map((f) => f.schemas));
+export const schemas = gather("schemas");
 
 /** What each route returns, keyed "METHOD /path" as the router knows it. */
-export const responses: Record<string, z.ZodType> = Object.assign({}, ...features.map((f) => f.responses));
+export const responses = gather("responses");

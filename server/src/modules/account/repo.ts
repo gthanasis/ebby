@@ -9,6 +9,10 @@ import * as clock from "../../shared/clock.js";
 import { pyRound } from "../../shared/utils/python.js";
 import * as db from "../../shared/db.js";
 import type { Row } from "../../shared/db.js";
+import type { User } from "../../types/entities.js";
+
+/** Someone on the list, without their dates. */
+export type Listed = Omit<User, "created_at" | "last_login_at">;
 
 export interface AuthStore {
   userByEmail(email: string): Promise<Row | null>;
@@ -56,22 +60,22 @@ export class Store implements AuthStore {
   }
 }
 
-export async function me(userId: number): Promise<Row> {
-  return db.connectSystem(async (conn) => (await conn.execute(
+export async function me(userId: number): Promise<Listed> {
+  return db.connectSystem(async (conn) => (await conn.execute<Listed>(
     "SELECT id, email, name, picture, is_admin, status, ai_budget_usd FROM users WHERE id = ?", [userId])).one()!);
 }
 
 /** The admin's list: everyone on it and what they spent on AI since `since`. No one's own data. */
-export async function people(since: Date): Promise<Row[]> {
+export async function people(since: Date): Promise<(User & { ai_spent_usd: number })[]> {
   return db.connectSystem(async (conn) => {
     const spent = new Map((await conn.execute("SELECT * FROM admin_ai_usage(?)", [since])).rows.map((r) => [r.user_id, r.cost_usd]));
-    const rows = (await conn.execute(`SELECT id, email, name, picture, is_admin, status, ai_budget_usd, created_at, last_login_at
+    const rows = (await conn.execute<User>(`SELECT id, email, name, picture, is_admin, status, ai_budget_usd, created_at, last_login_at
                                       FROM users ORDER BY created_at`)).rows;
     return rows.map((r) => ({ ...r, ai_spent_usd: pyRound(spent.get(r.id) ?? 0.0, 2) }));
   });
 }
 
-export async function invite(emailIn: string, aiBudgetUsd: number | null = null): Promise<Row> {
+export async function invite(emailIn: string, aiBudgetUsd: number | null = null): Promise<Listed> {
   const email = emailIn.trim().toLowerCase();
   if (!email.includes("@")) throw new Error("That isn't an email address.");
   const row = await db.connectSystem(async (conn) => (await conn.execute(`

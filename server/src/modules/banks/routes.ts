@@ -13,6 +13,7 @@ import * as db from "../../shared/db.js";
 import * as accountsRepo from "../../shared/ledger/accounts.js";
 import * as alerts from "../alerts/service.js";
 import * as banks from "./bank_list.js";
+import { type AccountWithCounts, toAccount, toConnection } from "./converters.js";
 import { EnableBankingError } from "./enable_banking.js";
 import * as sync from "./sync.js";
 import { parseIso } from "../../shared/utils/python.js";
@@ -61,9 +62,9 @@ const bankRound: ErrorRule[] = [[EnableBankingError, 502], ["*", 400]];
 export function routes(app: Hono) {
   app.get("/api/status", async (c) => {
     const [accounts, connections, openQuestions] = await db.connect(async (conn) => [
-      await accountsRepo.withCounts(conn),
+      await accountsRepo.withCounts(conn) as AccountWithCounts[],
       // The banks you've connected or started to; the rest are offered from GET /api/banks.
-      (await db.connections(conn)).map((x) => ({ bank: x.bank, connected: Boolean(x.session_id), valid_until: x.valid_until, last_sync: x.last_sync, last_error: x.last_error })),
+      (await db.connections(conn)).map(toConnection),
       (await questions(conn)).length,
     ] as const);
     const synced = connections.map((x) => x.last_sync).filter(Boolean).sort();
@@ -73,7 +74,7 @@ export function routes(app: Hono) {
       callback_in_app: !config.REDIRECT_URL.includes("localhost"),
       questions: openQuestions,
       month: thisMonth(),  // the pay month today is in
-      accounts: accounts.filter((a) => a.id !== CASH_ACCOUNT),
+      accounts: accounts.filter((a) => a.id !== CASH_ACCOUNT).map(toAccount),
     });
   });
 
