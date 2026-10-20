@@ -1,7 +1,8 @@
 """The banks a person can connect: every one Enable Banking supports in the country, for personal accounts.
 
-The list is public and the same for everyone, so it's fetched with whoever asks first and kept a day.
-In restricted mode a bank only works if its accounts are linked to that person's own application.
+Enable Banking answers with what the asking application can reach: a sandbox app gets Mock ASPSP and
+friends, a production app the real banks. So the list is kept a day per application, never shared
+between people. In restricted mode a bank only works if its accounts are linked to that application.
 """
 
 import threading
@@ -21,12 +22,13 @@ _lock = threading.Lock()
 def available() -> list[dict]:
     """[{name, logo, beta, consent_days}], sorted by name. Raises credentials.MissingCredential before
     the person has given the app their Enable Banking keys, EnableBankingError if it can't be reached."""
-    country = config.COUNTRY
     if config.DEMO:
         return [{"name": n, "logo": f"https://enablebanking.com/brands/GR/{quote(n)}/", "beta": True, "consent_days": 180}
                 for n in sorted(DEMO_BANKS, key=str.lower)]
+    client = credentials.client()
+    key = f"{client.app_id}:{config.COUNTRY}"
     with _lock:
-        hit = _cache.get(country)
+        hit = _cache.get(key)
     if hit and time.time() - hit[0] < DAY:
         return hit[1]
     banks = sorted(({
@@ -34,10 +36,10 @@ def available() -> list[dict]:
         "logo": b.get("logo"),
         "beta": bool(b.get("beta")),
         "consent_days": int(b.get("maximum_consent_validity") or 0) // 86400 or None,
-    } for b in credentials.client().aspsps(country) if "personal" in (b.get("psu_types") or ["personal"])),
+    } for b in client.aspsps(config.COUNTRY) if "personal" in (b.get("psu_types") or ["personal"])),
         key=lambda b: b["name"].lower())
     with _lock:
-        _cache[country] = (time.time(), banks)
+        _cache[key] = (time.time(), banks)
     return banks
 
 
