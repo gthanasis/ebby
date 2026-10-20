@@ -11,17 +11,16 @@ export async function categoryRows(conn: Conn, start: string, end: string): Prom
   return new Map(rows.map((r) => [r.category, { spent: pyRound(r.spent, 2), count: r.count }]));
 }
 
+// Categories said as a count of what one payment is, rather than as payments.
+const COUNTED: Record<string, string> = { eating_out: "meals", coffee_bars: "visits", cash: "withdrawals" };
+
 /** The habit behind a number, in plain words. */
 export function habit(category: string, spent: number, count: number, budget: number | null | undefined, elapsed: number): string {
   const weeks = Math.max(1.0, elapsed / 7);
   const per = count ? spent / count : 0;
   const plan = budget ? ` Plan was €${fmt0(budget)}.` : "";
   if (category === "delivery") return `${count} orders, about ${fmt0(count / weeks, false)} a week.${plan}`;
-  if (category === "eating_out" || category === "coffee_bars") {
-    const word = category === "eating_out" ? "meals" : "visits";
-    return `${count} ${word}, €${fmt0(per)} each.${plan}`;
-  }
-  if (category === "cash") return `${count} withdrawals, €${fmt0(per)} each.${plan}`;
+  if (Object.hasOwn(COUNTED, category)) return `${count} ${COUNTED[category]}, €${fmt0(per)} each.${plan}`;
   return `${count} payments, €${fmt0(per)} on average.${plan}`;
 }
 

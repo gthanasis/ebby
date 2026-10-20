@@ -7,6 +7,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import * as clock from "./clock.js";
 import * as db from "./db.js";
+import { readSettings } from "./settings.js";
 import { monthDays, PyDate, pyMod } from "./utils/python.js";
 import type { Payday } from "../types/entities.js";
 
@@ -56,7 +57,7 @@ const _calendar = new AsyncLocalStorage<{ cal: PayCalendar }>();
 
 /** The current person's payday, from their settings. */
 export async function readPayday(): Promise<Payday> {
-  const day = await db.connect(async (conn) => (await db.getMeta(conn, "settings"))?.payday || 1);
+  const day = await db.connect(async (conn) => (await readSettings(conn)).payday);
   return day === "last" ? "last" : Number(day);
 }
 

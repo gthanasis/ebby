@@ -12,8 +12,53 @@ import { fmt0, fmt2, maxBy, median, PyDate, pyRound, sorted, sum } from "../../s
 import { localToday, monthBounds, monthOf, shift, thisMonth } from "../../shared/months.js";
 import { serviceName } from "./services.js";
 
-export const RANGES = ["day", "week", "month", "year"];
-const USUAL_COUNT: Record<string, number> = { day: 8, week: 8, month: 6 };
+type Range = "day" | "week" | "month" | "year";
+
+/** Where each range's periods start and end, given today. */
+const PERIOD: Record<Range, (today: PyDate, off: number) => [PyDate, PyDate, string]> = {
+  day: (today, off) => {
+    const d = today.addDays(off);
+    return [d, d, d.isoformat()];
+  },
+  week: (today, off) => {
+    const monday = today.addDays(-today.weekday() + 7 * off);
+    return [monday, monday.addDays(6), monday.isoformat()];
+  },
+  month: (_, off) => {
+    const key = shift(thisMonth(), off);
+    const [a, b] = monthBounds(key);
+    return [PyDate.fromisoformat(a), PyDate.fromisoformat(b).addDays(-1), key];
+  },
+  year: (_, off) => {
+    const y = parseInt(thisMonth().slice(0, 4), 10) + off;
+    return [PyDate.fromisoformat(monthBounds(`${y}-01`)[0]), PyDate.fromisoformat(monthBounds(`${y}-12`)[1]).addDays(-1), String(y)];
+  },
+};
+
+export const RANGES: string[] = Object.keys(PERIOD);
+
+interface Compared {
+  /** How many periods before "usual" is the median of. */
+  usualCount: number;
+  /** Periods before this one on the trend chart. */
+  trendLength: number;
+  /** The least a category must move from usual to be a highlight. */
+  minMove: number;
+  /** The share of the total one payment must reach to be a highlight. */
+  bigPayment: number;
+  /** Whether a weekday that stands out is a highlight. */
+  weekdays: boolean;
+}
+
+/** The ranges compared category by category with the periods before them. Day and year have views of their own. */
+const COMPARED: Record<"week" | "month", Compared> = {
+  week: { usualCount: 8, trendLength: 7, minMove: 20, bigPayment: 0.12, weekdays: false },
+  month: { usualCount: 6, trendLength: 11, minMove: 40, bigPayment: 0.08, weekdays: true },
+};
+
+/** A day's usual: the same weekday over this many weeks before. */
+const USUAL_DAY_COUNT = 8;
+
 // How often matters for these, so their counts are worth saying.
 export const HABITS = new Set(["delivery", "eating_out", "coffee_bars", "people", "groceries"]);
 // A drop here is usually timing (not charged yet), not something you did.
@@ -25,22 +70,7 @@ const med = (values: number[]) => (values.length ? median(values) : 0.0);
 
 /** [first day, last day, key] of the period `off` steps from the current one. */
 export function bounds(rng: string, off: number): [PyDate, PyDate, string] {
-  const today = localToday();
-  if (rng === "day") {
-    const d = today.addDays(off);
-    return [d, d, d.isoformat()];
-  }
-  if (rng === "week") {
-    const monday = today.addDays(-today.weekday() + 7 * off);
-    return [monday, monday.addDays(6), monday.isoformat()];
-  }
-  if (rng === "month") {
-    const key = shift(thisMonth(), off);
-    const [a, b] = monthBounds(key);
-    return [PyDate.fromisoformat(a), PyDate.fromisoformat(b).addDays(-1), key];
-  }
-  const y = parseInt(thisMonth().slice(0, 4), 10) + off;
-  return [PyDate.fromisoformat(monthBounds(`${y}-01`)[0]), PyDate.fromisoformat(monthBounds(`${y}-12`)[1]).addDays(-1), String(y)];
+  return PERIOD[Object.hasOwn(PERIOD, rng) ? rng as Range : "year"](localToday(), off);
 }
 
 const minDay = (a: PyDate, b: PyDate) => (a.n <= b.n ? a : b);
@@ -92,14 +122,14 @@ function usual(periods: SpendRow[][]): [number | null, Map<string, [number, numb
   return [pyRound(med(periods.map(total)), 2), per];
 }
 
-function highlights(rs: SpendRow[], usualCats: Map<string, [number, number]>, days: Row[], elapsed: number, rng: string, minMove: number): Row[] {
+function highlights(rs: SpendRow[], usualCats: Map<string, [number, number]>, days: Row[], elapsed: number, rules: Compared): Row[] {
   const now = byCategory(rs);
   const moves: Row[] = [];
   for (const c of sorted(new Set([...now.keys(), ...usualCats.keys()]))) {  // sorted: equal moves keep one order
     const [v, n] = now.get(c) ?? [0.0, 0];
     const [ua, uc] = usualCats.get(c) ?? [0.0, 0.0];
     const d = v - ua;
-    if (Math.abs(d) >= minMove && !(d < 0 && TIMED.has(c))) {
+    if (Math.abs(d) >= rules.minMove && !(d < 0 && TIMED.has(c))) {
       moves.push({ kind: "category", category: c, spent: pyRound(v, 2), usual: pyRound(ua, 2), count: n, usual_count: HABITS.has(c) ? pyRound(uc) : null });
     }
   }
@@ -108,8 +138,8 @@ function highlights(rs: SpendRow[], usualCats: Map<string, [number, number]>, da
   const out: Row[] = [...ups.slice(0, 2), ...downs.slice(0, 1), ...ups.slice(2)].slice(0, 3);
   const t = total(rs);
   const big = maxBy(rs, (r) => r.amount);
-  if (big && big.amount >= t * (rng === "week" ? 0.12 : 0.08)) out.push({ kind: "payment", ...big });
-  if (rng === "month" && elapsed >= 14) {
+  if (big && big.amount >= t * rules.bigPayment) out.push({ kind: "payment", ...big });
+  if (rules.weekdays && elapsed >= 14) {
     const sums = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], counts = [0, 0, 0, 0, 0, 0, 0];
     for (const d of days) {
       if (d.spent != null) {
@@ -159,16 +189,17 @@ export async function view(conn: Conn, rng: string, off: number): Promise<Row> {
     const week = Array.from({ length: 7 }, (_, i) => monday.addDays(i))
       .map((d) => ({ date: d.isoformat(), spent: d.n <= today.n ? daySpent(weekRows, d) : null }));
     const totals = [];
-    for (let k = 1; k < 9; k++) totals.push(total(await rows(conn, a.addDays(-7 * k), a.addDays(-7 * k))));
+    for (let k = 1; k <= USUAL_DAY_COUNT; k++) totals.push(total(await rows(conn, a.addDays(-7 * k), a.addDays(-7 * k))));
     return { ...out, week, usual: pyRound(med(totals), 2), payments: payments(rs) };
   }
 
-  const count = USUAL_COUNT[rng];
+  const rules = COMPARED[rng as keyof typeof COMPARED];
+  const count = rules.usualCount;
   const last = await past(conn, rng, off, 1, partial ? elapsed : null);
   const [usualTotal, usualCats] = usual(await past(conn, rng, off, count, partial ? elapsed : null));
   const [fullUsual] = usual(await past(conn, rng, off, count, null));
   const trend = [];
-  for (let k = rng === "week" ? 7 : 11; k >= 0; k--) {
+  for (let k = rules.trendLength; k >= 0; k--) {
     const [ta, tb, tkey] = bounds(rng, off - k);
     if (start && ta.n < start.addDays(-31).n) continue;
     trend.push({ off: off - k, key: tkey, start: ta.isoformat(), total: total(await rows(conn, ta, minDay(tb, today))) });
@@ -179,7 +210,7 @@ export async function view(conn: Conn, rng: string, off: number): Promise<Row> {
     categories: sorted([...byCategory(rs).entries()].map(([c, [v, n]]) => ({
       category: c, spent: pyRound(v, 2), count: n, usual: pyRound((usualCats.get(c) ?? [0])[0], 2),
     })), (c) => -c.spent),
-    highlights: highlights(rs, usualCats, days, elapsed, rng, rng === "week" ? 20 : 40),
+    highlights: highlights(rs, usualCats, days, elapsed, rules),
     payments: payments(rs),
   };
 }
@@ -195,7 +226,7 @@ async function yearView(conn: Conn, year: number, rs: SpendRow[]): Promise<Row> 
     months.push({ key, total: total(mrows), done: mb.n <= today.n, rows: mrows });
   }
   // The same usual month as the Month view: the median of the last six finished months.
-  const usualMonth = usual(await past(conn, "month", 0, 6, null))[0] || 0;
+  const usualMonth = usual(await past(conn, "month", 0, COMPARED.month.usualCount, null))[0] || 0;
   const done = months.filter((m) => m.done);
   const hl: Row[] = [];
   let standout = maxBy(done, (m) => m.total) ?? null;
