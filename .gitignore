@@ -1,6 +1,6 @@
 .env
 *.pem
-data/
+/data/
 .venv/
 __pycache__/
 web/node_modules/
