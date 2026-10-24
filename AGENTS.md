@@ -50,6 +50,10 @@ server/
   test/               unit tests, and test/api/: the API as a black box (below)
 ```
 
+`docs/index.html` is the public documentation (docs-ebby.gthanasis.com): one hand-written page in the app's own
+tokens and components, with the screenshots beside it. Merging a change under `docs/` publishes it
+(`.github/workflows/docs.yml`). When a feature changes what a person sees or does, update its page there.
+
 Code is organized by feature. A new endpoint goes in its feature's routes.ts, its logic in service.ts (or a file
 named for the idea), its queries in repo.ts. `npm run check:structure` (a CI step) keeps it that way:
 - shared/ never imports a feature; only server.ts imports a routes.ts;
