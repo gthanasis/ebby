@@ -128,6 +128,9 @@ function standing(m: TodayMonth, waiting: boolean) {
   return { budget, used, left, daysLeft, usual, end, state, perDay, pace: budget * m.elapsed / m.length };
 }
 
+/** Next month's budget was lowered to cover this one. */
+const covered = (m: TodayMonth) => m.next_limit != null && m.ideal != null && m.next_limit < m.ideal.planned;
+
 const paydayIn = (m: TodayMonth) => {
   const days = Math.round((at(m.end).getTime() - at(m.today).getTime()) / 864e5);
   return days <= 1 ? "payday tomorrow" : `payday in ${days} days`;
@@ -164,7 +167,7 @@ function MonthCard({ m, waiting }: { m: TodayMonth; waiting: boolean }) {
         {s.state === "over" ? (
           <><span>The budget is used up</span><b>{euroRound(0)}<small> a day</small></b>
             <em>{euroRound(-s.left)} over already{s.daysLeft ? `, with ${days} to payday` : ""}.{" "}
-              {m.next_limit != null ? `Covered from ${monthLabel(shiftMonth(m.month, 1)).split(" ")[0]}.` : "Pick how to cover it below."}</em></>
+              {covered(m) ? `Covered from ${monthLabel(shiftMonth(m.month, 1)).split(" ")[0]}.` : "Pick how to cover it below."}</em></>
         ) : (
           <><span>To land on budget</span><b>{euroRound(s.perDay)}<small> {s.daysLeft ? "a day" : waiting ? "until pay lands" : "today"}</small></b>
             <em>{s.daysLeft ? `for the ${days} to payday` : "for the rest of the month"}
@@ -256,8 +259,8 @@ function GoalCard({ m, byId, waiting, onChanged }: { m: TodayMonth; byId: Screen
 
   if (s.state === "over") {
     const over = Math.ceil(-s.left);
-    if (m.next_limit != null) {
-      rows.push(<Todo key="next" icon="mdi:check" tone="ok" title={`${nextName} starts at ${euroRound(m.next_limit)}`}
+    if (covered(m)) {
+      rows.push(<Todo key="next" icon="mdi:check" tone="ok" title={`${nextName} starts at ${euroRound(m.next_limit!)}`}
         note={`Instead of ${euroRound(i.planned)}, to cover this month.`} />);
     } else {
       rows.push(<Todo key="next" icon="mdi:calendar-month-outline" title={`Take ${euroRound(over)} from ${nextName}`}
