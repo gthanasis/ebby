@@ -13,6 +13,11 @@ export type ChatAction = z.infer<typeof S.ChatAction>;
 export type ChatItem = z.infer<typeof S.ChatItem>;
 export type Conversation = z.infer<typeof S.Conversation>;
 export type SortItem = z.infer<typeof S.SortItem>;
+export type MemoryLine = z.infer<typeof S.MemoryLine>;
+
+export function toMemoryLine(r: { id: number; text: string; source: string; service: string | null; created_at: string; used: number }): MemoryLine {
+  return { id: r.id, text: r.text, source: r.source as MemoryLine["source"], service: r.service, created_at: r.created_at, used: r.used };
+}
 
 /** How the assistant's context note starts; it's stored with your message but never shown. */
 export const CONTEXT = "[Context";

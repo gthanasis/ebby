@@ -524,7 +524,7 @@ a.part .icon:last-child { color: var(--tg-muted); }
 
 /* Spending: any day, week, pay month or year */
 .sp-seg, .sp-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px; border-radius: 14px; background: var(--tg-chip); }
-.sp-tabs { grid-template-columns: repeat(3, 1fr); }
+.sp-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .sp-seg button, .sp-tabs button { height: 36px; border-radius: 10px; font-size: 13px; color: var(--tg-muted); cursor: pointer; text-align: center; }
 .sp-seg button[aria-selected="true"], .sp-tabs button[aria-selected="true"] { background: var(--tg-card); color: var(--tg-text); font-weight: 500; box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
 .sp-nav { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 14px; }
@@ -864,3 +864,93 @@ a.part .icon:last-child { color: var(--tg-muted); }
 .bank-logo { width: 64px; height: 36px; padding: 5px 6px; border-radius: 8px; object-fit: contain; background: #fff; border: 1px solid var(--line); flex: none; }
 .bank-list .ricon { width: 64px; border-radius: 8px; }
 .bank-picker .empty.small { padding: 16px 12px; }
+
+/* a payment's sheet: opened from every list */
+.pay-sheet { display: flex; flex-direction: column; gap: 14px; }
+.pay-sheet .so-sh { margin-bottom: -8px; }
+.pay-head { display: flex; align-items: center; gap: 12px; }
+.pay-head .t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pay-head .t b { font-weight: 500; font-size: 16px; overflow-wrap: anywhere; }
+.pay-head .t span { overflow-wrap: anywhere; }
+.pay-amt { font-size: 24px; font-weight: 600; letter-spacing: -.5px; white-space: nowrap; }
+.pay-amt.in { color: var(--tg-ok); }
+.pay-kv { align-items: center; }
+.pay-kv b { display: flex; justify-content: flex-end; }
+.pay-sheet .hint { margin: -6px 0 0; }
+.pay-memory { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid var(--tg-divider); }
+.pay-memory textarea { width: 100%; resize: vertical; border: 1px solid var(--tg-divider); border-radius: 12px; padding: 10px 12px; background: var(--tg-card);
+  color: var(--tg-text); font: inherit; }
+.pay-memory .row-actions { margin-top: 4px; }
+.pay-memory .btn .icon { width: 18px; height: 18px; }
+/* a row that opens a payment */
+button.part { cursor: pointer; text-align: left; color: inherit; font: inherit; }
+.tag-fixed { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; height: 20px; padding: 0 8px; border-radius: 10px; margin-top: 2px;
+  font-size: 11px; font-weight: 500; white-space: nowrap; background: color-mix(in srgb, var(--tg-accent) 14%, transparent); color: var(--tg-accent); }
+.tag-fixed .icon { width: 12px; height: 12px; color: inherit; }
+.part .t span.tag-fixed { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: inline-block; line-height: 20px; }
+/* a highlight that opens what it names */
+.sp-hl.go { width: 100%; color: inherit; text-decoration: none; cursor: pointer; text-align: left; font: inherit; border-radius: 0; }
+.sp-hl.go > .icon { width: 16px; height: 16px; color: var(--tg-muted); margin: 8px 0 0 auto; flex: none; }
+.sp-hl.go p { flex: 1; }
+.sp-hl.go:hover p b { color: var(--tg-accent); }
+.sp-fixed-note { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 13px; color: var(--tg-muted); cursor: pointer; }
+.sp-fixed-note .icon { width: 16px; height: 16px; }
+.sp-fixed-note:hover { color: var(--tg-accent); }
+.ricon.ok { background: color-mix(in srgb, var(--tg-ok) 15%, transparent); color: var(--tg-ok); }
+
+.notice.ok { background: color-mix(in srgb, var(--tg-ok) 12%, transparent); }
+.notice.ok .icon { color: var(--tg-ok); }
+.notice .chip { margin-top: 10px; }
+.tx-open { display: inline-flex; align-items: center; gap: 2px; font-weight: 500; cursor: pointer; text-align: left; overflow-wrap: anywhere; }
+.tx-open .icon { width: 16px; height: 16px; color: var(--tg-muted); }
+.tx-open:hover { color: var(--tg-accent); }
+/* Settings: a number to step, inside an option */
+.stepper { display: inline-flex; align-items: center; align-self: flex-start; margin-top: 8px; height: 32px; border-radius: 16px; background: var(--tg-chip); font-size: 13px; }
+.stepper > span { padding: 0 10px; border-inline: 1px solid var(--tg-divider); line-height: 32px; white-space: nowrap; }
+.stepper button { width: 32px; height: 32px; display: grid; place-items: center; cursor: pointer; }
+.stepper button:disabled { opacity: .4; cursor: default; }
+.stepper .icon { width: 16px; height: 16px; }
+.mem-text { color: var(--tg-text); white-space: normal !important; overflow-wrap: anywhere; }
+.part.mem-edit { flex-direction: column; align-items: stretch; }
+.mem-edit textarea { width: 100%; border: 1px solid var(--tg-divider); border-radius: 12px; padding: 10px 12px; background: var(--tg-card); color: var(--tg-text); font: inherit; }
+.so-mem { display: flex; gap: 6px; align-items: flex-start; font-size: 13px; color: var(--tg-ai); margin-top: 8px !important; }
+.so-mem .icon { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+
+/* Overview: this month against its budget, as a runway to payday */
+.ov-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ov-pill { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.ov-pill .icon { width: 16px; height: 16px; }
+.ov-pill.ok { background: color-mix(in srgb, var(--tg-ok) 14%, transparent); color: var(--tg-ok); }
+.ov-pill.behind { background: color-mix(in srgb, var(--tg-warn) 15%, transparent); color: var(--tg-warn); }
+.ov-pill.over { background: color-mix(in srgb, var(--tg-bad) 14%, transparent); color: var(--tg-bad); }
+.bad-txt { color: var(--tg-bad); }
+.ov-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+.ov-duo span { display: block; font-size: 12px; color: var(--tg-muted); }
+.ov-duo b { display: block; font-size: 32px; font-weight: 600; letter-spacing: -1px; line-height: 1.1; }
+.ov-duo em { font-style: normal; font-size: 12px; color: var(--tg-muted); }
+.ov-run { width: 100%; height: auto; margin-top: 14px; display: block; overflow: visible; }
+.ov-used { fill: color-mix(in srgb, var(--tg-accent) 12%, transparent); stroke: none; }
+.ov-below { fill: color-mix(in srgb, var(--tg-bad) 8%, transparent); }
+.ov-zero { stroke: color-mix(in srgb, var(--tg-bad) 50%, transparent); stroke-width: 1; }
+.ov-ideal { stroke: color-mix(in srgb, var(--tg-text) 25%, transparent); stroke-width: 1.5; stroke-dasharray: 4 4; fill: none; }
+.ov-actual { stroke: var(--tg-accent); stroke-width: 2.5; fill: none; stroke-linejoin: round; }
+.ov-proj { stroke: var(--tg-accent); stroke-width: 2; stroke-dasharray: 2 4; fill: none; opacity: .7; }
+.ov-dot { fill: var(--tg-accent); stroke: var(--tg-card); stroke-width: 2; }
+.ov-actual.behind, .ov-proj.behind { stroke: var(--tg-warn); } .ov-dot.behind { fill: var(--tg-warn); }
+.ov-actual.over, .ov-proj.over { stroke: var(--tg-bad); } .ov-dot.over { fill: var(--tg-bad); }
+.ov-payday { stroke: var(--tg-divider); stroke-width: 1; }
+.ov-tx { font-size: 10px; fill: var(--tg-muted); }
+.ov-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; }
+.ov-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ov-k { width: 14px; height: 0; border-top: 2.5px solid var(--tg-accent); display: inline-block; }
+.ov-k.ideal { border-top: 1.5px dashed color-mix(in srgb, var(--tg-text) 35%, transparent); }
+.ov-k.proj { border-top: 2px dotted var(--tg-accent); }
+.ov-k.behind { border-top-color: var(--tg-warn); } .ov-k.over { border-top-color: var(--tg-bad); }
+.ov-daily { margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--tg-ok) 10%, transparent); }
+.ov-daily.behind { background: color-mix(in srgb, var(--tg-warn) 12%, transparent); }
+.ov-daily.over { background: color-mix(in srgb, var(--tg-bad) 10%, transparent); }
+.ov-daily span { display: block; font-size: 12px; color: var(--tg-muted); }
+.ov-daily b { display: block; font-size: 28px; font-weight: 600; letter-spacing: -.8px; line-height: 1.15; }
+.ov-daily b small { font-size: 14px; font-weight: 500; color: var(--tg-muted); letter-spacing: 0; }
+.ov-daily em { display: block; font-style: normal; font-size: 13px; color: var(--tg-muted); margin-top: 2px; line-height: 1.4; }
+.ricon.bad { background: color-mix(in srgb, var(--tg-bad) 14%, transparent); color: var(--tg-bad); }

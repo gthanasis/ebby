@@ -2,6 +2,8 @@
 
 import { z } from "zod";
 
+import { FixedMonth } from "../commitments/schemas.js";
+
 export const ExtraPay = z.strictObject({ name: z.string(), amount: z.number(), date: z.string(), when: z.string() });
 
 /** Plans from before the split was kept may lack split and limits. */
@@ -16,6 +18,7 @@ export const Settings = z.strictObject({
   work_hours: z.number().optional(), payday: z.union([z.number(), z.literal("last")]).optional(),
   payday_dismissed: z.boolean().optional(), autofill_dismissed: z.boolean().optional(), autofilled: z.boolean().optional(),
   extra_pay: z.boolean().optional(), owner_names: z.array(z.string()).optional(),
+  month_start: z.enum(["payday", "pay"]).optional(), pay_wait_days: z.number().optional(),
 });
 
 /** When pay seems to arrive, read from the deposits. */
@@ -44,19 +47,33 @@ export const Pace = z.strictObject({
 export const Ideal = z.strictObject({
   income: z.number(), savings: z.number(), fixed: z.number(),
   goals: z.array(z.strictObject({ name: z.string(), price: z.number(), target_date: z.string(), monthly: z.number() })),
-  budget: z.number(), day: z.number(), targets: z.record(z.string(), z.number()),
+  // budget: what's to spend this month; planned: what the plan alone gives, before a limit set for the month.
+  budget: z.number(), planned: z.number(), day: z.number(), targets: z.record(z.string(), z.number()),
 });
 
 /** This pay month so far. days covers the whole month; spent is null for days still to come. */
 export const TodayMonth = z.strictObject({
   month: z.string(), start: z.string(), end: z.string(), today: z.string(), length: z.number(), elapsed: z.number(), spent: z.number(),
-  days: z.array(z.strictObject({ date: z.string(), spent: z.number().nullable() })),
+  // fixed: what went to fixed costs that day, kept out of spent.
+  days: z.array(z.strictObject({ date: z.string(), spent: z.number().nullable(), fixed: z.number() })),
   average: z.number(), projected: z.number(),
   categories: z.array(z.strictObject({ category: z.string(), spent: z.number(), count: z.number() })),
-  ideal: Ideal.nullable(),
+  ideal: Ideal.nullable(), fixed: FixedMonth,
+  // The limit already set for next month (after taking an overspend from it), the goal coming up first that
+  // isn't reached yet, and the categories furthest over their usual by this point in the month.
+  next_limit: z.number().nullable(),
+  goal: z.strictObject({ id: z.number(), name: z.string(), price: z.number(), saved: z.number(), target_date: z.string() }).nullable(),
+  watch: z.array(z.strictObject({ category: z.string(), spent: z.number(), usual: z.number(), count: z.number() })),
 });
 
-export const Home = z.strictObject({ month: TodayMonth, fresh_at: z.string().nullable(), payday_hint: PaydayGuess.nullable() });
+/** Pay that's late and holding the month open (until: the day the month starts anyway), and pay that just arrived. */
+export const PayWait = z.strictObject({ expected: z.string(), until: z.string(), amount: z.number(), payer: z.string() });
+export const PayArrival = z.strictObject({ date: z.string(), amount: z.number(), payer: z.string() });
+
+export const Home = z.strictObject({
+  month: TodayMonth, fresh_at: z.string().nullable(), payday_hint: PaydayGuess.nullable(),
+  pay_waiting: PayWait.nullable(), pay_arrived: PayArrival.nullable(),
+});
 
 export const CategoryDetail = z.strictObject({
   category: z.string(), month: z.string(), budget: z.number().nullable(),
@@ -76,7 +93,7 @@ export const Year = z.strictObject({
 });
 
 export const schemas = {
-  ExtraPay, Plan, Settings, PaydayGuess, PlanView, PlanSuggestion, PaceCategory, Pace, Ideal, TodayMonth, Home, CategoryDetail, Year,
+  ExtraPay, Plan, Settings, PaydayGuess, PlanView, PlanSuggestion, PaceCategory, Pace, Ideal, TodayMonth, PayWait, PayArrival, Home, CategoryDetail, Year,
 };
 
 export const responses = {

@@ -11,7 +11,7 @@ import { contractApp, diff } from "./contract.js";
 const SNAPSHOTS = join(dirname(fileURLToPath(import.meta.url)), "snapshots");
 
 // Each read worth pinning, with the parameters that change what it computes. {service}, {habit} and {account} are
-// filled from the demo data, so the snapshots don't depend on ids.
+// and {payment} are filled from the demo data, so the snapshots don't depend on ids.
 const READS = [
   "/api/me", "/api/status", "/api/people", "/api/categories",
   "/api/home",
@@ -28,7 +28,8 @@ const READS = [
   "/api/plan", "/api/goals", "/api/goals/overview",
   "/api/commitments", "/api/commitments/services", "/api/commitments/services?transfers=true",
   "/api/habits", "/api/habits/weekly", "/api/habits/rules/{habit}",
-  "/api/assistant", "/api/sorter",
+  "/api/assistant", "/api/sorter", "/api/assistant/memory",
+  "/api/fixed", "/api/fixed?month=2026-09", "/api/payment?id={payment}",
 ];
 // Reads with no snapshot, and why.
 // Routes with no JSON body to describe: the chat stream sends ChatEvent lines (assistant/schemas.ts).
@@ -44,6 +45,7 @@ afterAll(() => api.teardown());
 async function fill(path: string): Promise<string> {
   if (path.includes("{service}")) path = path.replace("{service}", encodeURIComponent((await api.json("/api/category/groceries")).services[0].name));
   if (path.includes("{account}")) path = path.replace("{account}", (await api.json("/api/status")).accounts[0].id);
+  if (path.includes("{payment}")) path = path.replace("{payment}", encodeURIComponent((await api.json("/api/spending")).payments[0].id));
   if (path.includes("{habit}")) path = path.replace("{habit}", String((await api.json("/api/habits/weekly")).habits[0].id));
   return path;
 }

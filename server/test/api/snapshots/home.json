@@ -7,7 +7,7 @@
     {
      "category": "housing",
      "count": 1,
-     "spent": 650.0
+     "spent": 650
     },
     {
      "category": "delivery",
@@ -27,7 +27,7 @@
     {
      "category": "bills",
      "count": 3,
-     "spent": 122.0
+     "spent": 122
     },
     {
      "category": "coffee_bars",
@@ -42,12 +42,12 @@
     {
      "category": "health",
      "count": 1,
-     "spent": 45.0
+     "spent": 45
     },
     {
      "category": "cash",
      "count": 1,
-     "spent": 40.0
+     "spent": 40
     },
     {
      "category": "car",
@@ -57,7 +57,7 @@
     {
      "category": "people",
      "count": 1,
-     "spent": 25.0
+     "spent": 25
     },
     {
      "category": "shopping",
@@ -68,139 +68,193 @@
    "days": [
     {
      "date": "2026-09-25",
+     "fixed": 0,
      "spent": 13.29
     },
     {
      "date": "2026-09-26",
+     "fixed": 0,
      "spent": 9.63
     },
     {
      "date": "2026-09-27",
+     "fixed": 0,
      "spent": 47.28
     },
     {
      "date": "2026-09-28",
+     "fixed": 0,
      "spent": 12.63
     },
     {
      "date": "2026-09-29",
+     "fixed": 0,
      "spent": 3.42
     },
     {
      "date": "2026-09-30",
-     "spent": 0.0
+     "fixed": 0,
+     "spent": 0
     },
     {
      "date": "2026-10-01",
+     "fixed": 0,
      "spent": 677.29
     },
     {
      "date": "2026-10-02",
+     "fixed": 0,
      "spent": 99.9
     },
     {
      "date": "2026-10-03",
+     "fixed": 0,
      "spent": 99.95
     },
     {
      "date": "2026-10-04",
+     "fixed": 0,
      "spent": 43.67
     },
     {
      "date": "2026-10-05",
+     "fixed": 0,
      "spent": 27.1
     },
     {
      "date": "2026-10-06",
+     "fixed": 0,
      "spent": 86.95
     },
     {
      "date": "2026-10-07",
+     "fixed": 0,
      "spent": 45.13
     },
     {
      "date": "2026-10-08",
+     "fixed": 0,
      "spent": 61.71
     },
     {
      "date": "2026-10-09",
+     "fixed": 0,
      "spent": 94.59
     },
     {
      "date": "2026-10-10",
+     "fixed": 0,
      "spent": 29.36
     },
     {
      "date": "2026-10-11",
+     "fixed": 0,
      "spent": 35.81
     },
     {
      "date": "2026-10-12",
+     "fixed": 0,
      "spent": 36.67
     },
     {
      "date": "2026-10-13",
+     "fixed": 0,
      "spent": 5.32
     },
     {
      "date": "2026-10-14",
+     "fixed": 0,
      "spent": 25.12
     },
     {
      "date": "2026-10-15",
-     "spent": 45.0
+     "fixed": 0,
+     "spent": 45
     },
     {
      "date": "2026-10-16",
+     "fixed": 0,
      "spent": 8.85
     },
     {
      "date": "2026-10-17",
+     "fixed": 0,
      "spent": 65.36
     },
     {
      "date": "2026-10-18",
+     "fixed": 0,
      "spent": 38.69
     },
     {
      "date": "2026-10-19",
+     "fixed": 0,
      "spent": 28.99
     },
     {
      "date": "2026-10-20",
+     "fixed": 0,
      "spent": 62.78
     },
     {
      "date": "2026-10-21",
+     "fixed": 0,
      "spent": null
     },
     {
      "date": "2026-10-22",
+     "fixed": 0,
      "spent": null
     }
    ],
    "elapsed": 26,
    "end": "2026-10-23",
+   "fixed": {
+    "due": 45,
+    "expected": 45,
+    "items": [
+     {
+      "count": 0,
+      "due_on": null,
+      "expected": 45,
+      "id": 1,
+      "kind": "chosen",
+      "name": "Gym",
+      "paid": 0,
+      "paid_on": null,
+      "status": "due"
+     }
+    ],
+    "paid": 0
+   },
+   "goal": {
+    "id": 1,
+    "name": "Lisbon in March",
+    "price": 900,
+    "saved": 240,
+    "target_date": "2027-03-15"
+   },
    "ideal": {
     "budget": 1958.65,
     "day": 69.95,
-    "fixed": 45.0,
+    "fixed": 45,
     "goals": [
      {
       "monthly": 137.61,
       "name": "Lisbon in March",
-      "price": 900.0,
+      "price": 900,
       "target_date": "2027-03-15"
      },
      {
       "monthly": 258.74,
       "name": "Safety net",
-      "price": 4500.0,
+      "price": 4500,
       "target_date": "2027-08-16"
      }
     ],
-    "income": 2400.0,
-    "savings": 0.0,
+    "income": 2400,
+    "planned": 1958.65,
+    "savings": 0,
     "targets": {
      "bills": 125.68,
      "car": 84.06,
@@ -220,11 +274,28 @@
    },
    "length": 28,
    "month": "2026-10",
+   "next_limit": null,
    "projected": 1835.6,
    "spent": 1704.49,
    "start": "2026-09-25",
-   "today": "2026-10-20"
+   "today": "2026-10-20",
+   "watch": [
+    {
+     "category": "delivery",
+     "count": 15,
+     "spent": 319.59,
+     "usual": 257.11
+    },
+    {
+     "category": "eating_out",
+     "count": 15,
+     "spent": 177.82,
+     "usual": 130.45
+    }
+   ]
   },
+  "pay_arrived": null,
+  "pay_waiting": null,
   "payday_hint": null
  },
  "status": 200

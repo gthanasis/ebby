@@ -9,6 +9,7 @@ import * as ai from "./ai.js";
 import * as assistant from "./service.js";
 import { CATEGORIES } from "../../shared/categories.js";
 import * as sorter from "./sorter.js";
+import * as memory from "./memory.js";
 import { pyDumps } from "../../shared/utils/python.js";
 import { body, fail, int, mapErrors } from "../../shared/http.js";
 import { cashView } from "../spending/cash.js";
@@ -73,6 +74,22 @@ export function routes(app: Hono) {
     const b = await body(c, z.object({ service: z.string() }));
     return c.json({ moved: await db.connect((conn) => clearServiceCategory(conn, b.service)) });
   });
+
+  app.get("/api/assistant/memory", async (c) => c.json(await db.connect((conn) => memory.list(conn))));
+
+  /** A line to remember; service when it came from a payment, so that payee's guess is made again with it. */
+  app.post("/api/assistant/memory", async (c) => {
+    const b = await body(c, z.object({ text: z.string(), service: z.string().nullable().default(null) }));
+    return c.json(await db.connect((conn) => memory.remember(conn, b.text, b.service ? "payment" : "you", b.service)));
+  });
+
+  app.put("/api/assistant/memory/:id", async (c) => {
+    const b = await body(c, z.object({ text: z.string() }));
+    return c.json(await db.connect((conn) => memory.edit(conn, int(c.req.param("id"), "id", 0), b.text)));
+  });
+
+  app.delete("/api/assistant/memory/:id", async (c) =>
+    c.json(await db.connect((conn) => memory.forget(conn, int(c.req.param("id"), "id", 0)))));
 
   app.post("/api/sorter/guess", async (c) => {
     const b = await body(c, z.object({ service: z.string() }));

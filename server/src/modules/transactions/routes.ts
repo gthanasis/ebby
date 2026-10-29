@@ -12,6 +12,7 @@ import { serviceTransactionIds } from "../spending/services.js";
 import { PyDate, pyRound } from "../../shared/utils/python.js";
 import { body, fail, int } from "../../shared/http.js";
 import * as ingest from "../banks/ingest.js";
+import { payment, pin } from "./service.js";
 import { toCategories, toCategoryMove, toMonthly, toOverview, toTransactionPage } from "./converters.js";
 
 // Totals only add up euros; rows in other currencies (Revolut pockets) still show in the list.
@@ -74,6 +75,17 @@ export function routes(app: Hono) {
       const { rows, total, spent: spentSum } = await tx.list(conn, filter, Math.min(limit, 500), offset);
       return toTransactionPage(rows, total, spentSum);
     }));
+  });
+
+  /** One payment, by id in the query: ids can hold any character. */
+  app.get("/api/payment", async (c) => {
+    const id = c.req.query("id") || fail(400, "Which payment?");
+    return c.json(await db.connect((conn) => payment(conn, id)));
+  });
+
+  app.put("/api/payment/commitment", async (c) => {
+    const b = await body(c, z.object({ id: z.string(), commitment_id: z.number().int().nullable() }));
+    return c.json(await db.connect((conn) => pin(conn, b.id, b.commitment_id)));
   });
 
   /** Moves one payment, or with all_from_merchant every payment to its payee (now and in future). Payments given their

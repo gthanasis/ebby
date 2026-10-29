@@ -6,7 +6,7 @@ import * as transactionsRepo from "../../shared/ledger/transactions.js";
 import { addMonths } from "../../shared/utils/dates.js";
 import { maxBy, PyDate, pyRound, sorted, sum } from "../../shared/utils/python.js";
 import type { Commitment as CommitmentRow } from "../../types/entities.js";
-import { type Commitment, toCommitment, toCommitmentSuggestion } from "./converters.js";
+import { type Commitment, type FixedItem, type FixedMonth, toCommitment, toCommitmentSuggestion } from "./converters.js";
 import { localToday, monthBounds, monthOf, shift, thisMonth } from "../../shared/months.js";
 import { sn } from "../spending/services.js";
 import { subscriptions } from "../spending/subscriptions.js";
@@ -44,11 +44,59 @@ export async function assignCommitments(conn: Conn) {
   const byService = new Map<string, number>();
   for (const c of await commitmentRows(conn)) for (const s of c.services) byService.set(s, c.id);
   await transactionsRepo.clearCommitments(conn);
-  if (!byService.size) return;
+  if (!byService.size) return transactionsRepo.applyPinned(conn);
   for (const r of await transactionsRepo.nonZeroPayees(conn)) {
     const cid = byService.get(sn(r));
     if (cid) await transactionsRepo.setCommitment(conn, r.id, cid);
   }
+  await transactionsRepo.applyPinned(conn);
+}
+
+/** Each fixed cost in a pay month: what it should come to, what has gone out, and when, or around when it's due.
+ * A cost paid every few months only counts in the month its payment falls in. */
+export async function fixedMonth(conn: Conn, month: string): Promise<FixedMonth> {
+  const [start, end] = monthBounds(month);
+  const last = PyDate.fromisoformat(end).addDays(-1).isoformat();
+  const rows = await transactionsRepo.fixedRows(conn, start, last);
+  const [prevStart] = monthBounds(shift(month, -1));
+  const before = await transactionsRepo.fixedRows(conn, prevStart, PyDate.fromisoformat(start).addDays(-1).isoformat());
+  const items: FixedItem[] = [];
+  for (const c of await commitmentRows(conn)) {
+    const mine = rows.filter((r) => r.commitment_id === c.id);
+    const paid = pyRound(sum(mine.map((r) => r.amount)) + c.off_bank, 2);
+    let expected = c.monthly_limit;
+    let dueOn: string | null = null;
+    if (c.every_months > 1) {
+      const inMonth = [c.next_date, c.last_date].find((d) => d && start <= d && d < end);
+      expected = inMonth || mine.length ? c.amount ?? c.monthly_limit * c.every_months : 0;
+      dueOn = inMonth ?? null;
+    } else {
+      // Due around the same day it went out last month, moved into this month.
+      const prev = before.filter((r) => r.commitment_id === c.id).at(-1);
+      if (prev) {
+        const guess = PyDate.fromisoformat(prev.date).addDays(PyDate.fromisoformat(start).diffDays(PyDate.fromisoformat(prevStart)));
+        dueOn = guess.isoformat() < start ? start : guess.isoformat() >= end ? last : guess.isoformat();
+      }
+    }
+    if (!expected && !mine.length) continue;
+    const status = mine.length || (c.off_bank > 0 && paid >= expected - 0.005) ? "paid" : "due";
+    items.push({
+      id: c.id, name: c.name, kind: c.kind as "fixed" | "chosen", expected: pyRound(expected, 2), paid,
+      status, paid_on: mine.at(-1)?.date ?? null, due_on: status === "due" ? dueOn : null, count: mine.length,
+    });
+  }
+  // Due first, soonest first; then what's been paid, latest first.
+  const ordered = [
+    ...sorted(items.filter((i) => i.status === "due"), (i) => [i.due_on ?? "9999", i.name]),
+    ...sorted(items.filter((i) => i.status === "paid"), (i) => [i.paid_on ?? "", i.name], true),
+  ];
+  return {
+    items: ordered,
+    paid: pyRound(sum(items.map((i) => i.paid)), 2),
+    // A paid cost is done for the month even when it came in under its limit.
+    due: pyRound(sum(items.filter((i) => i.status === "due").map((i) => Math.max(0, i.expected - i.paid))), 2),
+    expected: pyRound(sum(items.map((i) => i.expected)), 2),
+  };
 }
 
 async function committedSpent(conn: Conn, cid: number, start: string, end: string): Promise<number> {

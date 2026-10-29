@@ -7,14 +7,17 @@ import { CategoryDetail, Home, Pace, Year } from "../plan/schemas.js";
 
 export const Range = z.enum(["day", "week", "month", "year"]);
 
-export const SpendPayment = z.strictObject({ date: z.string(), amount: z.number(), category: z.string(), name: z.string() });
+export const SpendPayment = z.strictObject({ id: z.string(), date: z.string(), amount: z.number(), category: z.string(), name: z.string() });
+
+/** A payment to a fixed cost: kept out of spending, listed beside it with the cost it went to. */
+export const FixedPayment = SpendPayment.extend({ commitment_id: z.number(), commitment: z.string() });
 
 /** A day of a period; spent is null for days still to come. */
 export const SpendDay = z.strictObject({ date: z.string(), spent: z.number().nullable() });
 
 export const Highlight = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("category"), category: z.string(), spent: z.number(), usual: z.number(), count: z.number(), usual_count: z.number().nullable() }),
-  z.strictObject({ kind: z.literal("payment"), date: z.string(), amount: z.number(), category: z.string(), name: z.string() }),
+  z.strictObject({ kind: z.literal("payment"), id: z.string(), date: z.string(), amount: z.number(), category: z.string(), name: z.string() }),
   z.strictObject({ kind: z.literal("weekday"), weekday: z.number(), average: z.number(), overall: z.number() }),
   z.strictObject({ kind: z.literal("nospend"), days: z.number(), of: z.number() }),
   z.strictObject({ kind: z.literal("month"), month: z.string(), total: z.number(), usual: z.number(), category: z.string(), amount: z.number() }),
@@ -39,7 +42,7 @@ export const SpendView = z.strictObject({
     category: z.string(), spent: z.number(), count: z.number(), usual: z.number().optional(), per_month: z.number().optional(),
   })).optional(),
   highlights: z.array(Highlight).optional(),
-  payments: z.array(SpendPayment),
+  payments: z.array(SpendPayment), fixed: z.array(FixedPayment),
 });
 
 export const SpendCategory = z.strictObject({
@@ -71,7 +74,7 @@ export const Question = z.strictObject({
 export const Cash = z.strictObject({ withdrawn: z.number(), logged: z.number(), unaccounted: z.number() });
 
 export const schemas = {
-  Range, SpendPayment, SpendDay, Highlight, SpendView, SpendCategory, ServiceDetail, Subscription, Subscriptions, Question, Cash,
+  Range, SpendPayment, FixedPayment, SpendDay, Highlight, SpendView, SpendCategory, ServiceDetail, Subscription, Subscriptions, Question, Cash,
 };
 
 export const responses = {

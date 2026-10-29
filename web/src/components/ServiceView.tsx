@@ -1,8 +1,9 @@
 import { MonthlyChart } from "../charts/charts";
-import { moveService, useApi, type Category, type ServiceDetail } from "../lib/api";
+import { moveService, useApi, type Category, type ServiceDetail, type Transaction } from "../lib/api";
 import { useAction } from "../lib/action";
 import { euro, euroRound, monthLabel } from "../lib/format";
 import { hrefFor, type ScreenProps } from "./App";
+import { useOpenPayment } from "./PaymentSheet";
 import { MonthNav } from "./Spending";
 import { Card, CardHeader, Crumbs, Icon, Select } from "./ui";
 
@@ -10,11 +11,14 @@ const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const WEEKDAYS_LONG = ["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"];
 const DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric" });
 const dayOf = (d: string) => DAY.format(new Date(`${d}T12:00:00`));
+const DAY_LONG = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
 /** Service level: one payee inside one category. The next level down is the raw transactions. */
 export function ServiceView({ byId, version, go, month, category, service }: ScreenProps & { month: string; category: string; service: string }) {
   const q = new URLSearchParams({ category, name: service, month });
   const { data, error } = useApi<ServiceDetail>(`/api/service?${q}`, version);
+  const list = useApi<{ rows: Transaction[] }>(`/api/transactions?${new URLSearchParams({ category, service, month, limit: "200" })}`, version);
+  const open = useOpenPayment();
   const cat = byId[category];
   const name = monthLabel(month).split(" ")[0];
   const top = Math.max(1, ...(data?.weekdays ?? [0]));
@@ -73,12 +77,23 @@ export function ServiceView({ byId, version, go, month, category, service }: Scr
             </Card>
           )}
 
+          {list.data && list.data.rows.length > 0 && (
+            <>
+              <div className="group-label">{list.data.rows.length === 1 ? "The payment" : `${list.data.rows.length} payments`}</div>
+              <Card className="list">
+                {list.data.rows.map((t) => (
+                  <button key={t.id} className="part" onClick={() => open(t.id)}>
+                    <span className="t"><b className="num">{DAY_LONG.format(new Date(`${t.date}T12:00:00`))}</b>
+                      <span className="muted small">{t.account_name}{t.status === "PDNG" ? " · pending" : ""}</span></span>
+                    <span className={`amt num ${t.amount > 0 ? "in" : ""}`}>{euro(Math.abs(t.amount))}</span>
+                    <Icon icon="mdi:chevron-right" />
+                  </button>
+                ))}
+              </Card>
+            </>
+          )}
+
           <Card>
-            <a className="part" href={hrefFor({ page: "transactions", category, service, month })}>
-              <span className="ricon"><Icon icon="mdi:format-list-bulleted" /></span>
-              <span className="t"><b>{data.count === 1 ? "The payment" : `All ${data.count} payments`}</b><span className="muted small">Open in Transactions</span></span>
-              <Icon icon="mdi:chevron-right" />
-            </a>
             <MoveService category={category} service={service} byId={byId} onMoved={(to) => go({ page: "category", category: to, service: undefined })} />
           </Card>
         </div>

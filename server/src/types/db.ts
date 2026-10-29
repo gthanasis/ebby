@@ -59,6 +59,16 @@ export interface AssistantActions {
   user_id: Generated<number>;
 }
 
+export interface AssistantMemory {
+  created_at: string;
+  id: Generated<number>;
+  service: string | null;
+  source: Generated<string>;
+  text: string;
+  used: Generated<number>;
+  user_id: Generated<number>;
+}
+
 export interface AssistantMessages {
   content: string;
   conversation: number;
@@ -159,6 +169,7 @@ export interface Transactions {
   amount: number;
   category: string;
   commitment_id: number | null;
+  commitment_pinned: number | null;
   currency: string;
   date: string;
   description: string;
@@ -207,6 +218,7 @@ export interface DB {
   accounts: Accounts;
   ai_usage: AiUsage;
   assistant_actions: AssistantActions;
+  assistant_memory: AssistantMemory;
   assistant_messages: AssistantMessages;
   commitments: Commitments;
   connections: Connections;

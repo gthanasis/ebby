@@ -3,6 +3,7 @@ import { setCategory, useApi, type Category, type Commitments, type Transaction 
 import { dayLabel, euro, euroRound, monthLabel, shortDay } from "../lib/format";
 import { hrefFor, type Route } from "./App";
 import { MonthNav } from "./Spending";
+import { useOpenPayment } from "./PaymentSheet";
 import { Card, Crumbs, Icon, Select } from "./ui";
 
 interface Props {
@@ -136,12 +137,15 @@ function Row({ t, categories, byId, onChanged, onMoved }: {
   const [saving, setSaving] = useState(false);
   const title = t.merchant || (t.is_card ? `Card purchase · ${cat?.label ?? "Other"}` : t.description);
   const counted = cat?.spending ?? true;
+  const open = useOpenPayment();
   return (
     <div className="part">
       <span className="ricon"><Icon icon={cat?.icon ?? "mdi:dots-horizontal"} /></span>
       <span className="t">
-        <b>{title}</b>
+        <button className="tx-open" onClick={() => open(t.id)}>{title}<Icon icon="mdi:chevron-right" /></button>
         <span className="muted small">
+          {t.commitment_id != null && <span className="tag-fixed"><Icon icon="mdi:repeat" />Fixed</span>}
+          {t.commitment_id != null && " "}
           {t.account_name}
           {t.booked && <span> · booked {shortDay(t.booked)}</span>}
           {t.status === "PDNG" && <span className="pending"> · pending</span>}

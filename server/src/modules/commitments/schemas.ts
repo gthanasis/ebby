@@ -18,10 +18,19 @@ export const Commitments = z.strictObject({
   limit: z.number(), spent: z.number(), over: z.array(z.string()),
 });
 
+/** A fixed cost in one pay month: paid (with the day of its latest payment) or still due (around due_on). */
+export const FixedItem = z.strictObject({
+  id: z.number(), name: z.string(), kind: z.enum(["fixed", "chosen"]), expected: z.number(), paid: z.number(),
+  status: z.enum(["paid", "due"]), paid_on: z.string().nullable(), due_on: z.string().nullable(), count: z.number(),
+});
+
+/** A pay month's fixed costs: due first, soonest first, then those paid. due is what's still to go out. */
+export const FixedMonth = z.strictObject({ items: z.array(FixedItem), paid: z.number(), due: z.number(), expected: z.number() });
+
 /** A service with spending in the last months, to pick what a commitment covers. */
 export const ServiceSeen = z.strictObject({ service: z.string(), monthly: z.number(), months: z.number(), category: z.string() });
 
-export const schemas = { Commitment, CommitmentSuggestion, Commitments, ServiceSeen };
+export const schemas = { Commitment, CommitmentSuggestion, Commitments, ServiceSeen, FixedItem, FixedMonth };
 
 export const responses = {
   "GET /api/commitments": Commitments,
@@ -29,4 +38,5 @@ export const responses = {
   "POST /api/commitments": Commitments,
   "PUT /api/commitments/:cid": Commitments,
   "DELETE /api/commitments/:cid": Commitments,
+  "GET /api/fixed": FixedMonth,
 };
