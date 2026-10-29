@@ -1,0 +1,21 @@
+{
+ "body": {
+  "due": 45,
+  "expected": 45,
+  "items": [
+   {
+    "count": 0,
+    "due_on": null,
+    "expected": 45,
+    "id": 1,
+    "kind": "chosen",
+    "name": "Gym",
+    "paid": 0,
+    "paid_on": null,
+    "status": "due"
+   }
+  ],
+  "paid": 0
+ },
+ "status": 200
+}

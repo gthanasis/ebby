@@ -13,8 +13,8 @@ export type Subscriptions = z.infer<typeof S.Subscriptions>;
 export type Cash = z.infer<typeof S.Cash>;
 
 /** A spending row (amount as a positive number) under the service it went to. */
-export function toSpendPayment(r: { date: string; amount: number; category: string }, name: string): SpendPayment {
-  return { date: r.date, amount: pyRound(r.amount, 2), category: r.category, name };
+export function toSpendPayment(r: { id: string; date: string; amount: number; category: string }, name: string): SpendPayment {
+  return { id: r.id, date: r.date, amount: pyRound(r.amount, 2), category: r.category, name };
 }
 
 /** One category over a period; usualMonth is the unrounded median of the months before. */

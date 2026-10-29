@@ -1,8 +1,9 @@
-import { Fragment, useEffect, useState } from "react";
-import { liveSync, saveSettings, startSync, useApi, type Home, type PaydayGuess, type Status, type TodayMonth } from "../lib/api";
-import { useRemembered } from "../lib/remember";
-import { ago, dayLabel, euroRound, ordinal } from "../lib/format";
+import { useEffect, useState, type ReactNode } from "react";
+import { liveSync, patchGoal, saveSettings, setMonthLimit, startSync, useApi, type Home, type PayArrival, type PaydayGuess, type PayWait, type Status, type TodayMonth } from "../lib/api";
+import { useAction } from "../lib/action";
+import { ago, dayLabel, euroRound, monthLabel, ordinal, shiftMonth } from "../lib/format";
 import { hrefFor, type ScreenProps } from "./App";
+import { FixedList } from "./Spending";
 import { Card, CardHeader, Icon } from "./ui";
 
 const DAYNAME = new Intl.DateTimeFormat("en-GB", { weekday: "long" });
@@ -11,8 +12,8 @@ const SHORT = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" 
 const WEEKDAY_SHORT = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" });
 const at = (d: string) => new Date(`${d}T12:00:00`);
 
-/** Today: how this pay month is going so far. The average day, where the month ends at that pace,
- * the days week by week, and where the money went. */
+/** Overview: how much of this month's budget is used and left, what a day can be from here to land on it (or
+ * how to cover going over), and which fixed costs have gone out. */
 export function HomeScreen({ byId, version, status, onSync }: ScreenProps & { status?: Status; onSync: () => void }) {
   const { data, error, reload } = useApi<Home>("/api/home", version);
   const syncing = status?.syncing ?? false;
@@ -32,7 +33,8 @@ export function HomeScreen({ byId, version, status, onSync }: ScreenProps & { st
         <div>
           <h1>{m ? DAYNAME.format(at(m.today)) : "Today"}</h1>
           <p>
-            {m ? `${DATE.format(at(m.today))} · day ${m.elapsed} of ${m.length}` : "Loading…"}
+            {m ? `${DATE.format(at(m.today))} · day ${m.elapsed}${data?.pay_waiting ? ", waiting for pay" : ` of ${m.length}`}` : "Loading…"}
+            {m && !data?.pay_waiting ? ` · ${paydayIn(m)}` : ""}
             {syncing ? " · syncing…" : status?.last_sync ? ` · synced ${ago(data?.fresh_at ?? status.last_sync)}` : ""}
           </p>
         </div>
@@ -48,7 +50,15 @@ export function HomeScreen({ byId, version, status, onSync }: ScreenProps & { st
       {data && m && (
         <div className="col">
           {data.payday_hint && <PaydayNudge guess={data.payday_hint} onDone={reload} />}
-          <TodayCards m={m} byId={byId} />
+          {data.pay_waiting && <PayWaiting wait={data.pay_waiting} m={m} />}
+          {data.pay_arrived && <PayArrived pay={data.pay_arrived} />}
+          {m.ideal ? (
+            <>
+              <MonthCard m={m} waiting={!!data.pay_waiting} />
+              <GoalCard m={m} byId={byId} waiting={!!data.pay_waiting} onChanged={reload} />
+            </>
+          ) : <NoPlan m={m} />}
+          <FixedCard m={m} />
         </div>
       )}
     </>
@@ -78,199 +88,233 @@ function PaydayNudge({ guess, onDone }: { guess: PaydayGuess; onDone: () => void
   );
 }
 
-type Mode = "now" | "ideal";
-
-/** Now is how the month is going; Ideal is how it should go on the budget. One switch for both cards. */
-function TodayCards({ m, byId }: { m: TodayMonth; byId: ScreenProps["byId"] }) {
-  const [saved, setMode] = useRemembered<Mode>("todayMode", "now");
-  const mode: Mode = m.ideal ? saved : "now";
+/** Pay is late: the month runs on past its last day until it lands. */
+function PayWaiting({ wait, m }: { wait: PayWait; m: TodayMonth }) {
   return (
-    <>
-      <SpendCard m={m} mode={mode} setMode={setMode} />
-      <WhereItWent m={m} byId={byId} mode={mode} />
-    </>
-  );
-}
-
-interface Week { from: number; to: number; total: number; future: boolean }
-
-/** Monday-to-Sunday runs over the days of the pay month; the first and last can be short. */
-function weeksOf(days: TodayMonth["days"]): Week[] {
-  const out: Week[] = [];
-  days.forEach((d, i) => {
-    if (i === 0 || at(d.date).getDay() === 1) out.push({ from: i, to: i, total: 0, future: true });
-    const w = out[out.length - 1];
-    w.to = i;
-    if (d.spent != null) { w.total += d.spent; w.future = false; }
-  });
-  return out;
-}
-
-function SpendCard({ m, mode, setMode }: { m: TodayMonth; mode: Mode; setMode: (m: Mode) => void }) {
-  const ideal = mode === "ideal" && m.ideal ? m.ideal : null;
-  const past = m.days.map((d, i) => ({ ...d, i })).filter((d) => d.spent != null) as { date: string; spent: number; i: number }[];
-  const spending = past.filter((d) => d.spent > 0);
-  const max = spending.reduce<(typeof spending)[0] | null>((a, d) => (!a || d.spent > a.spent ? d : a), null);
-  const min = spending.reduce<(typeof spending)[0] | null>((a, d) => (!a || d.spent < a.spent ? d : a), null);
-  const none = past.filter((d) => d.spent === 0 && d.date !== m.today).length;
-  const lastDay = m.days[m.days.length - 1].date;
-
-  return (
-    <Card>
-      {m.ideal && (
-        <div className="seg2" role="radiogroup" aria-label="Show">
-          <button role="radio" aria-checked={!ideal} onClick={() => setMode("now")}>Now</button>
-          <button role="radio" aria-checked={!!ideal} onClick={() => setMode("ideal")}>Ideal</button>
-        </div>
-      )}
-      {ideal ? (
-        <div className="td-duo">
-          <div>
-            <div className="left-label">Ideal day</div>
-            <div className="td-n num">{euroRound(ideal.day)}</div>
-            <div className="td-s">to land on budget</div>
-          </div>
-          <div>
-            <div className="left-label">Month should end at</div>
-            <div className="td-n num">{euroRound(ideal.budget)}</div>
-            <div className="td-s">your budget</div>
-          </div>
-        </div>
-      ) : (
-        <div className="td-duo">
-          <div>
-            <div className="left-label">Average day</div>
-            <div className="td-n num">{euroRound(m.average)}</div>
-            <div className="td-s num">over {m.elapsed} {m.elapsed === 1 ? "day" : "days"}</div>
-          </div>
-          <div>
-            <div className="left-label">Month ends at</div>
-            <div className="td-n num">{euroRound(m.projected)}</div>
-            <div className="td-s num">at this pace, {SHORT.format(at(lastDay))}</div>
-          </div>
-        </div>
-      )}
-      <WeekChart m={m} idealDay={ideal?.day} maxIndex={max?.i} minIndex={min && min !== max ? min.i : undefined} />
-      {ideal ? <BudgetSum m={m} /> : max && (
-        <div className="td-extremes num">
-          <div><span><i className="td-dot hot" />Biggest day</span><b>{euroRound(max.spent)}</b><em>{WEEKDAY_SHORT.format(at(max.date))}</em></div>
-          {min && min !== max && <div><span><i className="td-dot low" />Smallest day</span><b>{euroRound(min.spent)}</b><em>{WEEKDAY_SHORT.format(at(min.date))}</em></div>}
-        </div>
-      )}
-      {!ideal && none > 0 && <p className="td-note">{none} {none === 1 ? "day" : "days"} with nothing spent.</p>}
-    </Card>
-  );
-}
-
-/** Where the budget comes from: income, less savings, fixed costs and each goal's month. */
-function BudgetSum({ m }: { m: TodayMonth }) {
-  const i = m.ideal!;
-  const left = i.budget - m.spent;
-  return (
-    <>
-      <div className="sum num td-sum">
-        <span>Income</span><b>{euroRound(i.income)}</b>
-        <span>Savings</span><b>−{euroRound(i.savings)}</b>
-        <span>Fixed costs</span><b>−{euroRound(i.fixed)}</b>
-        {i.goals.length ? i.goals.map((g) => (
-          <Fragment key={g.name}>
-            <span><a className="td-goal" href={hrefFor({ page: "goals" })}>{g.name}, {euroRound(g.price)} by {SHORT.format(at(g.target_date))}</a></span>
-            <b>−{euroRound(g.monthly)}</b>
-          </Fragment>
-        )) : <><span>Goals</span><b><a className="link" href={hrefFor({ page: "goals" })}>Add one</a></b></>}
-        <span className="tot">Budget</span><b className="tot">{euroRound(i.budget)} a month</b>
-      </div>
-      <p className={`td-note num ${left < 0 ? "over-txt" : ""}`}>
-        {euroRound(m.spent)} spent so far, {left < 0 ? `${euroRound(-left)} over the budget.` : `${euroRound(left)} left.`}
-      </p>
-    </>
-  );
-}
-
-/** One bar per day, the average drawn through them, weeks divided with each week's total under it. */
-function WeekChart({ m, idealDay, maxIndex, minIndex }: { m: TodayMonth; idealDay?: number; maxIndex?: number; minIndex?: number }) {
-  // In Ideal the line is the budget's day and each week is measured against its share of it.
-  const line = idealDay ?? m.average;
-  const weeks = weeksOf(m.days);
-  const todayIndex = m.days.findIndex((d) => d.date === m.today);
-  const thisWeek = weeks.findIndex((w) => todayIndex >= w.from && todayIndex <= w.to);
-  const top = Math.max(line, ...m.days.map((d) => d.spent ?? 0), 1) * 1.08;
-  const cols = { gridTemplateColumns: `repeat(${m.days.length}, 1fr)` };
-  const span = (w: Week) => ({ gridColumn: `${w.from + 1} / ${w.to + 2}` });
-
-  return (
-    <div className="td-chart" role="img" aria-label={`Spending per day this month; ${weeks.filter((w) => !w.future).map((w) => `${euroRound(w.total)} the week of ${SHORT.format(at(m.days[w.from].date))}`).join(", ")}`}>
-      <div className="td-plot">
-        <div className="td-bands" style={cols}>
-          {weeks.map((w, k) => <span key={w.from} className={`${k === thisWeek ? "now" : ""} ${k ? "div" : ""}`} style={span(w)} />)}
-        </div>
-        <div className="td-bars" style={cols}>
-          {m.days.map((d, i) => d.spent == null
-            ? <i key={d.date} className="future" style={{ height: `${(line / top) * 100}%` }} />
-            : <i key={d.date} title={`${SHORT.format(at(d.date))}: ${euroRound(d.spent)}`}
-                className={idealDay != null ? (d.spent > idealDay ? "over" : "") : i === maxIndex ? "max" : i === minIndex ? "min" : i === todayIndex ? "today" : ""}
-                style={{ height: `${Math.max(3, (d.spent / top) * 100)}%` }} />)}
-          <span className={`td-avg ${idealDay != null ? "ideal" : ""}`} style={{ bottom: `${(line / top) * 100}%` }}>
-            <em className="num">{euroRound(line)} {idealDay != null ? "ideal" : "a day"}</em>
-          </span>
-        </div>
-      </div>
-      <div className="td-weeks" style={cols}>
-        {weeks.map((w, k) => {
-          const narrow = w.to - w.from < 4;
-          const share = (idealDay ?? 0) * (w.to - w.from + 1);
-          return (
-            <span key={w.from} className={`${k === thisWeek ? "now" : ""} ${w.future ? "future" : ""} ${k ? "div" : ""}`} style={span(w)}>
-              {idealDay != null
-                ? w.future ? <><b className="num">{euroRound(share)}</b>left</>
-                  : <><b className={`num ${w.total > share ? "over-txt" : ""}`}>{euroRound(w.total)}</b>{narrow ? "" : `of ${euroRound(share)}`}</>
-                : w.future ? <><b>{w.to - w.from + 1} days</b>to go</>
-                  : <><b className="num">{euroRound(w.total)}</b>{k === thisWeek ? "this week" : narrow ? at(m.days[w.from].date).getDate() : SHORT.format(at(m.days[w.from].date))}</>}
-            </span>
-          );
-        })}
+    <div className="notice warn" role="status">
+      <Icon icon="mdi:timer-outline" />
+      <div>
+        <b>Waiting for your pay</b>
+        <p className="num">{wait.payer ? `${wait.payer} usually pays` : "Your pay is usually"} about {euroRound(wait.amount)} on {SHORT.format(at(wait.expected))}. It hasn't
+          arrived, so {monthLabel(m.month).split(" ")[0]}'s month stays open until it does, or until {WEEKDAY_SHORT.format(at(wait.until))}.</p>
+        <a className="chip" href={hrefFor({ page: "settings", section: "payday" })}>Payday settings</a>
       </div>
     </div>
   );
 }
 
-/** This month's spending by category, biggest first; each opens its drill-down. */
-function WhereItWent({ m, byId, mode }: { m: TodayMonth; byId: ScreenProps["byId"]; mode: Mode }) {
-  const [all, setAll] = useState(false);
-  const targets = mode === "ideal" ? m.ideal?.targets : undefined;
-  // In Ideal the bars share one scale with the targets, so a tick shows where each should stop.
-  const top = Math.max(m.categories[0]?.spent ?? 0, ...(targets ? m.categories.map((c) => targets[c.category] ?? 0) : []));
-  const shown = all ? m.categories : m.categories.slice(0, 6);
+function PayArrived({ pay }: { pay: PayArrival }) {
+  return (
+    <div className="notice ok" role="status">
+      <Icon icon="mdi:arrow-down-circle-outline" />
+      <div><b className="num">Pay arrived, {euroRound(pay.amount)}</b><p>A new month started on {WEEKDAY_SHORT.format(at(pay.date))}, the day it landed.</p></div>
+    </div>
+  );
+}
+
+/** Where this month stands against its budget, worked out once for every card. Fixed costs that came in over their
+ * limits leave less to spend; what's spent is free spending only. */
+function standing(m: TodayMonth, waiting: boolean) {
+  const i = m.ideal!;
+  const budget = i.budget;
+  const fixedOver = Math.max(0, m.fixed.paid + m.fixed.due - i.fixed);
+  const used = m.spent + fixedOver;
+  const left = budget - used;
+  const daysLeft = waiting ? 0 : m.length - m.elapsed;
+  const usual = m.elapsed ? m.spent / m.elapsed : 0;
+  const end = left - usual * daysLeft;
+  const state: "ok" | "behind" | "over" = left < 0 ? "over" : end < 0 ? "behind" : "ok";
+  const perDay = left <= 0 ? 0 : daysLeft ? left / daysLeft : left;
+  return { budget, used, left, daysLeft, usual, end, state, perDay, pace: budget * m.elapsed / m.length };
+}
+
+const paydayIn = (m: TodayMonth) => {
+  const days = Math.round((at(m.end).getTime() - at(m.today).getTime()) / 864e5);
+  return days <= 1 ? "payday tomorrow" : `payday in ${days} days`;
+};
+
+const STATE = {
+  ok: { label: "On track", icon: "mdi:check-circle-outline" },
+  behind: { label: "Behind", icon: "mdi:alert-circle-outline" },
+  over: { label: "Over budget", icon: "mdi:alert-circle-outline" },
+};
+
+/** This month so far: used and left, the runway to payday, and the one number to live by from today. */
+function MonthCard({ m, waiting }: { m: TodayMonth; waiting: boolean }) {
+  const s = standing(m, waiting);
+  const name = monthLabel(m.month).split(" ")[0];
+  const days = s.daysLeft === 1 ? "1 day" : `${s.daysLeft} days`;
   return (
     <Card>
-      <CardHeader icon="mdi:chart-donut" title="Where it went"
-        aside={<a className="link" href={hrefFor({ page: "spending", range: "month" })}>Spending<Icon icon="mdi:chevron-right" /></a>} />
-      {m.categories.length === 0 && <p className="hint" style={{ margin: 0 }}>Nothing spent yet this month.</p>}
-      {shown.map((c) => {
-        const cat = byId[c.category];
-        const target = targets ? targets[c.category] ?? 0 : null;
-        const over = target != null && c.spent > target;
-        return (
-          <a key={c.category} className="part td-cat" href={hrefFor({ page: "category", category: c.category, range: "month" })}>
-            <span className="ricon"><Icon icon={cat?.icon ?? "mdi:dots-horizontal"} /></span>
-            <span className="t">
-              <b>{cat?.label ?? c.category}<small className="num">{c.count} {c.count === 1 ? "payment" : "payments"}</small></b>
-              <span className="td-share">
-                <i className={over ? "over" : ""} style={{ width: `${top ? (c.spent / top) * 100 : 0}%` }} />
-                {target != null && <u style={{ left: `${top ? (target / top) * 100 : 0}%` }} />}
-              </span>
-            </span>
-            <span className="amt num">
-              <b className={over ? "over-txt" : ""}>{euroRound(c.spent)}</b>
-              <span>{target != null ? `of ${euroRound(target)}` : `${m.spent ? Math.round((c.spent / m.spent) * 100) : 0}%`}</span>
-            </span>
-            <Icon icon="mdi:chevron-right" />
-          </a>
-        );
-      })}
-      {m.categories.length > 6 && (
-        <button className="part add-row" onClick={() => setAll(!all)}>{all ? "Show fewer" : `Show all ${m.categories.length}`}</button>
+      <div className="ov-top">
+        <div className="left-label">{name} so far</div>
+        <span className={`ov-pill ${s.state}`}><Icon icon={STATE[s.state].icon} />{STATE[s.state].label}</span>
+      </div>
+      <div className="ov-duo num">
+        <div><span>Used</span><b className={s.state === "over" ? "bad-txt" : ""}>{euroRound(s.used)}</b>
+          <em>{Math.round((s.used / (s.budget || 1)) * 100)}% of {euroRound(s.budget)} · {euroRound(s.pace)} by today</em></div>
+        <div><span>{s.left >= 0 ? "Left" : "Over"}</span><b className={s.state === "ok" ? "ok-txt" : s.state === "behind" ? "over-txt" : "bad-txt"}>{euroRound(Math.abs(s.left))}</b>
+          <em>{waiting ? "until your pay lands" : s.left >= 0 ? `for ${days}` : `${days} still to go`}</em></div>
+      </div>
+      <Runway m={m} s={s} />
+      <div className="ov-legend small muted">
+        <span><i className={`ov-k actual ${s.state}`} />Left</span><span><i className="ov-k ideal" />On budget</span><span><i className={`ov-k proj ${s.state}`} />At this pace</span>
+      </div>
+      <div className={`ov-daily ${s.state} num`}>
+        {s.state === "over" ? (
+          <><span>The budget is used up</span><b>{euroRound(0)}<small> a day</small></b>
+            <em>{euroRound(-s.left)} over already{s.daysLeft ? `, with ${days} to payday` : ""}.{" "}
+              {m.next_limit != null ? `Covered from ${monthLabel(shiftMonth(m.month, 1)).split(" ")[0]}.` : "Pick how to cover it below."}</em></>
+        ) : (
+          <><span>To land on budget</span><b>{euroRound(s.perDay)}<small> {s.daysLeft ? "a day" : waiting ? "until pay lands" : "today"}</small></b>
+            <em>{s.daysLeft ? `for the ${days} to payday` : "for the rest of the month"}
+              {s.state === "ok" ? `. You've been spending about ${euroRound(s.usual)} a day, so there's room.` : `, against the ${euroRound(s.usual)} a day you've been spending.`}</em></>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/** Money left each day from payday to payday: what's used is shaded, the straight line is on budget, the dotted line
+ * carries on at the pace so far. Goes below zero when the month does. */
+function Runway({ m, s }: { m: TodayMonth; s: ReturnType<typeof standing> }) {
+  const W = 320, H = 150, P = 4, B = s.budget || 1;
+  const lo = Math.max(-B * 0.3, Math.min(0, s.left - B * 0.05, s.end - B * 0.03));
+  const x = (d: number) => P + (d / m.length) * (W - 2 * P);
+  const y = (v: number) => P + ((B - v) / (B - lo)) * (H - 2 * P - 14);
+  let left = B;
+  const pts: [number, number][] = [[0, B], ...m.days.filter((d) => d.spent != null).map((d, i) => [i + 1, (left -= d.spent!)] as [number, number])];
+  const line = pts.map(([d, v]) => `${x(d).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const now = pts[pts.length - 1][0];
+  const nowLeft = s.left;
+  return (
+    <svg className="ov-run" viewBox={`0 0 ${W} ${H}`} role="img"
+      aria-label={`${euroRound(s.used)} used of ${euroRound(B)}; at this pace ${s.end >= 0 ? `${euroRound(s.end)} left` : `${euroRound(-s.end)} over`} at payday`}>
+      <polygon points={`${x(0)},${y(B)} ${line} ${x(now)},${y(B)}`} className="ov-used" />
+      {lo < 0 && <>
+        <rect x={P} y={y(0)} width={W - 2 * P} height={y(lo) - y(0)} className="ov-below" />
+        <line x1={P} y1={y(0)} x2={W - P} y2={y(0)} className="ov-zero" />
+      </>}
+      <line x1={x(0)} y1={y(B)} x2={x(m.length)} y2={y(0)} className="ov-ideal" />
+      <polyline points={line} className={`ov-actual ${s.state}`} />
+      {s.daysLeft > 0 && <line x1={x(now)} y1={y(nowLeft)} x2={x(m.length)} y2={y(Math.max(lo, s.end))} className={`ov-proj ${s.state}`} />}
+      <circle cx={x(now)} cy={y(nowLeft)} r={4} className={`ov-dot ${s.state}`} />
+      <line x1={x(m.length)} y1={P} x2={x(m.length)} y2={H - 14} className="ov-payday" />
+      <text x={x(0)} y={H - 1} className="ov-tx">{SHORT.format(at(m.start))}</text>
+      {now / m.length > 0.15 && now / m.length < 0.8 && <text x={x(now)} y={H - 1} className="ov-tx" textAnchor="middle">today</text>}
+      <text x={x(m.length)} y={H - 1} className="ov-tx" textAnchor="end">payday</text>
+    </svg>
+  );
+}
+
+/** What to do from here: on track, the category to watch and where the spare can go; behind, what to cut and what a
+ * goal could cover; over, how to cover it, from next month or from a goal. */
+function GoalCard({ m, byId, waiting, onChanged }: { m: TodayMonth; byId: ScreenProps["byId"]; waiting: boolean; onChanged: () => void }) {
+  const s = standing(m, waiting);
+  const i = m.ideal!;
+  const goal = m.goal;
+  const { busy, error, run } = useAction();
+  const label = (c: string) => byId[c]?.label ?? c;
+  const next = shiftMonth(m.month, 1);
+  const nextName = monthLabel(next).split(" ")[0];
+  // Taking goal money means more to spend this month; the goal gives it back from what it has saved.
+  const fromGoal = (amount: number) => run(() => patchGoal(goal!.id, { add: -amount }).then(() => setMonthLimit(m.month, s.budget + amount)).then(onChanged));
+  const rows: ReactNode[] = [];
+
+  if (s.state === "ok") {
+    const c = m.watch[0];
+    if (c) rows.push(<Todo key="watch" icon={byId[c.category]?.icon} title={`${label(c.category)} is the one to watch`}
+      note={`${euroRound(c.spent)} so far, ${euroRound(c.spent - c.usual)} over a usual month by now.`} />);
+    if (s.daysLeft && s.end >= 20) {
+      rows.push(goal
+        ? <Todo key="spare" icon="mdi:piggy-bank-outline" tone="ok" title={`About ${euroRound(s.end)} spare at payday`}
+            note={goal.saved + s.end >= goal.price
+              ? `At this pace. That's enough to finish ${goal.name}: it needs ${euroRound(goal.price - goal.saved)} more.`
+              : `At this pace. Put it towards ${goal.name} and you'd be at ${euroRound(goal.saved + s.end)} of ${euroRound(goal.price)}.`}
+            aside={<a className="chip" href={hrefFor({ page: "goals" })}>Plan it</a>} />
+        : <Todo key="spare" icon="mdi:piggy-bank-outline" tone="ok" title={`About ${euroRound(s.end)} spare at payday`}
+            note="At this pace. A goal gives it somewhere to go." aside={<a className="chip" href={hrefFor({ page: "goals" })}>Add a goal</a>} />);
+    }
+    if (!rows.length) rows.push(<Todo key="keep" icon="mdi:check" tone="ok" title={`Keep to ${euroRound(s.perDay)} a day`} note="Nothing else to change." />);
+  }
+
+  if (s.state === "behind") {
+    for (const c of m.watch) {
+      const each = c.count ? c.spent / c.count : 0;
+      rows.push(<Todo key={c.category} icon={byId[c.category]?.icon} tone="warn" title={`Cut ${label(c.category).toLowerCase()} this week`}
+        note={`${euroRound(c.spent)} so far, ${euroRound(c.spent - c.usual)} over a usual month.${each >= 2 ? ` Each one fewer is about ${euroRound(each)}.` : ""}`} />);
+    }
+    const take = goal ? Math.min(goal.saved, Math.ceil(-s.end / 10) * 10) : 0;
+    if (goal && take > 0 && s.daysLeft) {
+      rows.push(<Todo key="goal" icon="mdi:piggy-bank-outline" title={`Or take ${euroRound(take)} from ${goal.name}`}
+        note={`Then it's ${euroRound((s.left + take) / s.daysLeft)} a day instead of ${euroRound(s.perDay)}, and ${goal.name} has ${euroRound(goal.saved - take)} saved.`}
+        aside={<button className="chip" disabled={busy} onClick={() => fromGoal(take)}>Use it</button>} />);
+    }
+    if (!rows.length) rows.push(<Todo key="keep" icon="mdi:wallet-outline" tone="warn" title={`Keep to ${euroRound(s.perDay)} a day`}
+      note={`You've been at ${euroRound(s.usual)} a day. Spending is spread out, so there's no one thing to cut.`} />);
+  }
+
+  if (s.state === "over") {
+    const over = Math.ceil(-s.left);
+    if (m.next_limit != null) {
+      rows.push(<Todo key="next" icon="mdi:check" tone="ok" title={`${nextName} starts at ${euroRound(m.next_limit)}`}
+        note={`Instead of ${euroRound(i.planned)}, to cover this month.`} />);
+    } else {
+      rows.push(<Todo key="next" icon="mdi:calendar-month-outline" title={`Take ${euroRound(over)} from ${nextName}`}
+        note={`${nextName} starts at ${euroRound(Math.max(0, i.planned - over))} instead of ${euroRound(i.planned)}. Nothing else changes.`}
+        aside={<button className="chip" disabled={busy} onClick={() => run(() => setMonthLimit(next, Math.max(1, i.planned - over)).then(onChanged))}>Choose</button>} />);
+      if (goal && goal.saved >= over) {
+        rows.push(<Todo key="goal" icon="mdi:piggy-bank-outline" title={`Or cover it from ${goal.name}`}
+          note={`${euroRound(over)} of the ${euroRound(goal.saved)} saved.`}
+          aside={<button className="chip" disabled={busy} onClick={() => fromGoal(over)}>Choose</button>} />);
+      }
+    }
+    const groceries = m.categories.find((c) => c.category === "groceries");
+    if (s.daysLeft) rows.push(<Todo key="essentials" icon="mdi:cart-outline" tone="bad" title="Until payday: essentials only"
+      note={groceries && m.elapsed ? `Groceries have been about ${euroRound(groceries.spent / m.elapsed)} a day. Anything more adds to what's over.` : "Anything more adds to what's over."} />);
+  }
+
+  return (
+    <Card>
+      <CardHeader icon="mdi:target" title={s.state === "over" ? "Get back on track" : "To hit your goal"} />
+      {rows}
+      {error && <div className="error">{error}</div>}
+    </Card>
+  );
+}
+
+function Todo({ icon, tone = "", title, note, aside }: { icon?: string; tone?: string; title: string; note: string; aside?: ReactNode }) {
+  return (
+    <div className="part">
+      <span className={`ricon ${tone}`}><Icon icon={icon ?? "mdi:dots-horizontal"} /></span>
+      <span className="t"><b>{title}</b><span className="muted small text-wrap">{note}</span></span>
+      {aside}
+    </div>
+  );
+}
+
+/** Before there's a plan: what's spent, and the one step that turns on the rest of the page. */
+function NoPlan({ m }: { m: TodayMonth }) {
+  return (
+    <Card>
+      <div className="left-label">{monthLabel(m.month).split(" ")[0]} so far</div>
+      <div className="left-num num">{euroRound(m.spent)}</div>
+      <p className="hint">Add your monthly income to see what's left, and what a day can be until payday.</p>
+      <div className="row-actions"><a className="chip" href={hrefFor({ page: "settings", section: "income" })}>Add income</a></div>
+    </Card>
+  );
+}
+
+/** Every fixed cost this month: paid, with the day, or still to come. */
+function FixedCard({ m }: { m: TodayMonth }) {
+  return (
+    <Card>
+      <CardHeader icon="mdi:repeat" title="Fixed costs"
+        aside={m.fixed.items.length ? <span className="small muted num">{euroRound(m.fixed.paid)} of {euroRound(m.fixed.expected)} paid</span> : undefined} />
+      {m.fixed.items.length ? <FixedList f={m.fixed} month={m.month} bare /> : (
+        <p className="hint" style={{ margin: 0 }}>Rent, bills and loans you pay every month. <a className="link" href={hrefFor({ page: "settings", section: "fixed" })}>Add them</a></p>
       )}
+      {m.fixed.items.length > 0 && <p className="hint">Set aside before your budget, so they don't change what's left to spend.</p>}
     </Card>
   );
 }

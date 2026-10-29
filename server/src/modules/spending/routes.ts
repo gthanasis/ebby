@@ -15,7 +15,7 @@ import * as accountSettings from "../account/settings.js";
 import { body, fail, int, integer, required } from "../../shared/http.js";
 import { serviceDetail, serviceTransactionIds } from "./services.js";
 import { categoryDetail } from "../plan/category.js";
-import { thisMonth } from "../../shared/months.js";
+import { payArrived, payWaiting, thisMonth } from "../../shared/months.js";
 import { detectPayday } from "../plan/payday.js";
 import { pace } from "../plan/pace.js";
 import { subscriptions } from "./subscriptions.js";
@@ -33,6 +33,7 @@ export function routes(app: Hono) {
       month: await todayView(conn), fresh_at: synced[0] ?? null,
       // Until payday is set (or the nudge dismissed), offer the one the deposits point to.
       payday_hint: settings.payday || settings.payday_dismissed ? null : await detectPayday(conn),
+      pay_waiting: payWaiting(), pay_arrived: payArrived(),
     };
   })));
 

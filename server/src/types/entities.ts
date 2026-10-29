@@ -62,6 +62,10 @@ export interface Settings {
   extra_pay?: boolean;
   /** Your names as banks print them: transfers to these are your own. */
   owner_names?: string[];
+  /** When a new month starts: on the payday ("payday", the default) or when the pay arrives ("pay"). */
+  month_start?: "payday" | "pay";
+  /** With month_start "pay": the most days after the payday a month waits for pay. */
+  pay_wait_days?: number;
 }
 
 export interface WeeklyRead {
@@ -74,7 +78,8 @@ export interface WeeklyRead {
   budgets: Record<string, number> | null;
 }
 
-export interface SorterGuess { category: string; reason: string; at: string }
+/** remembered: the lines of what the assistant remembers that the guess leaned on. */
+export interface SorterGuess { category: string; reason: string; at: string; remembered?: string[] }
 
 /** Every key meta holds, and what's stored under it (explain:<range>:<start> keys hold an Explanation). */
 export interface MetaDocuments {

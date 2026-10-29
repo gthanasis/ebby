@@ -24,6 +24,7 @@ import { SORTER_GUESS } from "./prompts/sorter.js";
 import * as spending from "../spending/service.js";
 import { localToday } from "../../shared/months.js";
 import { questions } from "../spending/questions.js";
+import * as memory from "./memory.js";
 
 
 const GUESS_KEY = "sorter_guesses";
@@ -47,17 +48,19 @@ export async function items(conn: Conn): Promise<SortItem[]> {
 const Guess = z.object({
   category: z.string().describe("One category id from the list"),
   reason: z.string().describe("Why, in one or two short sentences that name the clues used, e.g. the shop type or the day's other payments"),
+  remembered: z.array(z.number()).describe("Ids of the remembered lines the guess relies on; empty if none"),
 });
 
 
 
-function context(item: Row): string {
+function context(item: Row, remembered: string): string {
   const lines = [`Payment: €${fmt2(item.amount)} to "${item.service}" (bank text: "${item.description}") on ${item.date}, `
     + `${item.days_ago} days ago, a ${ai.dayName(PyDate.fromisoformat(item.date))}, by ${item.how}.`];
   if (item.count > 1) lines.push(`There are ${item.count} such payments in the last 90 days, €${fmt2(item.total)} in all.`);
   lines.push(`Shop type from the bank: ${item.shop || "none given"}.`);
   lines.push("Other payments that day: " + (item.same_day.map((p: Row) => `${p.name} €${fmt2(p.amount)} (${p.category})`).join("; ") || "none") + ".");
   lines.push("Earlier payments to this payee: " + (item.history.map((h: Row) => `${h.date} €${fmt2(h.amount)}`).join("; ") || "none") + ".");
+  if (remembered) lines.push(`What this person has asked you to remember (id, then their words):\n${remembered}`);
   lines.push("Categories (id: name): " + Object.entries(CATEGORIES).map(([k, v]) => `${k}: ${v[0]}`).join("; "));
   return lines.join("\n");
 }
@@ -76,11 +79,12 @@ export async function guess(conn: Conn, service: string): Promise<Row | null> {
     throw e;
   }
   const model = await ai.assistantModel(conn);
+  const lines = await memory.promptLines(conn);
   let response;
   try {
     response = await claude.client.beta.messages.parse({
       model, max_tokens: 2000, output_config: { effort: "low", format: betaZodOutputFormat(Guess) }, system: SORTER_GUESS,
-      messages: [{ role: "user", content: context(item) }], ...ai.fallback(model),
+      messages: [{ role: "user", content: context(item, lines.text) }], ...ai.fallback(model),
     });
   } catch (e) {
     if (e instanceof Anthropic.APIError) { console.warn(`sorter guess failed: ${e.message}`); return null; }
@@ -89,7 +93,10 @@ export async function guess(conn: Conn, service: string): Promise<Row | null> {
   await ai.record(claude, model, response.usage);
   const g = response.parsed_output;
   if (response.stop_reason === "refusal" || g == null || !(g.category in CATEGORIES)) return null;
-  const result = { category: g.category, reason: g.reason, at: isoUtc(clock.now(), "seconds") };
+  const used = g.remembered.filter((id) => lines.ids.includes(id));
+  await memory.markUsed(conn, used);
+  const texts = (await memory.list(conn)).filter((m) => used.includes(m.id)).map((m) => m.text);
+  const result = { category: g.category, reason: g.reason, at: isoUtc(clock.now(), "seconds"), ...(texts.length ? { remembered: texts } : {}) };
   guesses[service] = result;
   await db.setMeta(conn, GUESS_KEY, guesses);
   return result;

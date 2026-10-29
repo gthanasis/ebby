@@ -7,8 +7,8 @@
    {
     "category": "housing",
     "count": 1,
-    "spent": 650.0,
-    "usual": 650.0
+    "spent": 650,
+    "usual": 650
    },
    {
     "category": "delivery",
@@ -25,8 +25,8 @@
    {
     "category": "bills",
     "count": 4,
-    "spent": 140.0,
-    "usual": 140.0
+    "spent": 140,
+    "usual": 140
    },
    {
     "category": "eating_out",
@@ -61,14 +61,14 @@
    {
     "category": "health",
     "count": 1,
-    "spent": 45.0,
+    "spent": 45,
     "usual": 81.59
    },
    {
     "category": "cash",
     "count": 1,
-    "spent": 40.0,
-    "usual": 55.0
+    "spent": 40,
+    "usual": 55
    },
    {
     "category": "personal_care",
@@ -193,7 +193,7 @@
    },
    {
     "date": "2026-09-22",
-    "spent": 18.0
+    "spent": 18
    },
    {
     "date": "2026-09-23",
@@ -207,6 +207,7 @@
   "elapsed": 31,
   "end": "2026-09-24",
   "explanation": null,
+  "fixed": [],
   "highlights": [
    {
     "category": "groceries",
@@ -217,9 +218,10 @@
     "usual_count": 19
    },
    {
-    "amount": 650.0,
+    "amount": 650,
     "category": "housing",
     "date": "2026-09-01",
+    "id": "demo-alpha-current:demo-386",
     "kind": "payment",
     "name": "ΕΝΟΙΚΙΟ ΔΙΑΜΕΡΙΣΜΑΤΟΣ"
    },
@@ -246,438 +248,511 @@
     "amount": 57.66,
     "category": "groceries",
     "date": "2026-09-24",
+    "id": "demo-alpha-current:demo-440",
     "name": "Sklavenitis"
    },
    {
     "amount": 9.39,
     "category": "coffee_bars",
     "date": "2026-09-24",
+    "id": "demo-alpha-card:demo-441",
     "name": "Card · bars"
    },
    {
     "amount": 5.29,
     "category": "eating_out",
     "date": "2026-09-24",
+    "id": "demo-revolut:demo-442",
     "name": "Coffee Island"
    },
    {
-    "amount": 18.0,
+    "amount": 18,
     "category": "bills",
     "date": "2026-09-22",
+    "id": "demo-alpha-current:demo-439",
     "name": "Vodafone"
    },
    {
     "amount": 3.63,
     "category": "car",
     "date": "2026-09-21",
+    "id": "demo-alpha-current:demo-438",
     "name": "Oasa Athens Metro"
    },
    {
     "amount": 23.99,
     "category": "personal_care",
     "date": "2026-09-20",
+    "id": "demo-alpha-current:demo-435",
     "name": "Hair Studio"
    },
    {
-    "amount": 19.0,
+    "amount": 19,
     "category": "bills",
     "date": "2026-09-20",
+    "id": "demo-alpha-current:demo-437",
     "name": "Eydap"
    },
    {
     "amount": 3.91,
     "category": "coffee_bars",
     "date": "2026-09-20",
+    "id": "demo-alpha-card:demo-436",
     "name": "Card · bars"
    },
    {
     "amount": 3.74,
     "category": "car",
     "date": "2026-09-20",
+    "id": "demo-alpha-current:demo-434",
     "name": "Oasa Athens Metro"
    },
    {
     "amount": 31.23,
     "category": "groceries",
     "date": "2026-09-19",
+    "id": "demo-alpha-current:demo-432",
     "name": "Lidl Hellas"
    },
    {
     "amount": 4.85,
     "category": "coffee_bars",
     "date": "2026-09-19",
+    "id": "demo-alpha-card:demo-433",
     "name": "Card · bars"
    },
    {
     "amount": 5.83,
     "category": "coffee_bars",
     "date": "2026-09-18",
+    "id": "demo-alpha-card:demo-430",
     "name": "Card · bars"
    },
    {
     "amount": 5.79,
     "category": "eating_out",
     "date": "2026-09-18",
+    "id": "demo-revolut:demo-431",
     "name": "Coffee Island"
    },
    {
     "amount": 62.32,
     "category": "shopping",
     "date": "2026-09-17",
+    "id": "demo-alpha-current:demo-428",
     "name": "Zara"
    },
    {
     "amount": 25.79,
     "category": "delivery",
     "date": "2026-09-17",
+    "id": "demo-alpha-current:demo-427",
     "name": "Wolt"
    },
    {
     "amount": 10.87,
     "category": "coffee_bars",
     "date": "2026-09-17",
+    "id": "demo-alpha-card:demo-429",
     "name": "Card · bars"
    },
    {
     "amount": 12.39,
     "category": "delivery",
     "date": "2026-09-16",
+    "id": "demo-alpha-current:demo-426",
     "name": "efood"
    },
    {
-    "amount": 45.0,
+    "amount": 45,
     "category": "health",
     "date": "2026-09-15",
+    "id": "demo-alpha-current:demo-425",
     "name": "Gym Fitness Athletic"
    },
    {
     "amount": 34.26,
     "category": "shopping",
     "date": "2026-09-15",
+    "id": "demo-alpha-current:demo-422",
     "name": "Skroutz"
    },
    {
     "amount": 22.21,
     "category": "eating_out",
     "date": "2026-09-15",
+    "id": "demo-alpha-card:demo-423",
     "name": "Card · restaurants"
    },
    {
     "amount": 6.11,
     "category": "eating_out",
     "date": "2026-09-15",
+    "id": "demo-alpha-card:demo-424",
     "name": "Card · fast food"
    },
    {
     "amount": 2.51,
     "category": "car",
     "date": "2026-09-15",
+    "id": "demo-alpha-current:demo-421",
     "name": "Oasa Athens Metro"
    },
    {
     "amount": 21.6,
     "category": "subscriptions",
     "date": "2026-09-14",
+    "id": "demo-alpha-current:demo-420",
     "name": "Claude (Anthropic)"
    },
    {
     "amount": 9.54,
     "category": "coffee_bars",
     "date": "2026-09-14",
+    "id": "demo-alpha-card:demo-419",
     "name": "Card · bars"
    },
    {
     "amount": 18.75,
     "category": "delivery",
     "date": "2026-09-13",
+    "id": "demo-alpha-current:demo-418",
     "name": "Wolt"
    },
    {
     "amount": 31.33,
     "category": "eating_out",
     "date": "2026-09-12",
+    "id": "demo-alpha-card:demo-415",
     "name": "Card · restaurants"
    },
    {
     "amount": 11.59,
     "category": "eating_out",
     "date": "2026-09-12",
+    "id": "demo-alpha-card:demo-416",
     "name": "Card · fast food"
    },
    {
     "amount": 2.99,
     "category": "subscriptions",
     "date": "2026-09-12",
+    "id": "demo-alpha-current:demo-417",
     "name": "Apple"
    },
    {
     "amount": 4.03,
     "category": "coffee_bars",
     "date": "2026-09-11",
+    "id": "demo-alpha-card:demo-414",
     "name": "Card · bars"
    },
    {
     "amount": 30.25,
     "category": "delivery",
     "date": "2026-09-10",
+    "id": "demo-alpha-current:demo-412",
     "name": "Wolt"
    },
    {
     "amount": 15.01,
     "category": "car",
     "date": "2026-09-10",
+    "id": "demo-alpha-current:demo-413",
     "name": "Uber"
    },
    {
-    "amount": 27.0,
+    "amount": 27,
     "category": "delivery",
     "date": "2026-09-09",
+    "id": "demo-alpha-current:demo-409",
     "name": "Wolt"
    },
    {
     "amount": 13.99,
     "category": "subscriptions",
     "date": "2026-09-09",
+    "id": "demo-alpha-current:demo-410",
     "name": "Netflix"
    },
    {
     "amount": 10.99,
     "category": "subscriptions",
     "date": "2026-09-09",
+    "id": "demo-alpha-current:demo-411",
     "name": "Spotify"
    },
    {
-    "amount": 40.0,
+    "amount": 40,
     "category": "cash",
     "date": "2026-09-08",
+    "id": "demo-alpha-current:demo-408",
     "name": "ΑΝΑΛΗΨΗ ATM"
    },
    {
     "amount": 31.76,
     "category": "delivery",
     "date": "2026-09-08",
+    "id": "demo-alpha-current:demo-405",
     "name": "Wolt"
    },
    {
     "amount": 23.11,
     "category": "groceries",
     "date": "2026-09-08",
+    "id": "demo-alpha-card:demo-406",
     "name": "Card · supermarkets"
    },
    {
     "amount": 4.95,
     "category": "eating_out",
     "date": "2026-09-08",
+    "id": "demo-revolut:demo-407",
     "name": "Coffee Island"
    },
    {
     "amount": 9.91,
     "category": "coffee_bars",
     "date": "2026-09-07",
+    "id": "demo-alpha-card:demo-404",
     "name": "Card · bars"
    },
    {
-    "amount": 61.0,
+    "amount": 61,
     "category": "bills",
     "date": "2026-09-06",
+    "id": "demo-alpha-current:demo-403",
     "name": "ΔΕΗ"
    },
    {
     "amount": 10.68,
     "category": "coffee_bars",
     "date": "2026-09-06",
+    "id": "demo-alpha-card:demo-402",
     "name": "Card · bars"
    },
    {
     "amount": 11.34,
     "category": "coffee_bars",
     "date": "2026-09-05",
+    "id": "demo-alpha-card:demo-399",
     "name": "Card · bars"
    },
    {
     "amount": 11.23,
     "category": "delivery",
     "date": "2026-09-05",
+    "id": "demo-alpha-current:demo-397",
     "name": "Wolt"
    },
    {
     "amount": 7.14,
     "category": "car",
     "date": "2026-09-05",
+    "id": "demo-alpha-current:demo-398",
     "name": "Uber"
    },
    {
     "amount": 5.85,
     "category": "eating_out",
     "date": "2026-09-05",
+    "id": "demo-revolut:demo-400",
     "name": "Coffee Island"
    },
    {
     "amount": 13.27,
     "category": "delivery",
     "date": "2026-09-04",
+    "id": "demo-alpha-current:demo-395",
     "name": "Wolt"
    },
    {
-    "amount": 13.0,
+    "amount": 13,
     "category": "groceries",
     "date": "2026-09-04",
+    "id": "demo-alpha-current:demo-394",
     "name": "Ab Vasilopoulos"
    },
    {
     "amount": 10.23,
     "category": "coffee_bars",
     "date": "2026-09-04",
+    "id": "demo-alpha-card:demo-396",
     "name": "Card · bars"
    },
    {
-    "amount": 42.0,
+    "amount": 42,
     "category": "bills",
     "date": "2026-09-03",
+    "id": "demo-alpha-current:demo-393",
     "name": "Cosmote"
    },
    {
     "amount": 27.98,
     "category": "delivery",
     "date": "2026-09-03",
+    "id": "demo-alpha-current:demo-390",
     "name": "efood"
    },
    {
     "amount": 3.85,
     "category": "coffee_bars",
     "date": "2026-09-03",
+    "id": "demo-alpha-card:demo-392",
     "name": "Card · bars"
    },
    {
     "amount": 3.24,
     "category": "car",
     "date": "2026-09-03",
+    "id": "demo-alpha-current:demo-391",
     "name": "Oasa Athens Metro"
    },
    {
     "amount": 16.27,
     "category": "delivery",
     "date": "2026-09-02",
+    "id": "demo-alpha-current:demo-387",
     "name": "Wolt"
    },
    {
     "amount": 9.75,
     "category": "car",
     "date": "2026-09-02",
+    "id": "demo-revolut:demo-389",
     "name": "Freenow"
    },
    {
     "amount": 4.61,
     "category": "coffee_bars",
     "date": "2026-09-02",
+    "id": "demo-alpha-card:demo-388",
     "name": "Card · bars"
    },
    {
-    "amount": 650.0,
+    "amount": 650,
     "category": "housing",
     "date": "2026-09-01",
+    "id": "demo-alpha-current:demo-386",
     "name": "ΕΝΟΙΚΙΟ ΔΙΑΜΕΡΙΣΜΑΤΟΣ"
    },
    {
     "amount": 9.89,
     "category": "car",
     "date": "2026-09-01",
+    "id": "demo-revolut:demo-385",
     "name": "Freenow"
    },
    {
     "amount": 3.52,
     "category": "car",
     "date": "2026-09-01",
+    "id": "demo-alpha-current:demo-384",
     "name": "Oasa Athens Metro"
    },
    {
     "amount": 3.49,
     "category": "groceries",
     "date": "2026-09-01",
+    "id": "demo-alpha-current:demo-383",
     "name": "Fournos Georgiou"
    },
    {
     "amount": 8.95,
     "category": "groceries",
     "date": "2026-08-31",
+    "id": "demo-alpha-current:demo-381",
     "name": "Fournos Georgiou"
    },
    {
     "amount": 2.82,
     "category": "car",
     "date": "2026-08-31",
+    "id": "demo-alpha-current:demo-382",
     "name": "Oasa Athens Metro"
    },
    {
     "amount": 12.43,
     "category": "car",
     "date": "2026-08-30",
+    "id": "demo-alpha-current:demo-379",
     "name": "Uber"
    },
    {
     "amount": 4.69,
     "category": "coffee_bars",
     "date": "2026-08-30",
+    "id": "demo-alpha-card:demo-380",
     "name": "Card · bars"
    },
    {
     "amount": 26.36,
     "category": "groceries",
     "date": "2026-08-29",
+    "id": "demo-alpha-current:demo-376",
     "name": "Sklavenitis"
    },
    {
     "amount": 14.68,
     "category": "delivery",
     "date": "2026-08-29",
+    "id": "demo-alpha-current:demo-377",
     "name": "Wolt"
    },
    {
     "amount": 13.36,
     "category": "delivery",
     "date": "2026-08-29",
+    "id": "demo-alpha-current:demo-378",
     "name": "efood"
    },
    {
     "amount": 23.42,
     "category": "delivery",
     "date": "2026-08-28",
+    "id": "demo-alpha-current:demo-375",
     "name": "Wolt"
    },
    {
     "amount": 13.06,
     "category": "groceries",
     "date": "2026-08-27",
+    "id": "demo-alpha-current:demo-371",
     "name": "Ab Vasilopoulos"
    },
    {
     "amount": 4.37,
     "category": "groceries",
     "date": "2026-08-27",
+    "id": "demo-alpha-current:demo-372",
     "name": "Fournos Georgiou"
    },
    {
     "amount": 3.32,
     "category": "coffee_bars",
     "date": "2026-08-26",
+    "id": "demo-alpha-card:demo-370",
     "name": "Card · bars"
    },
    {
     "amount": 31.31,
     "category": "eating_out",
     "date": "2026-08-25",
+    "id": "demo-alpha-card:demo-368",
     "name": "Card · restaurants"
    },
    {
     "amount": 22.99,
     "category": "delivery",
     "date": "2026-08-25",
+    "id": "demo-alpha-current:demo-366",
     "name": "efood"
    },
    {
     "amount": 15.1,
     "category": "car",
     "date": "2026-08-25",
+    "id": "demo-alpha-current:demo-367",
     "name": "Uber"
    }
   ],

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  addCommitment, deleteCommitment, editCommitment, savePlan, saveSettings, useApi,
-  type AssistantModel, type Commitment, type Commitments, type Me, type Payday, type Plan, type PlanView, type Status,
+  addCommitment, deleteCommitment, editCommitment, editMemory, forgetMemory, remember, savePlan, saveSettings, useApi,
+  type AssistantModel, type Commitment, type Commitments, type Me, type MemoryLine, type Payday, type Plan, type PlanView, type Status,
 } from "../lib/api";
 import { AccountCard, AiScreen, aiValue, BankAccessScreen, NamesScreen, PeopleScreen, SubPage } from "./Account";
 import { useAction } from "../lib/action";
@@ -11,7 +11,7 @@ import { hrefFor, type ScreenProps } from "./App";
 import { Card, Icon, Select } from "./ui";
 
 // "savings" isn't one: it moved to Goals, and SettingsScreen sends old links there.
-type Section = "income" | "payday" | "fixed" | "budgets" | "assistant" | "bank-access" | "ai" | "names" | "people";
+type Section = "income" | "payday" | "fixed" | "budgets" | "assistant" | "memory" | "bank-access" | "ai" | "names" | "people";
 
 /** What a section's screen can draw from. */
 interface SectionProps {
@@ -30,6 +30,7 @@ const SECTIONS: Record<Section, { needsMe?: boolean; render(p: SectionProps): Re
   },
   budgets: { render: ({ view, byId, changed }) => <BudgetsScreen view={view} onChanged={changed} byId={byId} /> },
   assistant: { render: ({ view, changed }) => <AssistantModelScreen view={view} onChanged={changed} /> },
+  memory: { render: () => <MemoryScreen /> },
   names: { render: ({ view, changed }) => <NamesScreen names={view.settings.owner_names ?? []} onChanged={changed} /> },
   "bank-access": { needsMe: true, render: ({ me, meChanged }) => <BankAccessScreen me={me!} onChanged={meChanged} /> },
   ai: { needsMe: true, render: ({ me, meChanged }) => <AiScreen me={me!} onChanged={meChanged} /> },
@@ -78,7 +79,7 @@ export function SettingsScreen({ byId, version, section, commitment, status, me,
       <div className="group-label">Budget</div>
       <Card className="list">
         <Row icon="mdi:cash-multiple" title="Monthly income" value={p ? `${euroRound(p.take_home)}${s.extra_pay ? " · 14 salaries" : ""}` : "Not set"} section="income" />
-        <Row icon="mdi:calendar-month-outline" title="Payday" value={paydayLabel(s.payday ?? 1)} section="payday" />
+        <Row icon="mdi:calendar-month-outline" title="Payday" value={`${paydayLabel(s.payday ?? 1)}${s.month_start === "pay" ? ", or when pay lands" : ""}`} section="payday" />
         <Row icon="mdi:repeat" title="Fixed costs" value={`${euroRound(view.committed)} a month`} section="fixed" />
         <Row icon="mdi:chart-pie" title="Category budgets" value={p ? (p.split === "auto" ? "Automatic" : "Custom") : "Not set"} section="budgets" />
       </Card>
@@ -88,6 +89,7 @@ export function SettingsScreen({ byId, version, section, commitment, status, me,
           <Card className="list">
             {me && <Row icon="mdi:creation-outline" title="AI" value={aiValue(me)} section="ai" />}
             {view.ai && <Row icon="mdi:tune-variant" title="Model" value={MODELS[s.assistant_model ?? "haiku"].label} section="assistant" />}
+            <Row icon="mdi:history" title="What it remembers" value="" section="memory" />
           </Card>
         </>
       )}
@@ -242,6 +244,90 @@ function PaydayScreen({ view, onChanged }: { view: PlanView; onChanged: () => vo
             </span>
           ))}
       </div></Card>
+      <MonthStart view={view} onChanged={onChanged} />
+    </SubPage>
+  );
+}
+
+/** Whether a month starts on the payday whatever happens, or waits for the pay to land. */
+function MonthStart({ view, onChanged }: { view: PlanView; onChanged: () => void }) {
+  const s = view.settings;
+  const day = s.payday ?? 1;
+  const onPay = s.month_start === "pay";
+  const wait = s.pay_wait_days ?? 5;
+  const { busy, error, run } = useAction();
+  const set = (change: Parameters<typeof saveSettings>[0]) => run(() => saveSettings(change).then(onChanged));
+  const dayName = day === "last" ? "the last working day" : day === 1 ? "the 1st" : `the ${ordinal(day)}`;
+  const option = (on: boolean, title: string, note: ReactNode, pick: () => void, extra?: ReactNode) => (
+    <div className="part opt" role="radio" aria-checked={on} tabIndex={0} onClick={pick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } }}>
+      <span className={`radio ${on ? "on" : ""}`} />
+      <span className="t"><b>{title}</b><span className="muted small text-wrap">{note}</span>{extra}</span>
+    </div>
+  );
+  const guess = view.payday_detected;
+  return (
+    <>
+      <div className="group-label">A new month starts</div>
+      <Card className="list"><div role="radiogroup" aria-label="A new month starts">
+        {option(!onPay, `On ${dayName}`, "Every month on the same day, whether or not your pay has come in.", () => !busy && onPay && set({ month_start: "payday" }))}
+        {option(onPay, "When my pay arrives",
+          guess ? `ebby watches for your pay, about ${euroRound(guess.amount)}. Pay that comes early starts the month early too.`
+            : "ebby watches for your pay. Pay that comes early starts the month early too.",
+          () => !busy && !onPay && set({ month_start: "pay" }),
+          onPay && (
+            <span className="stepper num" onClick={(e) => e.stopPropagation()}>
+              <button aria-label="Wait one day less" disabled={busy || wait <= 1} onClick={() => set({ pay_wait_days: wait - 1 })}><Icon icon="mdi:minus" /></button>
+              <span>wait at most {wait} {wait === 1 ? "day" : "days"}</span>
+              <button aria-label="Wait one day more" disabled={busy || wait >= 14} onClick={() => set({ pay_wait_days: wait + 1 })}><Icon icon="mdi:plus" /></button>
+            </span>
+          ))}
+      </div></Card>
+      {error && <div className="error">{error}</div>}
+      <p className="hint" style={{ margin: "0 4px" }}>While pay is late, the month before runs on, so what's left to spend doesn't start again at nothing. Bonuses and other money in don't start a month.</p>
+    </>
+  );
+}
+
+/** What the assistant remembers: lines you wrote, kept from a payment, or agreed to in the chat. */
+function MemoryScreen() {
+  const { data, error, reload } = useApi<MemoryLine[]>("/api/assistant/memory");
+  const [lines, setLines] = useState<MemoryLine[] | null>(null);
+  const [text, setText] = useState("");
+  const [editing, setEditing] = useState<{ id: number; text: string } | null>(null);
+  const action = useAction();
+  const shown = lines ?? data;
+  const save = (p: Promise<MemoryLine[]>) => action.run(() => p.then((l) => { setLines(l); setEditing(null); }));
+  const from = (m: MemoryLine) => `${m.source === "chat" ? "From the chat" : m.source === "payment" ? `From a ${m.service ?? ""} payment` : "Added here"}, ${new Date(m.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}${m.used ? ` · used ${m.used} ${m.used === 1 ? "time" : "times"}` : ""}`;
+  return (
+    <SubPage title="What it remembers" help="The assistant reads these when it guesses a category and when you chat. It only remembers what you say it should.">
+      {error && <div className="error">{error}</div>}
+      <Card className="list">
+        {shown?.length === 0 && <div className="empty">Nothing yet. Add something below, or tell it from a payment's sheet.</div>}
+        {shown?.map((m) => editing?.id === m.id ? (
+          <div key={m.id} className="part mem-edit">
+            <textarea rows={2} aria-label="What to remember" value={editing.text} onChange={(e) => setEditing({ id: m.id, text: e.target.value })} />
+            <div className="row-actions">
+              <button className="btn" disabled={action.busy || !editing.text.trim()} onClick={() => save(editMemory(m.id, editing.text))}>Save</button>
+              <button className="btn ghost" onClick={() => setEditing(null)}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div key={m.id} className="part">
+            <span className="t"><span className="mem-text">{m.text}</span><span className="muted small">{from(m)}</span></span>
+            <button className="chip icon-only" aria-label="Change" onClick={() => setEditing({ id: m.id, text: m.text })}><Icon icon="mdi:pencil-outline" /></button>
+            <button className="chip icon-only" aria-label="Forget" disabled={action.busy} onClick={() => save(forgetMemory(m.id))}><Icon icon="mdi:delete-outline" /></button>
+          </div>
+        ))}
+      </Card>
+      <Card>
+        <div className="pay-memory" style={{ borderTop: 0, paddingTop: 0 }}>
+          <label htmlFor="mem-new" className="small muted">Something to remember</label>
+          <textarea id="mem-new" rows={2} placeholder="e.g. Transfers to Maria are my half of the rent" value={text} onChange={(e) => setText(e.target.value)} />
+          <div className="row-actions"><button className="btn" disabled={action.busy || !text.trim()} onClick={() => save(remember(text).then((l) => { setText(""); reload(); return l; }))}>Remember</button></div>
+        </div>
+      </Card>
+      {action.error && <div className="error">{action.error}</div>}
     </SubPage>
   );
 }

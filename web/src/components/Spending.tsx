@@ -1,8 +1,9 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { explainPeriod, useApi, type Explanation, type Highlight, type Range, type SpendDay, type SpendPayment, type SpendView } from "../lib/api";
+import { explainPeriod, useApi, type Explanation, type Commitments, type FixedMonth, type FixedPayment, type Highlight, type Range, type SpendDay, type SpendPayment, type SpendView, type Subscriptions } from "../lib/api";
 import { euro, euroRound, monthLabel, shiftMonth, thisMonth } from "../lib/format";
 import { useRemembered } from "../lib/remember";
 import { hrefFor, type ScreenProps } from "./App";
+import { useOpenPayment } from "./PaymentSheet";
 import { Card, ErrorNote, Icon } from "./ui";
 
 export function SpendingTabs({ current, month }: { current: "categories" | "subscriptions" | "transactions"; month: string }) {
@@ -76,7 +77,7 @@ export function Spending({ byId, version, go, range, off }: ScreenProps & { rang
 const span = (v: SpendView) => `${fmt(v.start, SHORT)} – ${fmt(v.end, SHORT)}`;
 const monthsIn = (v: SpendView) => v.months?.filter((m) => m.total != null).length ?? 0;
 const lastMonth = (v: SpendView) => v.last_key ? monthLabel(v.last_key).split(" ")[0] : "";
-const paymentsTab = (v: SpendView) => `Payments · ${v.count}`;
+const paymentsTab = () => "Payments";
 
 /** How each range names itself: the header, the period before it, the "so far" caption and the tab labels. */
 const RANGE: Record<Range, {
@@ -109,7 +110,7 @@ const RANGE: Record<Range, {
   year: {
     title: (v) => v.key,
     subtitle: (v) => `${monthsIn(v)} pay months`,
-    lastName: lastMonth, soFar: (v) => `so far, ${monthsIn(v)} months`, trend: "Months", paymentsTab: () => "Biggest", explain: "this year",
+    lastName: lastMonth, soFar: (v) => `so far, ${monthsIn(v)} months`, trend: "Months", paymentsTab, explain: "this year",
   },
 };
 
@@ -134,12 +135,7 @@ function DayView({ v, byId, onPick }: { v: SpendView; byId: ScreenProps["byId"];
         <p className="sp-line num">{line}</p>
         <WeekStrip days={v.week ?? []} picked={v.start} onPick={onPick} />
       </Card>
-      {v.payments.length > 0 && (
-        <>
-          <div className="group-label">{v.count} {v.count === 1 ? "payment" : "payments"}</div>
-          <Card className="list"><PaymentRows rows={[...v.payments].sort((a, b) => b.amount - a.amount)} byId={byId} /></Card>
-        </>
-      )}
+      {v.payments.length + v.fixed.length > 0 && <PaymentDays rows={v.payments} fixed={v.fixed} byId={byId} />}
     </div>
   );
 }
@@ -163,7 +159,7 @@ function WeekStrip({ days, picked, onPick, amounts }: { days: SpendDay[]; picked
 
 /* ---------- week, month and year ---------- */
 
-type Tab = "highlights" | "categories" | "payments";
+type Tab = "highlights" | "categories" | "payments" | "fixed";
 
 function PeriodView({ v, byId, onPick, onExplained }: {
   v: SpendView; byId: ScreenProps["byId"]; onPick: (r: { range?: Range; off?: number }) => void; onExplained: () => void;
@@ -181,6 +177,11 @@ function PeriodView({ v, byId, onPick, onExplained }: {
         <div className="sp-total num">{euroRound(v.total)}
           {v.partial && <small>{named.soFar(v)}</small>}
         </div>
+        {v.fixed.length > 0 && (
+          <button className="sp-fixed-note num" onClick={() => setTab("fixed")}>
+            <Icon icon="mdi:repeat" />Plus {euroRound(v.fixed.reduce((t, p) => t + p.amount, 0))} to fixed costs, not counted here
+          </button>
+        )}
         {year ? <p className="sp-line num">A usual month is <b>{euroRound(v.usual)}</b>.{standout(v)}</p>
           : (v.last != null || v.usual != null) && (
             <p className="sp-line num">
@@ -200,29 +201,24 @@ function PeriodView({ v, byId, onPick, onExplained }: {
           : <TrendChart v={v} onPick={(o) => onPick({ off: o })} />}
       </Card>
       <div className="sp-tabs" role="tablist" aria-label="Show">
-        {(["highlights", "categories", "payments"] as Tab[]).map((t) => (
+        {(["highlights", "categories", "payments", "fixed"] as Tab[]).map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
-            {t === "highlights" ? "Highlights" : t === "categories" ? "Categories" : named.paymentsTab(v)}
+            {t === "highlights" ? "Highlights" : t === "categories" ? "Categories" : t === "fixed" ? "Fixed" : named.paymentsTab(v)}
           </button>
         ))}
       </div>
       {tab === "highlights" && (
         <Card>
-          {(v.highlights ?? []).map((h, i) => <HighlightRow key={i} h={h} unit={`${unit}${v.range === "month" ? by : ""}`} byId={byId} />)}
+          {(v.highlights ?? []).map((h, i) => <HighlightRow key={i} h={h} v={v} unit={`${unit}${v.range === "month" ? by : ""}`} byId={byId} />)}
           {v.ai && <Explain v={v} onDone={onExplained} />}
         </Card>
       )}
       {tab === "categories" && <Categories v={v} byId={byId} />}
       {tab === "payments" && (
-        v.payments.length === 0 ? <Card><div className="empty">No payments.</div></Card>
-          : year ? (
-            <>
-              <div className="group-label">The {v.payments.length} biggest payments this year</div>
-              <Card className="list"><PaymentRows rows={v.payments} byId={byId} withDate /></Card>
-              <a className="btn ghost block" href={hrefFor({ page: "transactions" })}><Icon icon="mdi:magnify" />Search all {v.count} payments</a>
-            </>
-          ) : <PaymentDays rows={v.payments} byId={byId} />
+        v.payments.length + v.fixed.length === 0 ? <Card><div className="empty">No payments.</div></Card>
+          : <PaymentDays rows={v.payments} fixed={v.fixed} byId={byId} />
       )}
+      {tab === "fixed" && <FixedTab v={v} byId={byId} />}
     </div>
   );
 }
@@ -290,7 +286,9 @@ function Bars({ n, labels, line, children }: { n: number; labels: string[]; line
 
 /* ---------- highlights ---------- */
 
-function HighlightRow({ h, unit, byId }: { h: Highlight; unit: string; byId: ScreenProps["byId"] }) {
+/** A highlight opens what it talks about: the category, the payment, or the month. */
+function HighlightRow({ h, v, unit, byId }: { h: Highlight; v: SpendView; unit: string; byId: ScreenProps["byId"] }) {
+  const open = useOpenPayment();
   const name = (c: string) => byId[c]?.label ?? c;
   let icon = "mdi:calendar-month-outline";
   let text: ReactNode;
@@ -328,7 +326,12 @@ function HighlightRow({ h, unit, byId }: { h: Highlight; unit: string; byId: Scr
       text = <><b>{h.months.length} of {h.of} months</b> came in well over a usual month: {h.months.map((m) => fmt(`${m}-15`, { month: "short" })).join(", ")}.</>;
       break;
   }
-  return <div className="sp-hl"><span className="ricon"><Icon icon={icon} /></span><p>{text}</p></div>;
+  const body = <><span className="ricon"><Icon icon={icon} /></span><p>{text}</p></>;
+  const category = h.kind === "category" || h.kind === "trend" || h.kind === "month" ? h.category : null;
+  if (h.kind === "payment") return <button className="sp-hl go" onClick={() => open(h.id)}>{body}<Icon icon="mdi:chevron-right" /></button>;
+  if (h.kind === "month") return <a className="sp-hl go" href={hrefFor({ page: "spending", range: "month", off: monthOff(h.month) })}>{body}<Icon icon="mdi:chevron-right" /></a>;
+  if (category) return <a className="sp-hl go" href={hrefFor({ page: "category", category, range: v.range, off: v.off })}>{body}<Icon icon="mdi:chevron-right" /></a>;
+  return <div className="sp-hl">{body}</div>;
 }
 
 /** Claude's read of the period: a button until asked, then its answer in the same card. */
@@ -388,43 +391,118 @@ function Categories({ v, byId }: { v: SpendView; byId: ScreenProps["byId"] }) {
         })}
         {cats.length > 6 && <button className="part add-row" onClick={() => setAll(!all)}>{all ? "Show fewer" : `Show all ${cats.length}`}</button>}
       </Card>
-      <Card className="list">
-        <a className="part" href={hrefFor({ page: "subscriptions" })}>
-          <span className="ricon"><Icon icon="mdi:repeat" /></span>
-          <span className="t"><b>What you pay every month</b><span className="muted small">Subscriptions and fixed costs</span></span>
-          <Icon icon="mdi:chevron-right" />
-        </a>
-      </Card>
     </>
   );
 }
 
-function PaymentRows({ rows, byId, withDate }: { rows: SpendPayment[]; byId: ScreenProps["byId"]; withDate?: boolean }) {
+/** Payments as rows that open their sheet; payments to fixed costs carry the cost's name and stay out of the totals. */
+function PaymentRows({ rows, byId, withDate }: { rows: (SpendPayment | FixedPayment)[]; byId: ScreenProps["byId"]; withDate?: boolean }) {
+  const open = useOpenPayment();
   return (
     <>
-      {rows.map((p, i) => (
-        <div key={`${p.date}-${p.name}-${i}`} className="part">
-          <span className="ricon"><Icon icon={byId[p.category]?.icon ?? "mdi:dots-horizontal"} /></span>
-          <span className="t"><b>{p.name}</b><span className="muted small">{byId[p.category]?.label ?? p.category}{withDate ? ` · ${fmt(p.date, SHORT)}` : ""}</span></span>
-          <span className="amt num">{euro(p.amount)}</span>
-        </div>
-      ))}
+      {rows.map((p) => {
+        const fixed = "commitment" in p ? p.commitment : null;
+        return (
+          <button key={p.id} className="part" onClick={() => open(p.id)}>
+            <span className="ricon"><Icon icon={byId[p.category]?.icon ?? "mdi:dots-horizontal"} /></span>
+            <span className="t"><b>{p.name}</b>
+              {fixed ? <span className="tag-fixed"><Icon icon="mdi:repeat" />Fixed · {fixed}</span>
+                : <span className="muted small">{byId[p.category]?.label ?? p.category}{withDate ? ` · ${fmt(p.date, SHORT)}` : ""}</span>}
+            </span>
+            <span className={`amt num ${fixed ? "excluded" : ""}`}>{euro(p.amount)}</span>
+            <Icon icon="mdi:chevron-right" />
+          </button>
+        );
+      })}
     </>
   );
 }
 
-function PaymentDays({ rows, byId }: { rows: SpendPayment[]; byId: ScreenProps["byId"] }) {
-  const days = new Map<string, SpendPayment[]>();
-  rows.forEach((p) => days.set(p.date, [...(days.get(p.date) ?? []), p]));
+/** Payments by day, newest first. A day's total is its spending; what went to fixed costs is said apart. */
+function PaymentDays({ rows, fixed = [], byId }: { rows: SpendPayment[]; fixed?: FixedPayment[]; byId: ScreenProps["byId"] }) {
+  const days = new Map<string, { spent: SpendPayment[]; fixed: FixedPayment[] }>();
+  const dayOf = (d: string) => days.get(d) ?? days.set(d, { spent: [], fixed: [] }).get(d)!;
+  rows.forEach((p) => dayOf(p.date).spent.push(p));
+  fixed.forEach((p) => dayOf(p.date).fixed.push(p));
+  const sum = (l: { amount: number }[]) => l.reduce((t, p) => t + p.amount, 0);
   return (
     <>
-      {[...days].map(([date, list]) => (
+      {[...days].sort(([a], [b]) => b.localeCompare(a)).map(([date, l]) => (
         <div key={date}>
           <div className="sp-dayh"><span>{fmt(date, { weekday: "short", day: "numeric", month: "short" })}</span>
-            <span className="num">{euroRound(list.reduce((s, p) => s + p.amount, 0))}</span></div>
-          <Card className="list"><PaymentRows rows={[...list].sort((a, b) => b.amount - a.amount)} byId={byId} /></Card>
+            <span className="num">{[l.spent.length ? euroRound(sum(l.spent)) : "", l.fixed.length ? `${euroRound(sum(l.fixed))} fixed` : ""].filter(Boolean).join(" · ")}</span></div>
+          <Card className="list"><PaymentRows rows={[...l.fixed, ...[...l.spent].sort((a, b) => b.amount - a.amount)]} byId={byId} /></Card>
         </div>
       ))}
+    </>
+  );
+}
+
+/** Fixed costs and subscriptions. For a pay month, each cost paid or still due; for other periods, what went to them. */
+function FixedTab({ v, byId }: { v: SpendView; byId: ScreenProps["byId"] }) {
+  const month = v.range === "month" ? v.key : null;
+  const fixed = useApi<FixedMonth>(month ? `/api/fixed?month=${month}` : null);
+  const subs = useApi<Subscriptions>("/api/subscriptions");
+  const costs = useApi<Commitments>("/api/commitments");
+  // A subscription already kept as a fixed cost shows once, above.
+  const covered = new Set(costs.data?.items.flatMap((c) => c.services) ?? []);
+  const subscriptions = subs.data?.items.filter((s) => !covered.has(s.name)) ?? [];
+  const total = v.fixed.reduce((t, p) => t + p.amount, 0);
+  return (
+    <>
+      {month ? (fixed.data ? <FixedList f={fixed.data} month={month} /> : <div className="skeleton" />) : (
+        <>
+          <div className="group-label num">{euroRound(total)} to fixed costs</div>
+          {v.fixed.length ? <Card className="list"><PaymentRows rows={v.fixed} byId={byId} withDate /></Card>
+            : <Card><div className="empty">Nothing went to fixed costs.</div></Card>}
+        </>
+      )}
+      {costs.data && subscriptions.length > 0 && (
+        <>
+          <div className="group-label num">Other subscriptions · {euroRound(subscriptions.reduce((t, s) => t + s.monthly, 0))} a month</div>
+          <Card className="list">
+            {subscriptions.map((s) => (
+              <div key={s.name} className="part">
+                <span className={`ricon ${s.stale ? "warn" : ""}`}><Icon icon={s.stale ? "mdi:alert-circle-outline" : "mdi:repeat"} /></span>
+                <span className="t"><b>{s.name}</b>
+                  {s.stale ? <span className="small over-txt text-wrap">No charge since {fmt(s.last_charge, SHORT)} · cancelled?</span>
+                    : <span className="muted small">{s.varies ? "Amount varies" : s.next_charge ? `Next around ${fmt(s.next_charge, SHORT)}` : "Monthly"}</span>}</span>
+                <span className={`amt num ${s.stale ? "muted" : ""}`}>{euro(s.monthly)}</span>
+              </div>
+            ))}
+          </Card>
+        </>
+      )}
+      <a className="btn ghost block" href={hrefFor({ page: "settings", section: "fixed" })}><Icon icon="mdi:pencil-outline" />Change fixed costs</a>
+    </>
+  );
+}
+
+/** A pay month's fixed costs: due first, then paid, each opening its payments. bare: the rows alone, for a card of its own. */
+export function FixedList({ f, month, bare = false }: { f: FixedMonth; month: string; bare?: boolean }) {
+  if (!f.items.length) {
+    return (
+      <Card><div className="empty" style={{ padding: "16px 8px" }}><Icon icon="mdi:repeat" /><b>No fixed costs yet</b>
+        <span>Add rent, bills and other costs you've chosen. They come out of your budget first and stay out of your days.</span>
+        <a className="chip" href={hrefFor({ page: "settings", section: "fixed" })}>Add one</a></div></Card>
+    );
+  }
+  const rows = f.items.map((c) => (
+          <a key={c.id} className="part" href={hrefFor({ page: "transactions", commitment: c.id, month })}>
+            <span className={`ricon ${c.status === "paid" ? "ok" : "warn"}`}><Icon icon={c.status === "paid" ? "mdi:check" : "mdi:clock-outline"} /></span>
+            <span className="t"><b>{c.name}</b>
+              <span className="muted small">{c.status === "paid" ? `Paid ${fmt(c.paid_on!, { weekday: "short", day: "numeric", month: "short" })}${c.count > 1 ? `, ${c.count} payments` : ""}`
+                : c.due_on ? `Due around ${fmt(c.due_on, { weekday: "short", day: "numeric", month: "short" })}` : "Not paid yet"}</span></span>
+            <span className={`amt num ${c.status === "due" ? "muted" : c.paid > c.expected + 0.5 ? "over-txt" : ""}`}>{euroRound(c.status === "paid" ? c.paid : c.expected)}
+              <span>{c.status === "paid" ? (c.paid > c.expected + 0.5 ? `usually ${euroRound(c.expected)}` : `of ${euroRound(c.expected)}`) : "expected"}</span></span>
+            <Icon icon="mdi:chevron-right" />
+          </a>
+  ));
+  if (bare) return <>{rows}</>;
+  return (
+    <>
+      <div className="group-label num">{euroRound(f.paid)} paid{f.due > 0 ? ` · ${euroRound(f.due)} still due` : ", nothing due"}</div>
+      <Card className="list">{rows}</Card>
     </>
   );
 }

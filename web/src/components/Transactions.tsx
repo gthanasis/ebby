@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { namePayee, setCategory, useApi, type Category, type Commitments, type Transaction } from "../lib/api";
+import { useEffect, useState } from "react";
+import { useApi, type Category, type Commitments, type Transaction } from "../lib/api";
 import { dayLabel, euro, euroRound, monthLabel, shortDay } from "../lib/format";
 import { hrefFor, type Route } from "./App";
 import { MonthNav } from "./Spending";
+import { isNameable, useOpenPayment } from "./PaymentSheet";
 import { Card, Crumbs, Icon, Select } from "./ui";
 
 interface Props {
@@ -13,13 +14,10 @@ interface Props {
 const PAGE = 100;
 
 /** The raw data. Also the last level of every Spending drill-down, opened with its filters applied. */
-export function Transactions({ month, category, service, commitment, categories, byId, version, onChanged, go }: Props) {
+export function Transactions({ month, category, service, commitment, categories, byId, version, go }: Props) {
   const [q, setQ] = useState("");
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(PAGE);
-  const [toast, setToast] = useState<Moved | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 8000); return () => clearTimeout(t); }, [toast]);
   useEffect(() => { const t = setTimeout(() => setQuery(q.trim()), 250); return () => clearTimeout(t); }, [q]);
   useEffect(() => setLimit(PAGE), [month, category, service, commitment, query]);
 
@@ -95,10 +93,7 @@ export function Transactions({ month, category, service, commitment, categories,
           return (
             <div key={date}>
               <div className="day-h"><span>{dayLabel(date)}</span>{net < 0 && <span className="num">{euro(-net)}</span>}</div>
-              {rows.map((t) => (
-                <Row key={t.id} t={t} categories={categories} byId={byId} open={openId === t.id}
-                  onToggle={() => setOpenId((id) => (id === t.id ? null : t.id))} onChanged={onChanged} onMoved={setToast} />
-              ))}
+              {rows.map((t) => <Row key={t.id} t={t} byId={byId} />)}
             </div>
           );
         })}
@@ -109,104 +104,35 @@ export function Transactions({ month, category, service, commitment, categories,
           </div>
         )}
       </Card>
-      {toast && <MovedToast moved={toast} byId={byId} onChanged={onChanged} onDone={() => setToast(null)} />}
     </>
   );
 }
 
-interface Moved { id: string; category: string; merchant: string; others: number }
-
-/** After one payment moves: offers to move the payee's other payments too. */
-function MovedToast({ moved, byId, onChanged, onDone }: { moved: Moved; byId: Record<string, Category>; onChanged: () => void; onDone: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const label = byId[moved.category]?.label ?? moved.category;
-  const all = () => {
-    setBusy(true);
-    setCategory(moved.id, moved.category, true).then(() => { onChanged(); onDone(); }).finally(() => setBusy(false));
-  };
-  return (
-    <div className="so-toast" role="status">
-      <Icon icon="mdi:check" />
-      <span>Only this payment moved. Move the other {moved.others} {moved.merchant} {moved.others === 1 ? "payment" : "payments"} to {label} too?</span>
-      <button onClick={all} disabled={busy}>Move all</button>
-    </div>
-  );
-}
-
-/** A payment as two quiet lines; tapping it opens what can be changed: who it went to (for payments to people) and
- * its category. The category saves as soon as it's picked; the name saves with Save. */
-function Row({ t, categories, byId, open, onToggle, onChanged, onMoved }: {
-  t: Transaction; categories: Category[]; byId: Record<string, Category>; open: boolean; onToggle: () => void;
-  onChanged: () => void; onMoved: (m: Moved | null) => void;
-}) {
+/** A payment as two quiet lines; tapping it opens its sheet, where its category, fixed cost and (for money sent to
+ * people) who it went to can be changed. */
+function Row({ t, byId }: { t: Transaction; byId: Record<string, Category> }) {
   const cat = byId[t.category];
-  const [saving, setSaving] = useState(false);
-  const [name, setName] = useState(t.merchant);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => { if (open) { setName(t.merchant); setError(null); } }, [open, t.merchant]);
   const title = t.merchant || (t.is_card ? `Card purchase · ${cat?.label ?? "Other"}` : t.description);
   const counted = cat?.spending ?? true;
-  // Money sent to people (IRIS especially) often names them only by a phone number; the bank's text stays beside the name.
-  const nameable = !!t.merchant && (t.category === "people" || /^iris\b/i.test(t.merchant));
-  const panel = `pay-${t.id}`;
-
-  const saveName = (e: FormEvent) => {
-    e.preventDefault();
-    if (name.trim() === t.merchant) return onToggle();
-    setSaving(true);
-    namePayee(t.id, name.trim()).then(() => { onToggle(); onChanged(); }).catch((err: Error) => setError(err.message)).finally(() => setSaving(false));
-  };
-
+  const open = useOpenPayment();
   return (
-    <div className={`pay ${open ? "open" : ""}`} onKeyDown={(e) => { if (open && e.key === "Escape") onToggle(); }}>
-      <button type="button" className="part" onClick={onToggle} aria-expanded={open} aria-controls={panel}>
-        <span className="ricon"><Icon icon={cat?.icon ?? "mdi:dots-horizontal"} /></span>
-        <span className="t">
-          <b>{title}</b>
-          <span className="muted small">
-            {cat?.label ?? t.category}
-            {nameable && t.description !== title && <> · {t.description}</>}
-            {" · "}{t.account_name}
-            {t.booked && <> · booked {shortDay(t.booked)}</>}
-            {t.status === "PDNG" && <span className="pending"> · pending</span>}
-          </span>
+    <button type="button" className="part pay" onClick={() => open(t.id)} aria-label={`${title}, ${euro(t.amount)}: open payment`}>
+      <span className="ricon"><Icon icon={cat?.icon ?? "mdi:dots-horizontal"} /></span>
+      <span className="t">
+        <b>{title}</b>
+        <span className="muted small">
+          {t.commitment_id != null && <span className="tag-fixed"><Icon icon="mdi:repeat" />Fixed</span>}
+          {t.commitment_id != null && " "}
+          {cat?.label ?? t.category}
+          {isNameable(t) && t.description !== title && <> · {t.description}</>}
+          {" · "}{t.account_name}
+          {t.booked && <> · booked {shortDay(t.booked)}</>}
+          {t.status === "PDNG" && <span className="pending"> · pending</span>}
         </span>
-        <span className={`amt num ${t.amount > 0 ? "in" : ""} ${counted ? "" : "excluded"}`}>
-          {t.amount > 0 ? "+" : ""}{euro(t.amount)}
-        </span>
-      </button>
-      {open && (
-        <form className="pay-edit" id={panel} onSubmit={saveName}>
-          {nameable && (
-            <label>
-              Who is this?
-              <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus disabled={saving}
-                placeholder="Their name" onFocus={(e) => e.target.select()} />
-              <span className="hint">Every payment to {t.description} will show this name.</span>
-            </label>
-          )}
-          <label>
-            Category
-            <Select value={t.category} disabled={saving} title="Changes this payment only"
-              onChange={(e) => {
-                const category = e.target.value;
-                setSaving(true);
-                setCategory(t.id, category).then((r) => {
-                  onMoved(r.merchant && r.others > 0 ? { id: t.id, category, merchant: r.merchant, others: r.others } : null);
-                  onChanged();
-                }).finally(() => setSaving(false));
-              }}
-            >
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </Select>
-          </label>
-          {error && <div className="error small">{error}</div>}
-          <div className="pay-actions">
-            {nameable && <button className="btn" type="submit" disabled={saving}>Save</button>}
-            <button className="btn ghost" type="button" onClick={onToggle} disabled={saving}>{nameable ? "Cancel" : "Done"}</button>
-          </div>
-        </form>
-      )}
-    </div>
+      </span>
+      <span className={`amt num ${t.amount > 0 ? "in" : ""} ${counted ? "" : "excluded"}`}>
+        {t.amount > 0 ? "+" : ""}{euro(t.amount)}
+      </span>
+    </button>
   );
 }

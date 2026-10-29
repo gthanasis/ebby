@@ -94,6 +94,10 @@ describe("writes", () => {
     expect((await send("PUT", "/api/plan/limit", { month: "2026-10", limit: 1800 })).status).toBe(200);
     expect((await send("PUT", "/api/plan/limit", { month: "October", limit: 1800 })).status).toBe(422);
     expect((await api.json("/api/pace")).planned).toBe(1800);
+    // Overview works from the month's own limit, and still knows what the plan alone gives.
+    const ideal = (await api.json("/api/home")).month.ideal;
+    expect(ideal.budget).toBe(1800);
+    expect(ideal.planned).not.toBe(1800);
     await send("PUT", "/api/plan", { take_home: plan.take_home, keep: plan.keep });
   });
 
@@ -132,4 +136,49 @@ describe("writes", () => {
     expect((await services("groceries")).has(name)).toBe(false);
     expect((await services("shopping")).has(name)).toBe(true);
   });
+
+  it("a payment linked to a fixed cost by hand leaves spending, and comes back when unlinked", async () => {
+    const tx = (await api.json("/api/spending")).payments.find((p: any) => p.category === "groceries");
+    const before = (await api.json("/api/spending")).total;
+    const cost = await (await send("POST", "/api/commitments", { name: "Rent", kind: "fixed", monthly_limit: 500, off_bank: 0, services: ["nobody"] })).json();
+    const cid = cost.items.find((c: any) => c.name === "Rent").id;
+    const linked = await (await send("PUT", "/api/payment/commitment", { id: tx.id, commitment_id: cid })).json();
+    expect([linked.commitment, linked.pinned]).toEqual(["Rent", true]);
+    const after = await api.json("/api/spending");
+    expect(after.total).toBeCloseTo(before - tx.amount, 2);
+    expect(after.fixed.map((p: any) => p.id)).toContain(tx.id);
+    const rent = (await api.json("/api/fixed")).items.find((c: any) => c.id === cid);
+    expect([rent.status, rent.paid]).toEqual(["paid", tx.amount]);
+    // Matching the payees again (any commitment saved) keeps the link.
+    await send("POST", "/api/commitments", { name: "Gym two", kind: "chosen", monthly_limit: 10, services: ["nobody either"] });
+    expect((await api.json(`/api/payment?id=${encodeURIComponent(tx.id)}`)).commitment).toBe("Rent");
+    expect((await (await send("PUT", "/api/payment/commitment", { id: tx.id, commitment_id: null })).json()).commitment).toBeNull();
+    expect((await api.json("/api/spending")).total).toBeCloseTo(before, 2);
+    expect((await send("PUT", "/api/payment/commitment", { id: tx.id, commitment_id: 999999 })).status).toBe(404);
+    expect((await send("PUT", "/api/payment/commitment", { id: "no-such-id", commitment_id: null })).status).toBe(404);
+    for (const c of (await api.json("/api/commitments")).items.filter((c: any) => ["Rent", "Gym two"].includes(c.name))) await send("DELETE", `/api/commitments/${c.id}`);
+  });
+
+  it("what the assistant remembers is added, changed and forgotten", async () => {
+    const added = await (await send("POST", "/api/assistant/memory", { text: "  Transfers to Maria are my half of the rent. ", service: null })).json();
+    expect(added[0]).toMatchObject({ text: "Transfers to Maria are my half of the rent.", source: "you", used: 0 });
+    const fromPayment = await (await send("POST", "/api/assistant/memory", { text: "Presents, mostly", service: "Kotsovolos" })).json();
+    expect(fromPayment[0]).toMatchObject({ source: "payment", service: "Kotsovolos" });
+    expect((await send("POST", "/api/assistant/memory", { text: "   " })).status).toBe(400);
+    const changed = await (await send("PUT", `/api/assistant/memory/${added[0].id}`, { text: "Maria: rent" })).json();
+    expect(changed.find((m: any) => m.id === added[0].id).text).toBe("Maria: rent");
+    for (const m of await api.json("/api/assistant/memory")) await send("DELETE", `/api/assistant/memory/${m.id}`);
+    expect(await api.json("/api/assistant/memory")).toEqual([]);
+  });
+
+  it("a month can wait for the pay to arrive", async () => {
+    expect((await send("PUT", "/api/settings", { month_start: "pay", pay_wait_days: 30 })).status).toBe(400);
+    expect((await send("PUT", "/api/settings", { month_start: "pay", pay_wait_days: 5 })).status).toBe(200);
+    const pay = (await api.json("/api/transactions?category=income&limit=500")).rows.filter((t: any) => t.amount >= 1000).map((t: any) => t.date);
+    const home = await api.json("/api/home");
+    expect(pay).toContain(home.month.start);  // the month began the day pay landed
+    await send("PUT", "/api/settings", { month_start: "payday" });
+    expect((await api.json("/api/pace")).start).toBe("2026-09-25");
+  });
 });
+

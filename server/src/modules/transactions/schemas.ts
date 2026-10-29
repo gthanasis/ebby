@@ -31,7 +31,17 @@ export const CategoryMove = z.strictObject({ ok: z.literal(true), rule: z.string
  * when the name was cleared); payments: how many show under it. */
 export const PayeeName = z.strictObject({ ok: z.literal(true), payee: z.string(), merchant: z.string(), payments: z.number() });
 
-export const schemas = { Category, Overview, Transaction, TransactionPage, CategoryMove, PayeeName };
+/** One payment, for its sheet. pinned: linked to its fixed cost by hand rather than by its payee. costs: the fixed
+ * costs it could be linked to. */
+export const Payment = z.strictObject({
+  id: z.string(), date: z.string(), booked: z.string().nullable(), amount: z.number(), currency: z.string(), status: z.string(),
+  category: z.string(), name: z.string(), merchant: z.string(), description: z.string(),
+  account: z.strictObject({ name: z.string(), bank: z.string().nullable(), last4: z.string().nullable(), is_card: z.boolean() }),
+  commitment_id: z.number().nullable(), commitment: z.string().nullable(), pinned: z.boolean(),
+  costs: z.array(z.strictObject({ id: z.number(), name: z.string() })),
+});
+
+export const schemas = { Category, Overview, Transaction, TransactionPage, CategoryMove, PayeeName, Payment };
 
 export const responses = {
   "GET /api/categories": z.array(Category),
@@ -39,4 +49,6 @@ export const responses = {
   "GET /api/transactions": TransactionPage,
   "PUT /api/transactions/:txId{.+}/category": CategoryMove,
   "PUT /api/transactions/:txId{.+}/payee": PayeeName,
+  "GET /api/payment": Payment,
+  "PUT /api/payment/commitment": Payment,
 };

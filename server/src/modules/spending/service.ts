@@ -65,7 +65,7 @@ export const HABITS = new Set(["delivery", "eating_out", "coffee_bars", "people"
 // A drop here is usually timing (not charged yet), not something you did.
 export const TIMED = new Set(["bills", "health", "car", "subscriptions", "pets", "insurance", "loans", "education"]);
 
-export interface SpendRow { date: string; amount: number; category: string; name: string }
+export interface SpendRow { id: string; date: string; amount: number; category: string; name: string }
 
 const med = (values: number[]) => (values.length ? median(values) : 0.0);
 
@@ -177,6 +177,10 @@ export async function view(conn: Conn, rng: string, off: number): Promise<Row> {
     can_prev: Boolean(start && bounds(rng, off - 1)[1].n >= start.n),
     can_next: off < 0,
   };
+  // Fixed costs aren't spending, but the period's payment lists show them, marked with the cost they went to.
+  out.fixed = a.n <= today.n ? sorted((await transactionsRepo.fixedRows(conn, a.isoformat(), upto.isoformat())).map((r) => ({
+    ...toSpendPayment(r, serviceName(r.merchant, r.description, Boolean(r.is_card), r.mcc)), commitment_id: r.commitment_id, commitment: r.commitment,
+  })), (r) => [r.date, r.amount], true) : [];
   if (rng === "year") return { ...out, ...(await yearView(conn, parseInt(key, 10), rs)) };
 
   const days = Array.from({ length: b.diffDays(a) + 1 }, (_, i) => a.addDays(i))
@@ -256,7 +260,7 @@ async function yearView(conn: Conn, year: number, rs: SpendRow[]): Promise<Row> 
     categories: sorted([...byCategory(rs).entries()].map(([c, [v, n]]) => ({
       category: c, spent: pyRound(v, 2), count: n, per_month: pyRound(v / Math.max(1, started.length), 2),
     })), (c) => -c.spent),
-    highlights: hl, payments: payments(sorted(rs, (r) => -r.amount).slice(0, 15)),
+    highlights: hl, payments: payments(rs),
   };
 }
 

@@ -14,7 +14,7 @@
     "category": "eating_out",
     "count": 2,
     "spent": 23.18,
-    "usual": 0.0
+    "usual": 0
    },
    {
     "category": "delivery",
@@ -25,8 +25,8 @@
    {
     "category": "bills",
     "count": 1,
-    "spent": 19.0,
-    "usual": 0.0
+    "spent": 19,
+    "usual": 0
    }
   ],
   "count": 5,
@@ -63,6 +63,7 @@
   "elapsed": 2,
   "end": "2026-10-25",
   "explanation": null,
+  "fixed": [],
   "highlights": [
    {
     "category": "groceries",
@@ -77,13 +78,14 @@
     "count": 2,
     "kind": "category",
     "spent": 23.18,
-    "usual": 0.0,
+    "usual": 0,
     "usual_count": 0
    },
    {
     "amount": 28.24,
     "category": "groceries",
     "date": "2026-10-20",
+    "id": "demo-alpha-card:demo-510",
     "kind": "payment",
     "name": "Card · supermarkets"
    },
@@ -104,30 +106,35 @@
     "amount": 28.24,
     "category": "groceries",
     "date": "2026-10-20",
+    "id": "demo-alpha-card:demo-510",
     "name": "Card · supermarkets"
    },
    {
-    "amount": 19.0,
+    "amount": 19,
     "category": "bills",
     "date": "2026-10-20",
+    "id": "demo-alpha-current:demo-511",
     "name": "Eydap"
    },
    {
     "amount": 15.54,
     "category": "eating_out",
     "date": "2026-10-20",
+    "id": "demo-alpha-card:demo-509",
     "name": "Card · restaurants"
    },
    {
     "amount": 21.35,
     "category": "delivery",
     "date": "2026-10-19",
+    "id": "demo-alpha-current:demo-507",
     "name": "Wolt"
    },
    {
     "amount": 7.64,
     "category": "eating_out",
     "date": "2026-10-19",
+    "id": "demo-alpha-card:demo-508",
     "name": "Card · fast food"
    }
   ],

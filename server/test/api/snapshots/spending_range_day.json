@@ -7,6 +7,7 @@
   "elapsed": 1,
   "end": "2026-10-20",
   "explanation": null,
+  "fixed": [],
   "key": "2026-10-20",
   "length": 1,
   "off": 0,
@@ -16,18 +17,21 @@
     "amount": 28.24,
     "category": "groceries",
     "date": "2026-10-20",
+    "id": "demo-alpha-card:demo-510",
     "name": "Card · supermarkets"
    },
    {
-    "amount": 19.0,
+    "amount": 19,
     "category": "bills",
     "date": "2026-10-20",
+    "id": "demo-alpha-current:demo-511",
     "name": "Eydap"
    },
    {
     "amount": 15.54,
     "category": "eating_out",
     "date": "2026-10-20",
+    "id": "demo-alpha-card:demo-509",
     "name": "Card · restaurants"
    }
   ],
