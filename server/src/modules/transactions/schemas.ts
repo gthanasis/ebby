@@ -27,11 +27,16 @@ export const TransactionPage = z.strictObject({ rows: z.array(Transaction), tota
 /** Where a payment was moved; others: payments to the same payee still in another category. */
 export const CategoryMove = z.strictObject({ ok: z.literal(true), rule: z.string(), merchant: z.string().nullable(), others: z.number() });
 
-export const schemas = { Category, Overview, Transaction, TransactionPage, CategoryMove };
+/** A payee given your own name. payee: as the bank knows it; merchant: what its payments now show (the bank's again
+ * when the name was cleared); payments: how many show under it. */
+export const PayeeName = z.strictObject({ ok: z.literal(true), payee: z.string(), merchant: z.string(), payments: z.number() });
+
+export const schemas = { Category, Overview, Transaction, TransactionPage, CategoryMove, PayeeName };
 
 export const responses = {
   "GET /api/categories": z.array(Category),
   "GET /api/overview": Overview,
   "GET /api/transactions": TransactionPage,
   "PUT /api/transactions/:txId{.+}/category": CategoryMove,
+  "PUT /api/transactions/:txId{.+}/payee": PayeeName,
 };

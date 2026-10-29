@@ -34,6 +34,27 @@ describe("writes", () => {
     expect((await send("PUT", "/api/transactions/no-such-id/category", { category: "groceries" })).status).toBe(404);
   });
 
+  it("naming a payee renames all its payments, keeps their category, and can be undone", async () => {
+    const tx = await first("/api/transactions?q=cosmote");
+    const payments = (await api.json("/api/transactions?q=cosmote&limit=500")).rows.length;
+    const name = (n: string) => send("PUT", `/api/transactions/${encodeURIComponent(tx.id)}/payee`, { name: n });
+    await send("PUT", `/api/transactions/${encodeURIComponent(tx.id)}/category`, { category: "subscriptions", all_from_merchant: true });
+    expect(await (await name("  Phone   bill ")).json()).toEqual({ ok: true, payee: "Cosmote", merchant: "Phone bill", payments });
+    expect(await categoriesOf("Phone bill")).toEqual(new Set(["subscriptions"]));  // the rule made under the bank's name holds
+    expect(await services("subscriptions")).toContain("Phone bill");
+    await send("PUT", `/api/transactions/${encodeURIComponent(tx.id)}/category`, { category: "subscriptions" });  // re-sorting keeps the name
+    expect((await api.json(`/api/transactions?q=cosmote&limit=500`)).rows.every((t: any) => t.merchant === "Phone bill")).toBe(true);
+    expect(await (await name("")).json()).toMatchObject({ payee: "Cosmote", merchant: "Cosmote", payments });
+    expect(await categoriesOf("Cosmote")).toEqual(new Set(["subscriptions"]));
+  });
+
+  it("a payment with no payee can't be named", async () => {
+    const card = (await api.json("/api/transactions?limit=500")).rows.find((t: any) => t.is_card && !t.merchant);
+    expect((await send("PUT", `/api/transactions/${encodeURIComponent(card.id)}/payee`, { name: "Someone" })).status).toBe(400);
+    expect((await send("PUT", "/api/transactions/no-such-id/payee", { name: "Someone" })).status).toBe(404);
+    expect((await send("PUT", `/api/transactions/${encodeURIComponent(card.id)}/payee`, { name: "x".repeat(61) })).status).toBe(422);
+  });
+
   it("a payee answered in the sorter can be taken back", async () => {
     const service = [...await services("groceries")].sort()[0] as string;
     expect((await send("POST", "/api/assistant/answer", { service, category: "shopping" })).status).toBe(200);

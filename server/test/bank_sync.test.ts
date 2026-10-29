@@ -78,6 +78,16 @@ describe("fetching from the bank", () => {
     expect(ingest.txRow("card", true, tx("2026-10-03", 9.9, "Αγορά", true, { merchant_category_code: "5812" }), { [`tx:${card[0]}`]: "leisure" })[9]).toBe("leisure");
   });
 
+  it("a payee you named shows your name, and keeps a rule made before you named it", () => {
+    const iris = tx("2026-10-27", 60, "ΙRΙS 6900000001", true);
+    expect(ingest.bankPayee(false, iris)).toBe("Iris 6900000001");
+    const named = ingest.txRow("acc", false, iris, {}, null, [], { "Iris 6900000001": "Maria" });
+    expect([named[6], named[7], named[9]]).toEqual(["ΙRΙS 6900000001", "Maria", "people"]);  // the bank's text stays as it was
+    const ruled = ingest.txRow("acc", false, iris, { "Iris 6900000001": "bills" }, null, [], { "Iris 6900000001": "Maria" });
+    expect(ruled[9]).toBe("bills");
+    expect(ingest.txRow("acc", false, iris, { Maria: "leisure", "Iris 6900000001": "bills" }, null, [], { "Iris 6900000001": "Maria" })[9]).toBe("leisure");
+  });
+
   it("a payment is dated the day you paid, not the day the bank booked it", () => {
     const at = (fields: Record<string, string>) => ingest.paidOn({ status: "BOOK", ...fields });
     expect(at({ booking_date: "2026-09-22", value_date: "2026-09-17" })).toBe("2026-09-17");  // Alpha's account row

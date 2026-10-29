@@ -3,6 +3,7 @@
 
 import { type Conn, type Row } from "../../shared/db.js";
 import * as accountsRepo from "../../shared/ledger/accounts.js";
+import * as payeeNamesRepo from "../../shared/ledger/payee_names.js";
 import * as rulesRepo from "../../shared/ledger/rules.js";
 import * as transactionsRepo from "../../shared/ledger/transactions.js";
 import { pyDumps } from "../../shared/utils/python.js";
@@ -32,21 +33,31 @@ export async function ownerNames(conn: Conn): Promise<string[]> {
 
 export type TxRow = [string, string, string | null, number, string, string, string, string, string | null, string, string];
 
-/** A bank row as stored: [id, account, date, amount, currency, status, description, merchant, mcc, category, raw]. */
+/** The payee as the bank's text gives it, before any name of yours: what payee_names is keyed by. */
+export function bankPayee(isCard: boolean, tx: Row): string {
+  const description = (tx.remittance_information || []).join(" ");
+  const party = (tx.credit_debit_indicator === "DBIT" ? tx.creditor : tx.debtor) || {};
+  const merchant = merchantName(party.name || description);
+  return isCard && (merchant === "Αγορά" || merchant === "Επιστροφή") ? "" : merchant;  // card rows have only a category code
+}
+
+/** A bank row as stored: [id, account, date, amount, currency, status, description, merchant, mcc, category, raw].
+ * names: your own names for payees, which stand in for the bank's as the merchant. */
 export function txRow(account: string, isCard: boolean, tx: Row, rules: Record<string, string>,
-                      mccHint: string | null = null, owners: string[] = []): TxRow {
+                      mccHint: string | null = null, owners: string[] = [], names: Record<string, string> = {}): TxRow {
   const amount = tx.transaction_amount || {};
   const outgoing = tx.credit_debit_indicator === "DBIT";
   const value = parseFloat(amount.amount || 0) || 0;
   const description = (tx.remittance_information || []).join(" ");
-  const party = (outgoing ? tx.creditor : tx.debtor) || {};
-  let merchant = merchantName(party.name || description);
-  if (isCard && (merchant === "Αγορά" || merchant === "Επιστροφή")) merchant = "";  // card rows have only a category code
+  const payee = bankPayee(isCard, tx);
+  const merchant = (payee && names[payee]) || payee;
   // Account rows of debit-card purchases carry no code; dedupe() copies the card row's onto them.
   const mcc = tx.merchant_category_code || mccHint;
   const txId = `${account}:${txKey(tx)}`;
-  // Rules are keyed by merchant, or by "tx:<id>" for a single row (card rows have no merchant).
-  const category = rules[`tx:${txId}`] || (merchant && rules[merchant]) || categorize(description, mcc, outgoing, isCard, owners);
+  // Rules are keyed by merchant, or by "tx:<id>" for a single row (card rows have no merchant). A rule made before the
+  // payee was named is keyed by the bank's payee, so it still holds.
+  const category = rules[`tx:${txId}`] || (merchant && rules[merchant]) || (payee && rules[payee])
+    || categorize(description, mcc, outgoing, isCard, owners);
   return [txId, account, paidOn(tx), outgoing ? -value : value,
     amount.currency || "EUR", tx.status || "BOOK", description, merchant, mcc ?? null, category, pyDumps(tx, { ensureAscii: false })];
 }
@@ -65,10 +76,11 @@ export function paidOn(tx: Row): string | null {
 export async function saveWindow(conn: Conn, account: string, isCard: boolean, start: string, end: string, transactions: Row[]): Promise<number> {
   const rules = await rulesRepo.all(conn);
   const owners = await ownerNames(conn);
+  const names = await payeeNamesRepo.all(conn);
   await transactionsRepo.deletePending(conn, account, start, end);
   let changed = 0;
   for (const tx of transactions) {
-    const row = txRow(account, isCard, tx, rules, null, owners);
+    const row = txRow(account, isCard, tx, rules, null, owners, names);
     if (row[2] == null) continue;
     changed += await transactionsRepo.upsertBankRow(conn, row);
   }
@@ -96,8 +108,9 @@ export async function recategorize(conn: Conn) {
   const rules = await rulesRepo.all(conn);
   const cards = await accountsRepo.cardFlags(conn);
   const owners = await ownerNames(conn);
+  const names = await payeeNamesRepo.all(conn);
   for (const r of await transactionsRepo.allRaw(conn)) {
-    const row = txRow(r.account, cards[r.account] ?? false, JSON.parse(r.raw), rules, r.mcc, owners);
+    const row = txRow(r.account, cards[r.account] ?? false, JSON.parse(r.raw), rules, r.mcc, owners, names);
     await transactionsRepo.setMerchantAndCategory(conn, r.id, row[7], row[9]);
   }
   await assignCommitments(conn);
@@ -142,6 +155,21 @@ export async function setServiceCategory(conn: Conn, name: string, category: str
   }
   await recategorize(conn);
   return rows.length;
+}
+
+/** Gives the payee of payment txId your own name, for every payment to it now and in future; an empty name gives it
+ * back the bank's. Returns the payee as the bank knows it, the name it shows under, and how many payments that is;
+ * undefined when there's no such payment, null payee when the bank gave it none to name (a card's category code). */
+export async function namePayee(conn: Conn, txId: string, name: string): Promise<{ payee: string | null; merchant: string; payments: number } | undefined> {
+  const row = await transactionsRepo.rawOf(conn, txId);
+  if (!row) return undefined;
+  const payee = bankPayee(Boolean(row.is_card), JSON.parse(row.raw));
+  if (!payee) return { payee: null, merchant: "", payments: 0 };
+  if (name && name !== payee) await payeeNamesRepo.set(conn, payee, name);
+  else await payeeNamesRepo.remove(conn, payee);
+  await recategorize(conn);
+  const merchant = name || payee;
+  return { payee, merchant, payments: await transactionsRepo.countByMerchant(conn, merchant) };
 }
 
 /** Undo setServiceCategory: drop the service's rules so its payments go back to being worked out. */

@@ -57,6 +57,9 @@ export function useApi<T>(path: string | null, version = 0) {
 export const setCategory = (id: string, category: string, allFromMerchant = false) =>
   request<{ rule: string; merchant: string | null; others: number }>(`/api/transactions/${encodeURIComponent(id)}/category`,
     { method: "PUT", body: JSON.stringify({ category, all_from_merchant: allFromMerchant }) });
+/** Gives a payment's payee your own name, for every payment to them; an empty name gives back the bank's. */
+export const namePayee = (id: string, name: string) =>
+  request<{ payee: string; merchant: string; payments: number }>(`/api/transactions/${encodeURIComponent(id)}/payee`, json("PUT", { name }));
 export const startSync = () => request<{ started: boolean }>("/api/sync", { method: "POST" });
 export const startAuth = (bank: string) => request<{ url: string }>("/api/auth/start", { method: "POST", body: JSON.stringify({ bank }) });
 export const completeAuth = (address: string) =>

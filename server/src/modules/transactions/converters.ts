@@ -11,6 +11,7 @@ export type Overview = z.infer<typeof S.Overview>;
 export type Transaction = z.infer<typeof S.Transaction>;
 export type TransactionPage = z.infer<typeof S.TransactionPage>;
 export type CategoryMove = z.infer<typeof S.CategoryMove>;
+export type PayeeName = z.infer<typeof S.PayeeName>;
 
 export function toCategories(categories: Record<string, [string, string, boolean]>): Category[] {
   return Object.entries(categories).map(([id, [label, icon, spending]]) => ({ id, label, icon, spending }));
@@ -50,4 +51,8 @@ export function toTransactionPage(rows: Row[], total: number, spent: number): Tr
 
 export function toCategoryMove(rule: string, merchant: string | null | undefined, others: number): CategoryMove {
   return { ok: true, rule, merchant: merchant || null, others };
+}
+
+export function toPayeeName(payee: string, merchant: string, payments: number): PayeeName {
+  return { ok: true, payee, merchant, payments };
 }

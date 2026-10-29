@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { setCategory, useApi, type Category, type Commitments, type Transaction } from "../lib/api";
+import { useEffect, useState, type FormEvent } from "react";
+import { namePayee, setCategory, useApi, type Category, type Commitments, type Transaction } from "../lib/api";
 import { dayLabel, euro, euroRound, monthLabel, shortDay } from "../lib/format";
 import { hrefFor, type Route } from "./App";
 import { MonthNav } from "./Spending";
@@ -129,19 +129,54 @@ function MovedToast({ moved, byId, onChanged, onDone }: { moved: Moved; byId: Re
   );
 }
 
+/** Names a payment's payee, for every payment to them; saving it empty gives back the bank's name. */
+function NamePayee({ t, onDone }: { t: Transaction; onDone: (changed: boolean) => void }) {
+  const [name, setName] = useState(t.merchant);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = (e: FormEvent) => {
+    e.preventDefault();
+    if (name.trim() === t.merchant) return onDone(false);
+    setBusy(true);
+    namePayee(t.id, name.trim()).then(() => onDone(true)).catch((err: Error) => { setError(err.message); setBusy(false); });
+  };
+  return (
+    <form className="name-payee" onSubmit={save} onKeyDown={(e) => { if (e.key === "Escape") onDone(false); }}>
+      <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus disabled={busy}
+        placeholder="Who is this?" aria-label={`Name for ${t.description}`} onFocus={(e) => e.target.select()} />
+      <button className="btn" type="submit" disabled={busy}>Save</button>
+      <button className="chip icon-only" type="button" onClick={() => onDone(false)} aria-label="Cancel" disabled={busy}><Icon icon="mdi:close" /></button>
+      {error && <div className="error small">{error}</div>}
+    </form>
+  );
+}
+
 function Row({ t, categories, byId, onChanged, onMoved }: {
   t: Transaction; categories: Category[]; byId: Record<string, Category>; onChanged: () => void; onMoved: (m: Moved | null) => void;
 }) {
   const cat = byId[t.category];
   const [saving, setSaving] = useState(false);
+  const [naming, setNaming] = useState(false);
   const title = t.merchant || (t.is_card ? `Card purchase · ${cat?.label ?? "Other"}` : t.description);
   const counted = cat?.spending ?? true;
+  // Money sent to people (IRIS especially) often names them only by a phone number; the bank's text stays beside the name.
+  const nameable = !!t.merchant && (t.category === "people" || /^iris\b/i.test(t.merchant));
   return (
     <div className="part">
       <span className="ricon"><Icon icon={cat?.icon ?? "mdi:dots-horizontal"} /></span>
       <span className="t">
-        <b>{title}</b>
+        {naming ? <NamePayee t={t} onDone={(changed) => { setNaming(false); if (changed) onChanged(); }} /> : (
+          <b>
+            {title}
+            {nameable && (
+              <button type="button" className="namebtn" onClick={() => setNaming(true)} aria-label={`Name ${title}`} title="Name who this is, for every payment to them">
+                <Icon icon="mdi:pencil-outline" />
+              </button>
+            )}
+          </b>
+        )}
         <span className="muted small">
+          {nameable && t.description !== title && <span>{t.description} · </span>}
           {t.account_name}
           {t.booked && <span> · booked {shortDay(t.booked)}</span>}
           {t.status === "PDNG" && <span className="pending"> · pending</span>}

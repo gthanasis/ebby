@@ -866,3 +866,9 @@ export interface CategoryMove {
   merchant: string | null;
   others: number;
 }
+export interface PayeeName {
+  ok: true;
+  payee: string;
+  merchant: string;
+  payments: number;
+}

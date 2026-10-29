@@ -132,6 +132,15 @@ button.part:hover, a.part:hover { background: var(--tg-chip); }
 .part .t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .part .t b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .part .t span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The Name button flows after a payee's name, wrapping with it; the form replaces the name while naming. */
+.namebtn { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; margin-left: 4px; vertical-align: -6px;
+  border: 0; border-radius: 12px; background: var(--tg-chip); color: var(--tg-muted); cursor: pointer; }
+.namebtn:hover { color: var(--tg-text); }
+.namebtn .icon { width: 14px; height: 14px; }
+.name-payee { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 4px; }
+.name-payee .input { flex: 1 1 100%; min-width: 0; height: 36px; }
+.name-payee .btn { height: 36px; flex: none; }
+.name-payee .error { flex-basis: 100%; margin-top: 0; }
 .part .track { width: 30%; max-width: 140px; height: 8px; border-radius: 4px; background: var(--tg-chip); overflow: hidden; flex: none; }
 .part .track i { display: block; height: 100%; border-radius: 4px; background: var(--tg-accent); }
 .part .amt { min-width: 84px; text-align: right; font-weight: 500; }

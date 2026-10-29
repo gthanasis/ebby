@@ -97,6 +97,17 @@ export async function merchantOf(conn: Conn, id: string): Promise<{ merchant: st
   return (await conn.execute<{ merchant: string }>("SELECT merchant FROM transactions WHERE id = ?", [id])).one();
 }
 
+/** What the bank sent for one payment, and whether its account is a card. */
+export async function rawOf(conn: Conn, id: string): Promise<{ raw: string; is_card: number } | undefined> {
+  return (await conn.execute<{ raw: string; is_card: number }>(`SELECT t.raw, a.is_card FROM transactions t
+                                 JOIN accounts a ON a.id = t.account WHERE t.id = ?`, [id])).one();
+}
+
+/** How many payments are stored under a merchant. */
+export async function countByMerchant(conn: Conn, merchant: string): Promise<number> {
+  return Number((await conn.execute<{ n: string }>("SELECT COUNT(*) AS n FROM transactions WHERE merchant = ?", [merchant])).one()!.n);
+}
+
 export async function merchantsOf(conn: Conn, ids: string[]): Promise<{ id: string; merchant: string }[]> {
   if (!ids.length) return [];
   return (await conn.execute<{ id: string; merchant: string }>(`SELECT id, merchant FROM transactions WHERE id IN (${ids.map(() => "?").join(",")})`, ids)).rows;
