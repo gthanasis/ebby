@@ -132,6 +132,14 @@ button.part:hover, a.part:hover { background: var(--tg-chip); }
 .part .t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .part .t b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .part .t span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A payment in the list: two quiet lines; a tap opens its sheet. */
+.part.pay .t b, .part.pay .t > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.day-h + .part.pay::before { display: none; }
+/* Naming who a payment went to, at the top of its sheet. */
+.pay-who { display: grid; gap: 6px; }
+.pay-who .row-actions { display: flex; gap: 8px; }
+.pay-who .input { flex: 1; min-width: 0; height: 40px; }
+.pay-who .hint { margin: 0; }
 .part .track { width: 30%; max-width: 140px; height: 8px; border-radius: 4px; background: var(--tg-chip); overflow: hidden; flex: none; }
 .part .track i { display: block; height: 100%; border-radius: 4px; background: var(--tg-accent); }
 .part .amt { min-width: 84px; text-align: right; font-weight: 500; }

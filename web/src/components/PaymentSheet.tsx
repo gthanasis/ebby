@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { pinPayment, remember, request, setCategory, type Category, type Payment } from "../lib/api";
+import { createContext, useContext, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { namePayee, pinPayment, remember, request, setCategory, type Category, type Payment } from "../lib/api";
 import { useAction } from "../lib/action";
 import { euro, shortDay } from "../lib/format";
 import { hrefFor } from "./App";
@@ -7,6 +7,10 @@ import { Icon, Select } from "./ui";
 
 const DAY = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 const day = (d: string) => DAY.format(new Date(`${d}T12:00:00`));
+
+/** Money sent to people (IRIS especially) often names them only by a phone number, so those payees can be named. */
+export const isNameable = (p: { merchant: string; category: string; named?: boolean }) =>
+  !!p.merchant && (p.category === "people" || /^iris\b/i.test(p.merchant) || !!p.named);
 
 /** Opens a payment's sheet from any list: the bottom of every drill-down. */
 const OpenPayment = createContext<(id: string) => void>(() => {});
@@ -37,8 +41,10 @@ function PaymentSheet({ id, byId, onChanged, onClose }: { id: string; byId: Reco
   const [others, setOthers] = useState<{ category: string; count: number; merchant: string } | null>(null);
   const [note, setNote] = useState("");
   const [kept, setKept] = useState(false);
+  const [who, setWho] = useState("");
   const { busy, error: actionError, run } = useAction();
-  const load = () => request<Payment>(`/api/payment?id=${encodeURIComponent(id)}`).then(setP).catch((e: Error) => setError(e.message));
+  const load = () => request<Payment>(`/api/payment?id=${encodeURIComponent(id)}`)
+    .then((r) => { setP(r); setWho(r.merchant); }).catch((e: Error) => setError(e.message));
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -53,6 +59,11 @@ function PaymentSheet({ id, byId, onChanged, onClose }: { id: string; byId: Reco
     return load();
   }));
   const pin = (value: string) => run(() => pinPayment(id, value === "" ? null : Number(value)).then((r) => { setP(r); onChanged(); }));
+  const name = (e: FormEvent) => {
+    e.preventDefault();
+    if (!p || who.trim() === p.merchant) return;
+    run(() => namePayee(id, who.trim()).then(() => { onChanged(); return load(); }));
+  };
   const keep = () => run(() => remember(note, p?.name ?? null).then(() => { setKept(true); setNote(""); }));
   const ask = () => {
     if (!p) return;
@@ -76,6 +87,17 @@ function PaymentSheet({ id, byId, onChanged, onClose }: { id: string; byId: Reco
               <div className="t"><b>{p.name}</b>{p.description && p.description !== p.name && <span className="muted small">{p.description}</span>}</div>
               <div className={`pay-amt num ${p.amount > 0 ? "in" : ""}`}>{p.amount > 0 ? "+" : ""}{euro(Math.abs(p.amount))}</div>
             </div>
+            {isNameable(p) && (
+              <form className="pay-who" onSubmit={name}>
+                <label htmlFor="pay-who" className="small muted">Who is this?</label>
+                <div className="row-actions">
+                  <input id="pay-who" className="input" value={who} onChange={(e) => setWho(e.target.value)} maxLength={60} disabled={busy}
+                    placeholder="Their name" onFocus={(e) => e.target.select()} />
+                  <button className="btn" type="submit" disabled={busy || who.trim() === p.merchant}>Save</button>
+                </div>
+                <p className="hint">Every payment to {p.description} shows this name. Save it empty to go back to the bank's.</p>
+              </form>
+            )}
             <div className="sum pay-kv">
               <span>Paid</span><b>{day(p.date)}</b>
               {p.booked && <><span>Booked by the bank</span><b>{day(p.booked)}</b></>}

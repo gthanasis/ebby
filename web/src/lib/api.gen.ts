@@ -936,6 +936,12 @@ export interface CategoryMove {
   merchant: string | null;
   others: number;
 }
+export interface PayeeName {
+  ok: true;
+  payee: string;
+  merchant: string;
+  payments: number;
+}
 export interface Payment {
   id: string;
   date: string;
@@ -960,4 +966,5 @@ export interface Payment {
     id: number;
     name: string;
   }[];
+  named: boolean;
 }

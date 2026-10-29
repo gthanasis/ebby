@@ -4,7 +4,7 @@ import { type Conn, type Row } from "../../shared/db.js";
 import * as commitmentsRepo from "./repo.js";
 import * as transactionsRepo from "../../shared/ledger/transactions.js";
 import { addMonths } from "../../shared/utils/dates.js";
-import { maxBy, PyDate, pyRound, sorted, sum } from "../../shared/utils/python.js";
+import { maxBy, PyDate, pyDumps, pyRound, sorted, sum } from "../../shared/utils/python.js";
 import type { Commitment as CommitmentRow } from "../../types/entities.js";
 import { type Commitment, type FixedItem, type FixedMonth, toCommitment, toCommitmentSuggestion } from "./converters.js";
 import { localToday, monthBounds, monthOf, shift, thisMonth } from "../../shared/months.js";
@@ -37,6 +37,17 @@ function cycle(c: CommitmentRow): Pick<CommitmentRow, "next_date" | "last_date" 
 /** Monthly limits of all commitments: what the plan sets aside before free spending. */
 export async function committedTotal(conn: Conn): Promise<number> {
   return pyRound(sum((await commitmentRows(conn)).map((c) => c.monthly_limit)), 2);
+}
+
+/** A payee shows under a new name (you named it, or took the name back): the commitments that cover it follow, so its
+ * payments stay theirs. */
+export async function renameService(conn: Conn, from: string, to: string) {
+  if (from === to) return;
+  for (const c of await commitmentRows(conn)) {
+    if (!c.services.includes(from)) continue;
+    const services = [...new Set(c.services.map((s) => (s === from ? to : s)))];
+    await commitmentsRepo.setServices(conn, c.id, pyDumps(services));
+  }
 }
 
 /** Tags each transaction with the commitment its service belongs to (or none). */

@@ -78,6 +78,16 @@ describe("fetching from the bank", () => {
     expect(ingest.txRow("card", true, tx("2026-10-03", 9.9, "Αγορά", true, { merchant_category_code: "5812" }), { [`tx:${card[0]}`]: "leisure" })[9]).toBe("leisure");
   });
 
+  it("a payee you named shows your name, and keeps a rule made before you named it", () => {
+    const iris = tx("2026-10-27", 60, "ΙRΙS 6900000001", true);
+    expect(ingest.bankPayee(false, iris)).toBe("Iris 6900000001");
+    const named = ingest.txRow("acc", false, iris, {}, null, [], { "Iris 6900000001": "Maria" });
+    expect([named[6], named[7], named[9]]).toEqual(["ΙRΙS 6900000001", "Maria", "people"]);  // the bank's text stays as it was
+    const ruled = ingest.txRow("acc", false, iris, { "Iris 6900000001": "bills" }, null, [], { "Iris 6900000001": "Maria" });
+    expect(ruled[9]).toBe("bills");
+    expect(ingest.txRow("acc", false, iris, { Maria: "leisure", "Iris 6900000001": "bills" }, null, [], { "Iris 6900000001": "Maria" })[9]).toBe("leisure");
+  });
+
   it("a payment is dated the day you paid, not the day the bank booked it", () => {
     const at = (fields: Record<string, string>) => ingest.paidOn({ status: "BOOK", ...fields });
     expect(at({ booking_date: "2026-09-22", value_date: "2026-09-17" })).toBe("2026-09-17");  // Alpha's account row
@@ -182,6 +192,30 @@ describe("debit cards", () => {
       // The list shows the day you paid, and the bank's booking day beside it.
       const listed = (await transactionsRepo.list(conn, {}, 10, 0)).rows.map((r) => [r.date, r.booked]);
       expect(listed).toEqual([["2026-10-17", "2026-10-19"], ["2026-10-15", "2026-10-19"]]);
+    }));
+  });
+
+  it("purchases that arrive after the card's history was paired are paired too", async () => {
+    const t = (entry: string, amount: number, booked: string, value: string, text: string, mcc: string | null = null) => ({
+      entry_reference: entry, merchant_category_code: mcc, credit_debit_indicator: "DBIT", status: "BOOK",
+      transaction_amount: { currency: "EUR", amount: String(amount) }, booking_date: booked, value_date: value, remittance_information: [text],
+    });
+    const user = await ensureUser("dedupe-later@example.com");
+    // Ten weeks of history, then one new purchase: the new pair is far fewer than 60% of the card's purchases.
+    const day = (n: number) => `2026-08-${String(n).padStart(2, "0")}`;
+    const card = Array.from({ length: 10 }, (_, i) => t(`c${i}`, 10 + i, day(i + 1), day(i + 2), "Αγορά", "5812"));
+    const account = Array.from({ length: 10 }, (_, i) => t(`a${i}`, 10 + i, day(i + 3), day(i + 1), "FIT MEALS"));
+    await db.asUser(user, () => db.connect(async (conn) => {
+      await conn.execute("INSERT INTO accounts(id, uid, name, is_card, bank) VALUES('card', 'u1', 'Enter Visa', 1, 'Alpha Bank')");
+      await conn.execute("INSERT INTO accounts(id, uid, name, is_card, bank) VALUES('current', 'u2', 'Savings', 0, 'Alpha Bank')");
+      await ingest.saveWindow(conn, "card", true, "2026-08-01", "2026-08-31", card);
+      await ingest.saveWindow(conn, "current", false, "2026-08-01", "2026-08-31", account);
+      expect(await ingest.dedupe(conn)).toBe(10);
+      await ingest.saveWindow(conn, "card", true, "2026-10-01", "2026-10-31", [t("c-new", 103.66, "2026-10-20", "2026-10-21", "Αγορά", "5812")]);
+      await ingest.saveWindow(conn, "current", false, "2026-10-01", "2026-10-31", [t("a-new", 103.66, "2026-10-22", "2026-10-20", "FIT MEALS")]);
+      expect(await ingest.dedupe(conn)).toBe(1);
+      const counted = (await conn.execute("SELECT amount, category, mcc FROM transactions WHERE duplicate_of IS NULL AND amount = -103.66")).rows;
+      expect(counted).toEqual([{ amount: -103.66, category: "eating_out", mcc: "5812" }]);  // once, sorted by the card's code
     }));
   });
 });

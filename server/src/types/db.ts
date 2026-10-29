@@ -142,6 +142,12 @@ export interface Meta {
   value: string | null;
 }
 
+export interface PayeeNames {
+  name: string;
+  payee: string;
+  user_id: Generated<number>;
+}
+
 export interface PushSubscriptions {
   created_at: string;
   endpoint: string;
@@ -226,6 +232,7 @@ export interface DB {
   goals: Goals;
   habit_rules: HabitRules;
   meta: Meta;
+  payee_names: PayeeNames;
   push_subscriptions: PushSubscriptions;
   rules: Rules;
   sessions: Sessions;

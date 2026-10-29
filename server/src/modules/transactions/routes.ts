@@ -13,7 +13,7 @@ import { PyDate, pyRound } from "../../shared/utils/python.js";
 import { body, fail, int } from "../../shared/http.js";
 import * as ingest from "../banks/ingest.js";
 import { payment, pin } from "./service.js";
-import { toCategories, toCategoryMove, toMonthly, toOverview, toTransactionPage } from "./converters.js";
+import { toCategories, toCategoryMove, toMonthly, toOverview, toPayeeName, toTransactionPage } from "./converters.js";
 
 // Totals only add up euros; rows in other currencies (Revolut pockets) still show in the list.
 
@@ -108,6 +108,19 @@ export function routes(app: Hono) {
       await ingest.recategorize(conn);
       const others = merchant ? await tx.othersElsewhere(conn, merchant, txId, b.category) : 0;
       return toCategoryMove(key, merchant, others);
+    }));
+  });
+
+  /** Gives a payment's payee your own name, such as who an IRIS payment to a phone number went to: every payment to it,
+   * past and future, shows the name. An empty name gives it back the bank's. */
+  app.put("/api/transactions/:txId{.+}/payee", async (c) => {
+    const txId = c.req.param("txId");
+    const b = await body(c, z.object({ name: z.string().max(60) }));
+    return c.json(await db.connect(async (conn) => {
+      const named = await ingest.namePayee(conn, txId, b.name.trim().replace(/\s+/g, " "));
+      if (!named) return fail(404, "No such transaction");
+      if (!named.payee) return fail(400, "The bank didn't say who this payment went to, so there's no payee to name.");
+      return toPayeeName(named.payee, named.merchant, named.payments);
     }));
   });
 }

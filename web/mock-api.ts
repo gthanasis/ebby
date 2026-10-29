@@ -18,12 +18,26 @@ const fresh = () => ({
   accounts: {} as Record<string, number>, done: false, syncing: false, settings: {} as Record<string, unknown>,
   anthropic: null as null | { masked: string; verified_at: string }, admin: true, spent: 0.84, people: PEOPLE(),
   overview: "ok" as "ok" | "behind" | "over" | "late", nextLimit: null as number | null, goalSaved: 240,
-  memory: MEMORY(), pinned: {} as Record<string, number | null>,
+  memory: MEMORY(), pinned: {} as Record<string, number | null>, payeeNames: {} as Record<string, string>,
 });
 const MEMORY = () => [
   { id: 2, text: "Revolut top-ups are moves between my own accounts.", source: "chat", service: null, created_at: "2026-08-18T10:00:00Z", used: 9 },
   { id: 1, text: "Transfers to M. Papadopoulou are my half of the rent.", source: "payment", service: "M. Papadopoulou", created_at: "2026-09-03T19:12:00Z", used: 2 },
 ];
+// A few payments for the list, with IRIS transfers that name people only by a phone number: [id, date, amount, bank text, payee, category, account]
+const PAYMENTS: [string, string, number, string, string, string, string][] = [
+  ["m1", "2026-10-29", -45, "To ELENI MARKOU", "Eleni Markou", "people", "Fun fund"],
+  ["m2", "2026-10-27", -60, "ΙRΙS 6900000001", "Iris 6900000001", "people", "Alpha Μισθοδοσία"],
+  ["m3", "2026-10-27", -40, "ΙRΙS 100000002", "Iris 100000002", "people", "Alpha Μισθοδοσία"],
+  ["m4", "2026-10-26", -31, "ΙRΙS 6900000003", "Iris 6900000003", "people", "Alpha Μισθοδοσία"],
+  ["m5", "2026-10-26", -19.45, "ΜΑRΚΕΤ ΙΝ", "Market In", "groceries", "Alpha Ταμιευτήριο"],
+  ["m6", "2026-10-12", -50, "ΙRΙS 6900000001", "Iris 6900000001", "people", "Alpha Μισθοδοσία"],
+];
+const payeeOf = (id: string) => PAYMENTS.find((p) => p[0] === id)?.[4] ?? "";
+const payments = () => PAYMENTS.map(([id, date, amount, description, payee, category, account_name]) => ({
+  id, date, amount, currency: "EUR", status: "BOOK", description, merchant: state.payeeNames[payee] ?? payee, mcc: null, category,
+  commitment_id: null, account_name, is_card: 0, booked: null,
+}));
 const PEOPLE = () => [
   { id: 1, email: "maria@example.com", name: "Maria Papadopoulou", picture: null, is_admin: true, status: "active", ai_budget_usd: 2, ai_spent_usd: 0.84,
     created_at: "2026-09-02T10:00:00Z", last_login_at: "2026-10-18T08:12:00Z" },
@@ -110,6 +124,11 @@ function home() {
   };
 }
 const payment = (id: string) => {
+  const listed = payments().find((p) => p.id === id);
+  if (listed) return { id, date: listed.date, booked: null, amount: listed.amount, currency: "EUR", status: listed.status, category: listed.category,
+    name: listed.merchant, merchant: listed.merchant, description: listed.description,
+    account: { name: listed.account_name, bank: "Alpha Bank", last4: null, is_card: false },
+    commitment_id: null, commitment: null, pinned: false, costs: COSTS, named: listed.merchant !== payeeOf(id) };
   const pinned = id in state.pinned ? state.pinned[id] : null;
   const rent = id === "t-rent";
   const cid = pinned ?? (rent ? 1 : null);
@@ -118,7 +137,7 @@ const payment = (id: string) => {
     category: rent ? "housing" : "groceries", name: rent ? "M. Papadopoulou" : "Sklavenitis", merchant: rent ? "" : "Sklavenitis",
     description: rent ? "ENOIKIO OKT" : "SKLAVENITIS 0412 ATHINA",
     account: { name: rent ? "Current account" : "Card 1", bank: "Alpha Bank", last4: rent ? null : "4101", is_card: !rent },
-    commitment_id: cid, commitment: COSTS.find((c) => c.id === cid)?.name ?? null, pinned: pinned != null, costs: COSTS,
+    commitment_id: cid, commitment: COSTS.find((c) => c.id === cid)?.name ?? null, pinned: pinned != null, costs: COSTS, named: false,
   };
 };
 
@@ -333,6 +352,21 @@ async function handle(req: IncomingMessage, res: ServerResponse, next: () => voi
     const { add } = JSON.parse((await readBody(req)).toString() || "{}");
     state.goalSaved = Math.max(0, state.goalSaved + (add ?? 0));
     return send(res, 200, []);
+  }
+  if (route === "GET /api/transactions") {
+    const q = url.searchParams.get("q")?.toLowerCase(), category = url.searchParams.get("category");
+    const rows = payments().filter((t) => (!q || `${t.merchant} ${t.description}`.toLowerCase().includes(q)) && (!category || t.category === category));
+    return send(res, 200, { rows, total: rows.length, spent: -rows.reduce((s, t) => s + t.amount, 0) });
+  }
+  const payee = /^PUT \/api\/transactions\/(.+)\/payee$/.exec(route);
+  if (payee) {
+    const row = PAYMENTS.find((p) => p[0] === decodeURIComponent(payee[1]));
+    if (!row) return send(res, 404, { detail: "No such transaction" });
+    const name = String(JSON.parse((await readBody(req)).toString() || "{}").name ?? "").trim();
+    if (name && name !== row[4]) state.payeeNames[row[4]] = name; else delete state.payeeNames[row[4]];
+    await wait(300);
+    const merchant = name || row[4];
+    return send(res, 200, { ok: true, payee: row[4], merchant, payments: payments().filter((t) => t.merchant === merchant).length });
   }
   const person = /^PATCH \/api\/people\/(\d+)$/.exec(route);
   if (person) {
