@@ -9,8 +9,8 @@ import * as transactionsRepo from "../../shared/ledger/transactions.js";
 import { pyDumps } from "../../shared/utils/python.js";
 import { readSettings } from "../../shared/settings.js";
 import { categorize, merchantName } from "../../shared/categories.js";
-import { assignCommitments } from "../commitments/service.js";
-import { serviceIdsAnywhere } from "../spending/services.js";
+import { assignCommitments, renameService } from "../commitments/service.js";
+import { serviceIdsAnywhere, serviceName } from "../spending/services.js";
 
 export async function upsertAccount(conn: Conn, acc: Row, bank: string) {
   const iban: string = acc.account_id?.iban || "";
@@ -169,10 +169,14 @@ export async function namePayee(conn: Conn, txId: string, name: string): Promise
   if (!row) return undefined;
   const payee = bankPayee(Boolean(row.is_card), JSON.parse(row.raw));
   if (!payee) return { payee: null, merchant: "", payments: 0 };
+  const shown = (await transactionsRepo.payeeOf(conn, txId))!;
+  const service = (merchant: string) => serviceName(merchant, shown.description, Boolean(shown.is_card), shown.mcc);
   if (name && name !== payee) await payeeNamesRepo.set(conn, payee, name);
   else await payeeNamesRepo.remove(conn, payee);
-  await recategorize(conn);
   const merchant = name || payee;
+  // Fixed costs find their payments by the name they show under, so they follow it before the payments are re-sorted.
+  await renameService(conn, service(shown.merchant), service(merchant));
+  await recategorize(conn);
   return { payee, merchant, payments: await transactionsRepo.countByMerchant(conn, merchant) };
 }
 

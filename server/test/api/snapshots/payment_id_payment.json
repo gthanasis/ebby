@@ -23,6 +23,7 @@
   "id": "demo-alpha-card:demo-510",
   "merchant": "",
   "name": "Card · supermarkets",
+  "named": false,
   "pinned": false,
   "status": "BOOK"
  },

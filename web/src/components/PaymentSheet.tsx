@@ -9,7 +9,8 @@ const DAY = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric",
 const day = (d: string) => DAY.format(new Date(`${d}T12:00:00`));
 
 /** Money sent to people (IRIS especially) often names them only by a phone number, so those payees can be named. */
-export const isNameable = (p: { merchant: string; category: string }) => !!p.merchant && (p.category === "people" || /^iris\b/i.test(p.merchant));
+export const isNameable = (p: { merchant: string; category: string; named?: boolean }) =>
+  !!p.merchant && (p.category === "people" || /^iris\b/i.test(p.merchant) || !!p.named);
 
 /** Opens a payment's sheet from any list: the bottom of every drill-down. */
 const OpenPayment = createContext<(id: string) => void>(() => {});

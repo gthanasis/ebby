@@ -32,13 +32,14 @@ export const CategoryMove = z.strictObject({ ok: z.literal(true), rule: z.string
 export const PayeeName = z.strictObject({ ok: z.literal(true), payee: z.string(), merchant: z.string(), payments: z.number() });
 
 /** One payment, for its sheet. pinned: linked to its fixed cost by hand rather than by its payee. costs: the fixed
- * costs it could be linked to. */
+ * costs it could be linked to. named: its payee shows under a name you gave it. */
 export const Payment = z.strictObject({
   id: z.string(), date: z.string(), booked: z.string().nullable(), amount: z.number(), currency: z.string(), status: z.string(),
   category: z.string(), name: z.string(), merchant: z.string(), description: z.string(),
   account: z.strictObject({ name: z.string(), bank: z.string().nullable(), last4: z.string().nullable(), is_card: z.boolean() }),
   commitment_id: z.number().nullable(), commitment: z.string().nullable(), pinned: z.boolean(),
   costs: z.array(z.strictObject({ id: z.number(), name: z.string() })),
+  named: z.boolean(),  // its payee shows under a name you gave it
 });
 
 export const schemas = { Category, Overview, Transaction, TransactionPage, CategoryMove, PayeeName, Payment };

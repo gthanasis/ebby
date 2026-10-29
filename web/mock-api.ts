@@ -33,6 +33,7 @@ const PAYMENTS: [string, string, number, string, string, string, string][] = [
   ["m5", "2026-10-26", -19.45, "ΜΑRΚΕΤ ΙΝ", "Market In", "groceries", "Alpha Ταμιευτήριο"],
   ["m6", "2026-10-12", -50, "ΙRΙS 6900000001", "Iris 6900000001", "people", "Alpha Μισθοδοσία"],
 ];
+const payeeOf = (id: string) => PAYMENTS.find((p) => p[0] === id)?.[4] ?? "";
 const payments = () => PAYMENTS.map(([id, date, amount, description, payee, category, account_name]) => ({
   id, date, amount, currency: "EUR", status: "BOOK", description, merchant: state.payeeNames[payee] ?? payee, mcc: null, category,
   commitment_id: null, account_name, is_card: 0, booked: null,
@@ -127,7 +128,7 @@ const payment = (id: string) => {
   if (listed) return { id, date: listed.date, booked: null, amount: listed.amount, currency: "EUR", status: listed.status, category: listed.category,
     name: listed.merchant, merchant: listed.merchant, description: listed.description,
     account: { name: listed.account_name, bank: "Alpha Bank", last4: null, is_card: false },
-    commitment_id: null, commitment: null, pinned: false, costs: COSTS };
+    commitment_id: null, commitment: null, pinned: false, costs: COSTS, named: listed.merchant !== payeeOf(id) };
   const pinned = id in state.pinned ? state.pinned[id] : null;
   const rent = id === "t-rent";
   const cid = pinned ?? (rent ? 1 : null);
@@ -136,7 +137,7 @@ const payment = (id: string) => {
     category: rent ? "housing" : "groceries", name: rent ? "M. Papadopoulou" : "Sklavenitis", merchant: rent ? "" : "Sklavenitis",
     description: rent ? "ENOIKIO OKT" : "SKLAVENITIS 0412 ATHINA",
     account: { name: rent ? "Current account" : "Card 1", bank: "Alpha Bank", last4: rent ? null : "4101", is_card: !rent },
-    commitment_id: cid, commitment: COSTS.find((c) => c.id === cid)?.name ?? null, pinned: pinned != null, costs: COSTS,
+    commitment_id: cid, commitment: COSTS.find((c) => c.id === cid)?.name ?? null, pinned: pinned != null, costs: COSTS, named: false,
   };
 };
 

@@ -60,11 +60,11 @@ export function toPayeeName(payee: string, merchant: string, payments: number): 
 
 /** One payment for its sheet: amount as signed, the payee's name as Spending shows it, and the fixed costs it could
  * be linked to. */
-export function toPayment(r: Row, name: string, costs: { id: number; name: string }[]): Payment {
+export function toPayment(r: Row, name: string, costs: { id: number; name: string }[], named: boolean): Payment {
   return {
     id: r.id, date: r.date, booked: r.booked ?? null, amount: r.amount, currency: r.currency, status: r.status, category: r.category,
     name, merchant: r.merchant, description: r.description,
     account: { name: r.account_name, bank: r.bank ?? null, last4: r.last4 ?? null, is_card: Boolean(r.is_card) },
-    commitment_id: r.commitment_id ?? null, commitment: r.commitment ?? null, pinned: Boolean(r.pinned), costs,
+    commitment_id: r.commitment_id ?? null, commitment: r.commitment ?? null, pinned: Boolean(r.pinned), costs, named,
   };
 }

@@ -103,9 +103,10 @@ export async function rawOf(conn: Conn, id: string): Promise<{ raw: string; is_c
                                  JOIN accounts a ON a.id = t.account WHERE t.id = ?`, [id])).one();
 }
 
-/** How many payments are stored under a merchant. */
+/** How many payments show under a merchant, counted as the list counts them: no card copies, no cash offsets. */
 export async function countByMerchant(conn: Conn, merchant: string): Promise<number> {
-  return Number((await conn.execute<{ n: string }>("SELECT COUNT(*) AS n FROM transactions WHERE merchant = ?", [merchant])).one()!.n);
+  return Number((await conn.execute<{ n: string }>(`SELECT COUNT(*) AS n FROM transactions
+    WHERE merchant = ? AND duplicate_of IS NULL AND status != 'OFFSET'`, [merchant])).one()!.n);
 }
 
 export async function merchantsOf(conn: Conn, ids: string[]): Promise<{ id: string; merchant: string }[]> {

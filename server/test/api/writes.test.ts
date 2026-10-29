@@ -48,6 +48,24 @@ describe("writes", () => {
     expect(await categoriesOf("Cosmote")).toEqual(new Set(["subscriptions"]));
   });
 
+  it("naming a payee a fixed cost covers keeps its payments with the fixed cost", async () => {
+    const tx = await first("/api/transactions?q=cosmote");
+    const outside = async () => (await api.json("/api/spending?range=year")).payments.filter((p: any) => p.name === "Cosmote" || p.name === "Home internet").length;
+    const before = await outside();
+    await send("POST", "/api/commitments", { name: "Internet", kind: "fixed", monthly_limit: 50, services: ["Cosmote"] });
+    expect(await outside()).toBe(0);
+    await send("PUT", `/api/transactions/${encodeURIComponent(tx.id)}/payee`, { name: "Home internet" });
+    const cost = (await api.json("/api/commitments")).items.find((c: any) => c.name === "Internet");
+    expect(cost.services).toEqual(["Home internet"]);
+    expect(await outside()).toBe(0);  // still the fixed cost's, not spending
+    expect((await api.json(`/api/payment?id=${encodeURIComponent(tx.id)}`))).toMatchObject({ commitment: "Internet", named: true });
+    await send("PUT", `/api/transactions/${encodeURIComponent(tx.id)}/payee`, { name: "" });
+    expect((await api.json("/api/commitments")).items.find((c: any) => c.name === "Internet").services).toEqual(["Cosmote"]);
+    expect((await api.json(`/api/payment?id=${encodeURIComponent(tx.id)}`))).toMatchObject({ commitment: "Internet", named: false });
+    await send("DELETE", `/api/commitments/${cost.id}`);
+    expect(await outside()).toBe(before);
+  });
+
   it("a payment with no payee can't be named", async () => {
     const card = (await api.json("/api/transactions?limit=500")).rows.find((t: any) => t.is_card && !t.merchant);
     expect((await send("PUT", `/api/transactions/${encodeURIComponent(card.id)}/payee`, { name: "Someone" })).status).toBe(400);
