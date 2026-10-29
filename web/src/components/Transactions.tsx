@@ -18,6 +18,7 @@ export function Transactions({ month, category, service, commitment, categories,
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(PAGE);
   const [toast, setToast] = useState<Moved | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 8000); return () => clearTimeout(t); }, [toast]);
   useEffect(() => { const t = setTimeout(() => setQuery(q.trim()), 250); return () => clearTimeout(t); }, [q]);
   useEffect(() => setLimit(PAGE), [month, category, service, commitment, query]);
@@ -94,7 +95,10 @@ export function Transactions({ month, category, service, commitment, categories,
           return (
             <div key={date}>
               <div className="day-h"><span>{dayLabel(date)}</span>{net < 0 && <span className="num">{euro(-net)}</span>}</div>
-              {rows.map((t) => <Row key={t.id} t={t} categories={categories} byId={byId} onChanged={onChanged} onMoved={setToast} />)}
+              {rows.map((t) => (
+                <Row key={t.id} t={t} categories={categories} byId={byId} open={openId === t.id}
+                  onToggle={() => setOpenId((id) => (id === t.id ? null : t.id))} onChanged={onChanged} onMoved={setToast} />
+              ))}
             </div>
           );
         })}
@@ -129,76 +133,80 @@ function MovedToast({ moved, byId, onChanged, onDone }: { moved: Moved; byId: Re
   );
 }
 
-/** Names a payment's payee, for every payment to them; saving it empty gives back the bank's name. */
-function NamePayee({ t, onDone }: { t: Transaction; onDone: (changed: boolean) => void }) {
-  const [name, setName] = useState(t.merchant);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const save = (e: FormEvent) => {
-    e.preventDefault();
-    if (name.trim() === t.merchant) return onDone(false);
-    setBusy(true);
-    namePayee(t.id, name.trim()).then(() => onDone(true)).catch((err: Error) => { setError(err.message); setBusy(false); });
-  };
-  return (
-    <form className="name-payee" onSubmit={save} onKeyDown={(e) => { if (e.key === "Escape") onDone(false); }}>
-      <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus disabled={busy}
-        placeholder="Who is this?" aria-label={`Name for ${t.description}`} onFocus={(e) => e.target.select()} />
-      <button className="btn" type="submit" disabled={busy}>Save</button>
-      <button className="chip icon-only" type="button" onClick={() => onDone(false)} aria-label="Cancel" disabled={busy}><Icon icon="mdi:close" /></button>
-      {error && <div className="error small">{error}</div>}
-    </form>
-  );
-}
-
-function Row({ t, categories, byId, onChanged, onMoved }: {
-  t: Transaction; categories: Category[]; byId: Record<string, Category>; onChanged: () => void; onMoved: (m: Moved | null) => void;
+/** A payment as two quiet lines; tapping it opens what can be changed: who it went to (for payments to people) and
+ * its category. The category saves as soon as it's picked; the name saves with Save. */
+function Row({ t, categories, byId, open, onToggle, onChanged, onMoved }: {
+  t: Transaction; categories: Category[]; byId: Record<string, Category>; open: boolean; onToggle: () => void;
+  onChanged: () => void; onMoved: (m: Moved | null) => void;
 }) {
   const cat = byId[t.category];
   const [saving, setSaving] = useState(false);
-  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState(t.merchant);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { if (open) { setName(t.merchant); setError(null); } }, [open, t.merchant]);
   const title = t.merchant || (t.is_card ? `Card purchase · ${cat?.label ?? "Other"}` : t.description);
   const counted = cat?.spending ?? true;
   // Money sent to people (IRIS especially) often names them only by a phone number; the bank's text stays beside the name.
   const nameable = !!t.merchant && (t.category === "people" || /^iris\b/i.test(t.merchant));
+  const panel = `pay-${t.id}`;
+
+  const saveName = (e: FormEvent) => {
+    e.preventDefault();
+    if (name.trim() === t.merchant) return onToggle();
+    setSaving(true);
+    namePayee(t.id, name.trim()).then(() => { onToggle(); onChanged(); }).catch((err: Error) => setError(err.message)).finally(() => setSaving(false));
+  };
+
   return (
-    <div className="part">
-      <span className="ricon"><Icon icon={cat?.icon ?? "mdi:dots-horizontal"} /></span>
-      <span className="t">
-        {naming ? <NamePayee t={t} onDone={(changed) => { setNaming(false); if (changed) onChanged(); }} /> : (
-          <b>
-            {title}
-            {nameable && (
-              <button type="button" className="namebtn" onClick={() => setNaming(true)} aria-label={`Name ${title}`} title="Name who this is, for every payment to them">
-                <Icon icon="mdi:pencil-outline" />
-              </button>
-            )}
-          </b>
-        )}
-        <span className="muted small">
-          {nameable && t.description !== title && <span>{t.description} · </span>}
-          {t.account_name}
-          {t.booked && <span> · booked {shortDay(t.booked)}</span>}
-          {t.status === "PDNG" && <span className="pending"> · pending</span>}
+    <div className={`pay ${open ? "open" : ""}`} onKeyDown={(e) => { if (open && e.key === "Escape") onToggle(); }}>
+      <button type="button" className="part" onClick={onToggle} aria-expanded={open} aria-controls={panel}>
+        <span className="ricon"><Icon icon={cat?.icon ?? "mdi:dots-horizontal"} /></span>
+        <span className="t">
+          <b>{title}</b>
+          <span className="muted small">
+            {cat?.label ?? t.category}
+            {nameable && t.description !== title && <> · {t.description}</>}
+            {" · "}{t.account_name}
+            {t.booked && <> · booked {shortDay(t.booked)}</>}
+            {t.status === "PDNG" && <span className="pending"> · pending</span>}
+          </span>
         </span>
-        <Select variant="sm" value={t.category} disabled={saving}
-        aria-label={`Category for ${title}`}
-        title="Changes this payment only"
-        onChange={(e) => {
-          const category = e.target.value;
-          setSaving(true);
-          setCategory(t.id, category).then((r) => {
-            onMoved(r.merchant && r.others > 0 ? { id: t.id, category, merchant: r.merchant, others: r.others } : null);
-            onChanged();
-          }).finally(() => setSaving(false));
-        }}
-      >
-        {categories.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-        </Select>
-      </span>
-      <span className={`amt num ${t.amount > 0 ? "in" : ""} ${counted ? "" : "excluded"}`}>
-        {t.amount > 0 ? "+" : ""}{euro(t.amount)}
-      </span>
+        <span className={`amt num ${t.amount > 0 ? "in" : ""} ${counted ? "" : "excluded"}`}>
+          {t.amount > 0 ? "+" : ""}{euro(t.amount)}
+        </span>
+      </button>
+      {open && (
+        <form className="pay-edit" id={panel} onSubmit={saveName}>
+          {nameable && (
+            <label>
+              Who is this?
+              <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus disabled={saving}
+                placeholder="Their name" onFocus={(e) => e.target.select()} />
+              <span className="hint">Every payment to {t.description} will show this name.</span>
+            </label>
+          )}
+          <label>
+            Category
+            <Select value={t.category} disabled={saving} title="Changes this payment only"
+              onChange={(e) => {
+                const category = e.target.value;
+                setSaving(true);
+                setCategory(t.id, category).then((r) => {
+                  onMoved(r.merchant && r.others > 0 ? { id: t.id, category, merchant: r.merchant, others: r.others } : null);
+                  onChanged();
+                }).finally(() => setSaving(false));
+              }}
+            >
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+            </Select>
+          </label>
+          {error && <div className="error small">{error}</div>}
+          <div className="pay-actions">
+            {nameable && <button className="btn" type="submit" disabled={saving}>Save</button>}
+            <button className="btn ghost" type="button" onClick={onToggle} disabled={saving}>{nameable ? "Cancel" : "Done"}</button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

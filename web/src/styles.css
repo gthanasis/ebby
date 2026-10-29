@@ -132,15 +132,23 @@ button.part:hover, a.part:hover { background: var(--tg-chip); }
 .part .t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .part .t b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .part .t span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* The Name button flows after a payee's name, wrapping with it; the form replaces the name while naming. */
-.namebtn { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; margin-left: 4px; vertical-align: -6px;
-  border: 0; border-radius: 12px; background: var(--tg-chip); color: var(--tg-muted); cursor: pointer; }
-.namebtn:hover { color: var(--tg-text); }
-.namebtn .icon { width: 14px; height: 14px; }
-.name-payee { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 4px; }
-.name-payee .input { flex: 1 1 100%; min-width: 0; height: 36px; }
-.name-payee .btn { height: 36px; flex: none; }
-.name-payee .error { flex-basis: 100%; margin-top: 0; }
+/* A payment in the list: two lines that open, on a tap, into what can be changed. */
+.pay { position: relative; border-radius: 12px; margin: 0 -6px; }
+.pay::before { content: ""; position: absolute; top: 0; left: 6px; right: 6px; border-top: 1px solid var(--tg-divider); pointer-events: none; }
+.day-h + .pay::before, .pay.open::before, .pay.open + .pay::before { display: none; }
+.pay > .part { margin: 0; width: 100%; }
+.pay > .part::before { display: none; }
+.pay .part .t b, .pay .part .t > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pay.open { background: var(--tg-chip); }
+.pay.open > .part:hover { background: none; }
+.pay-edit { display: grid; gap: 12px; padding: 2px 12px 14px 54px; }
+.pay-edit label { display: grid; gap: 6px; font-size: 12px; color: var(--tg-muted); }
+.pay-edit .input, .pay-edit .sel select { background: var(--tg-card); color: var(--tg-text); font-size: 14px; }
+.pay-edit .input { height: 40px; }
+.pay-edit .sel { width: 100%; }
+.pay-edit .hint { margin: 0; }
+.pay-edit .error { margin: 0; }
+.pay-actions { display: flex; gap: 8px; }
 .part .track { width: 30%; max-width: 140px; height: 8px; border-radius: 4px; background: var(--tg-chip); overflow: hidden; flex: none; }
 .part .track i { display: block; height: 100%; border-radius: 4px; background: var(--tg-accent); }
 .part .amt { min-width: 84px; text-align: right; font-weight: 500; }
