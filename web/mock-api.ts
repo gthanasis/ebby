@@ -249,6 +249,14 @@ async function handle(req: IncomingMessage, res: ServerResponse, next: () => voi
     const rows = payments().filter((t) => (!q || `${t.merchant} ${t.description}`.toLowerCase().includes(q)) && (!category || t.category === category));
     return send(res, 200, { rows, total: rows.length, spent: -rows.reduce((s, t) => s + t.amount, 0) });
   }
+  if (route === "GET /api/payment") {
+    const t = payments().find((p) => p.id === url.searchParams.get("id"));
+    if (!t) return send(res, 404, { detail: "No such payment" });
+    return send(res, 200, { id: t.id, date: t.date, booked: null, amount: t.amount, currency: "EUR", status: t.status, category: t.category,
+      name: t.merchant, merchant: t.merchant, description: t.description,
+      account: { name: t.account_name, bank: "Alpha Bank", last4: null, is_card: false },
+      commitment_id: null, commitment: null, pinned: false, costs: [] });
+  }
   const payee = /^PUT \/api\/transactions\/(.+)\/payee$/.exec(route);
   if (payee) {
     const row = PAYMENTS.find((p) => p[0] === decodeURIComponent(payee[1]));
