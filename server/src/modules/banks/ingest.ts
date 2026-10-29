@@ -130,12 +130,16 @@ export async function dedupe(conn: Conn): Promise<number> {
     if (!rows.length) continue;
     const taken = await transactionsRepo.paired(conn);
     const pairs: [(typeof rows)[number], string][] = [];
-    for (const r of rows) {
+    // Purchases paired on an earlier sync keep their copy, and count towards telling a debit card from a credit one:
+    // otherwise, once a card's history is paired, a sync's few new purchases never reach the share and stay counted twice.
+    const unpaired = rows.filter((r) => !r.duplicate_of);
+    for (const r of unpaired) {
       const matches = await transactionsRepo.accountCopies(conn, card.bank, r.amount, r.date);
       const m = matches.find((x) => !taken.has(x.id));
       if (m) { taken.add(m.id); pairs.push([r, m.id]); }
     }
-    if (pairs.length < rows.length * DEBIT_MATCH_SHARE) continue;  // a credit card, or too few matches to be sure
+    const matched = rows.length - unpaired.length + pairs.length;
+    if (matched < rows.length * DEBIT_MATCH_SHARE) continue;  // a credit card, or too few matches to be sure
     for (const [r, accountRow] of pairs) {
       made += await transactionsRepo.markDuplicate(conn, r.id, accountRow);
       if (r.mcc) await transactionsRepo.fillMcc(conn, accountRow, r.mcc);

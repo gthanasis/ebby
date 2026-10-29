@@ -479,9 +479,9 @@ export async function clearOrphanDuplicates(conn: Conn) {
                       AND duplicate_of NOT IN (SELECT id FROM transactions)`);
 }
 
-export async function cardPurchases(conn: Conn, account: string): Promise<{ id: string; date: string; amount: number; mcc: string | null }[]> {
-  return (await conn.execute<{ id: string; date: string; amount: number; mcc: string | null }>(
-    "SELECT id, date, amount, mcc FROM transactions WHERE account = ? AND amount < 0 ORDER BY date", [account])).rows;
+export async function cardPurchases(conn: Conn, account: string): Promise<{ id: string; date: string; amount: number; mcc: string | null; duplicate_of: string | null }[]> {
+  return (await conn.execute<{ id: string; date: string; amount: number; mcc: string | null; duplicate_of: string | null }>(
+    "SELECT id, date, amount, mcc, duplicate_of FROM transactions WHERE account = ? AND amount < 0 ORDER BY date, id", [account])).rows;
 }
 
 /** Account rows already paired with a card row. */

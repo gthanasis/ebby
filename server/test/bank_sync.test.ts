@@ -194,6 +194,30 @@ describe("debit cards", () => {
       expect(listed).toEqual([["2026-10-17", "2026-10-19"], ["2026-10-15", "2026-10-19"]]);
     }));
   });
+
+  it("purchases that arrive after the card's history was paired are paired too", async () => {
+    const t = (entry: string, amount: number, booked: string, value: string, text: string, mcc: string | null = null) => ({
+      entry_reference: entry, merchant_category_code: mcc, credit_debit_indicator: "DBIT", status: "BOOK",
+      transaction_amount: { currency: "EUR", amount: String(amount) }, booking_date: booked, value_date: value, remittance_information: [text],
+    });
+    const user = await ensureUser("dedupe-later@example.com");
+    // Ten weeks of history, then one new purchase: the new pair is far fewer than 60% of the card's purchases.
+    const day = (n: number) => `2026-08-${String(n).padStart(2, "0")}`;
+    const card = Array.from({ length: 10 }, (_, i) => t(`c${i}`, 10 + i, day(i + 1), day(i + 2), "Αγορά", "5812"));
+    const account = Array.from({ length: 10 }, (_, i) => t(`a${i}`, 10 + i, day(i + 3), day(i + 1), "FIT MEALS"));
+    await db.asUser(user, () => db.connect(async (conn) => {
+      await conn.execute("INSERT INTO accounts(id, uid, name, is_card, bank) VALUES('card', 'u1', 'Enter Visa', 1, 'Alpha Bank')");
+      await conn.execute("INSERT INTO accounts(id, uid, name, is_card, bank) VALUES('current', 'u2', 'Savings', 0, 'Alpha Bank')");
+      await ingest.saveWindow(conn, "card", true, "2026-08-01", "2026-08-31", card);
+      await ingest.saveWindow(conn, "current", false, "2026-08-01", "2026-08-31", account);
+      expect(await ingest.dedupe(conn)).toBe(10);
+      await ingest.saveWindow(conn, "card", true, "2026-10-01", "2026-10-31", [t("c-new", 103.66, "2026-10-20", "2026-10-21", "Αγορά", "5812")]);
+      await ingest.saveWindow(conn, "current", false, "2026-10-01", "2026-10-31", [t("a-new", 103.66, "2026-10-22", "2026-10-20", "FIT MEALS")]);
+      expect(await ingest.dedupe(conn)).toBe(1);
+      const counted = (await conn.execute("SELECT amount, category, mcc FROM transactions WHERE duplicate_of IS NULL AND amount = -103.66")).rows;
+      expect(counted).toEqual([{ amount: -103.66, category: "eating_out", mcc: "5812" }]);  // once, sorted by the card's code
+    }));
+  });
 });
 
 describe("one at a time across pods", () => {
