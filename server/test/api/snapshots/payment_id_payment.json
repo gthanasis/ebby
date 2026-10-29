@@ -1,0 +1,31 @@
+{
+ "body": {
+  "account": {
+   "bank": "Alpha Bank",
+   "is_card": true,
+   "last4": "9021",
+   "name": "Alpha Bank Bonus Visa"
+  },
+  "amount": -28.24,
+  "booked": null,
+  "category": "groceries",
+  "commitment": null,
+  "commitment_id": null,
+  "costs": [
+   {
+    "id": 1,
+    "name": "Gym"
+   }
+  ],
+  "currency": "EUR",
+  "date": "2026-10-20",
+  "description": "Αγορά",
+  "id": "demo-alpha-card:demo-510",
+  "merchant": "",
+  "name": "Card · supermarkets",
+  "named": false,
+  "pinned": false,
+  "status": "BOOK"
+ },
+ "status": 200
+}

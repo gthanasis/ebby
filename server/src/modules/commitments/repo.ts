@@ -22,6 +22,11 @@ export async function update(conn: Conn, id: number, c: CommitmentFields) {
   await conn.db.updateTable("commitments").set(c).where("id", "=", id).execute();
 }
 
+/** services: the JSON text, as the Python app stored it. */
+export async function setServices(conn: Conn, id: number, services: string) {
+  await conn.db.updateTable("commitments").set({ services }).where("id", "=", id).execute();
+}
+
 export async function remove(conn: Conn, id: number) {
   await conn.db.deleteFrom("commitments").where("id", "=", id).execute();
 }

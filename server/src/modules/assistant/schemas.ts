@@ -36,7 +36,12 @@ export const ChatEvent = z.discriminatedUnion("type", [
 ]);
 
 /** Claude's guess for a payee, kept once made. */
-export const SortGuess = z.strictObject({ category: z.string(), reason: z.string(), at: z.string() });
+export const SortGuess = z.strictObject({ category: z.string(), reason: z.string(), at: z.string(), remembered: z.array(z.string()).optional() });
+
+/** One thing the assistant remembers. source: typed in Settings ("you"), kept from a payment, or agreed in chat. */
+export const MemoryLine = z.strictObject({
+  id: z.number(), text: z.string(), source: z.enum(["you", "payment", "chat"]), service: z.string().nullable(), created_at: z.string(), used: z.number(),
+});
 
 export const SortItem = z.strictObject({
   service: z.string(), tx_id: z.string(), date: z.string(), days_ago: z.number(), amount: z.number(), count: z.number(), total: z.number(),
@@ -60,7 +65,7 @@ export const Explanation = z.strictObject({ headline: z.string(), points: z.arra
 
 const Moved = z.strictObject({ moved: z.number() });
 
-export const schemas = { ChatAction, ChatItem, Conversation, AssistantState, ChatEvent, SortGuess, SortItem, Sorter, Finding, WeeklyRead, Explanation };
+export const schemas = { ChatAction, ChatItem, Conversation, AssistantState, ChatEvent, SortGuess, MemoryLine, SortItem, Sorter, Finding, WeeklyRead, Explanation };
 
 export const responses = {
   "GET /api/assistant": AssistantState,
@@ -72,4 +77,8 @@ export const responses = {
   "GET /api/sorter": Sorter,
   "POST /api/sorter/undo": Moved,
   "POST /api/sorter/guess": SortGuess,
+  "GET /api/assistant/memory": z.array(MemoryLine),
+  "POST /api/assistant/memory": z.array(MemoryLine),
+  "PUT /api/assistant/memory/:id": z.array(MemoryLine),
+  "DELETE /api/assistant/memory/:id": z.array(MemoryLine),
 };

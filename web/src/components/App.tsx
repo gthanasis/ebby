@@ -16,6 +16,7 @@ import { CommittedView } from "./Committed";
 import { AssistantScreen } from "./Assistant";
 import { Login } from "./Login";
 import { Onboarding } from "./Onboarding";
+import { PaymentSheetHost } from "./PaymentSheet";
 
 export type Page = "home" | "assistant" | "spending" | "committed" | "category" | "service" | "subscriptions" | "transactions" | "year" | "goals" | "plan" | "settings" | "accounts" | "login" | "welcome";
 export interface Route {
@@ -187,6 +188,7 @@ export function App() {
   }
 
   return (
+    <PaymentSheetHost byId={byId} changed={changed}>
     <div className="shell">
       <div className="wrap narrow">{SCREENS[route.page].render(route, shared)}</div>
 
@@ -202,6 +204,7 @@ export function App() {
         })}
       </nav>
     </div>
+    </PaymentSheetHost>
   );
 }
 

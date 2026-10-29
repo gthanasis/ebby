@@ -11,7 +11,7 @@ import * as accountSettings from "../account/settings.js";
 import { body, fail, integer, num } from "../../shared/http.js";
 import { averages, getPlan, planView, savePlan, setLimit, suggestBudgets } from "./service.js";
 import { committedTotal } from "../commitments/service.js";
-import { setPayday } from "../../shared/months.js";
+import { reloadPayCalendar } from "../../shared/months.js";
 import { detectPayday } from "./payday.js";
 import { extraPay } from "./extra_pay.js";
 import * as ingest from "../banks/ingest.js";
@@ -31,6 +31,8 @@ const SettingsIn = z.object({
   assistant_model: z.enum(["haiku", "sonnet", "opus"]).nullable().optional(),
   extra_pay: z.boolean().nullable().optional(),  // 14 salaries a year: Easter, summer and Christmas bonuses
   owner_names: z.array(z.string()).nullable().optional(),  // your names as banks print them: transfers to these are your own
+  month_start: z.enum(["payday", "pay"]).nullable().optional(),  // a new month starts on the payday, or when pay arrives
+  pay_wait_days: integer.nullable().optional(),
 });
 
 export function routes(app: Hono) {
@@ -67,6 +69,7 @@ export function routes(app: Hono) {
   app.put("/api/settings", async (c) => {
     const b = await body(c, SettingsIn);
     if (typeof b.payday === "number" && !(1 <= b.payday && b.payday <= 28)) fail(400, "Payday is a day from 1 to 28, or the last working day");
+    if (b.pay_wait_days != null && !(1 <= b.pay_wait_days && b.pay_wait_days <= 14)) fail(400, "Wait from 1 to 14 days for pay");
     const given = Object.fromEntries(Object.entries(b).filter(([, v]) => v != null));
     const merged = await db.connect(async (conn) => {
       const before = await accountSettings.settings(conn);
@@ -76,7 +79,7 @@ export function routes(app: Hono) {
       if (pyDumps(out.owner_names ?? null) !== pyDumps(before.owner_names ?? null)) await ingest.recategorize(conn);
       return out;
     });
-    if (b.payday) setPayday(b.payday);
+    if (b.payday || b.month_start || b.pay_wait_days) await reloadPayCalendar();
     return c.json(merged);
   });
 }

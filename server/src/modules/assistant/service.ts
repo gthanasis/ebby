@@ -24,6 +24,7 @@ import { type ChatAction, type ChatItem, CONTEXT, type Conversation, toChatActio
 import * as aiUsage from "./ai_usage.js";
 import { CATEGORIES, SPENDING } from "../../shared/categories.js";
 import { ASSISTANT } from "./prompts/assistant.js";
+import * as memory from "./memory.js";
 import * as spending from "../spending/service.js";
 import { assignCommitments, commitmentsView, committedTotal } from "../commitments/service.js";
 import { cashView, logCash } from "../spending/cash.js";
@@ -88,6 +89,9 @@ const TOOLS = [
     { goal_id: { type: "integer" }, add: { type: "number", description: "Negative to take out" }, summary: SUMMARY }),
   tool("propose_wish", "Draft: put something on the 48-hour 'thinking about it' list.",
     { name: { type: "string" }, price: { type: "number" }, summary: SUMMARY }),
+  tool("propose_remember", "Draft: something to remember for next time, e.g. how a payee or a kind of payment should be sorted.",
+    { text: { type: "string", description: "One plain sentence in the person's own voice, e.g. 'Transfers to Maria are my half of the rent.'" },
+      service: opt("string", "The payee it's about, as find_payments shows it, if any"), summary: SUMMARY }),
   tool("propose_log_cash", "Draft: log cash spending; it comes out of what was withdrawn.",
     { amount: { type: "number" }, category: { type: "string", enum: SPEND_IDS }, note: { type: "string", description: "Where or what, e.g. 'bakery'" },
       date: { type: "string", description: "YYYY-MM-DD" }, summary: SUMMARY }),
@@ -280,6 +284,13 @@ const ACTIONS: Record<string, Action> = {
       return `${p.name} is on the thinking-about-it list. I'll ask again in two days.`;
     },
   },
+  remember: {
+    async run(conn, p) {
+      await memory.remember(conn, p.text, "chat", p.service || null);
+      return "I'll remember that. You can change or forget it in Settings, under Assistant.";
+    },
+    async detail(_conn, p) { return `“${p.text}”`; },
+  },
   log_cash: {
     async run(conn, p) {
       await logCash(conn, p.amount, p.category, p.note ?? "", p.date || localToday().isoformat());
@@ -385,7 +396,9 @@ async function context(conn: Conn): Promise<string> {
   const extra = await extraPay(conn);
   if (extra.length) line += `; next extra pay ${extra[0].name.toLowerCase()} about ${fmt0(extra[0].amount, false)} on ${extra[0].date} (not in the monthly budget)`;
   const cash = (await cashView(conn, thisMonth())).unaccounted;
-  return line + (cash ? `; cash not yet accounted for ${fmt0(cash, false)}]` : "]");
+  line += cash ? `; cash not yet accounted for ${fmt0(cash, false)}]` : "]";
+  const remembered = (await memory.list(conn)).map((m) => `- ${m.text}`);
+  return remembered.length ? `${line}\n[What they asked you to remember:\n${remembered.join("\n")}]` : line;
 }
 
 /** The whole answer at once (kept for callers that don't stream). */

@@ -40,6 +40,7 @@ export type Highlight =
     }
   | {
       kind: "payment";
+      id: string;
       date: string;
       amount: number;
       category: string;
@@ -160,6 +161,8 @@ export interface Settings {
   autofilled?: boolean;
   extra_pay?: boolean;
   owner_names?: string[];
+  month_start?: "payday" | "pay";
+  pay_wait_days?: number;
 }
 export interface PaydayGuess {
   day: number;
@@ -221,6 +224,7 @@ export interface Ideal {
     monthly: number;
   }[];
   budget: number;
+  planned: number;
   day: number;
   targets: {
     [k: string]: number;
@@ -237,6 +241,7 @@ export interface TodayMonth {
   days: {
     date: string;
     spent: number | null;
+    fixed: number;
   }[];
   average: number;
   projected: number;
@@ -246,11 +251,56 @@ export interface TodayMonth {
     count: number;
   }[];
   ideal: Ideal | null;
+  fixed: FixedMonth;
+  next_limit: number | null;
+  goal: {
+    id: number;
+    name: string;
+    price: number;
+    saved: number;
+    target_date: string;
+  } | null;
+  watch: {
+    category: string;
+    spent: number;
+    usual: number;
+    count: number;
+  }[];
+}
+export interface FixedMonth {
+  items: FixedItem[];
+  paid: number;
+  due: number;
+  expected: number;
+}
+export interface FixedItem {
+  id: number;
+  name: string;
+  kind: "fixed" | "chosen";
+  expected: number;
+  paid: number;
+  status: "paid" | "due";
+  paid_on: string | null;
+  due_on: string | null;
+  count: number;
+}
+export interface PayWait {
+  expected: string;
+  until: string;
+  amount: number;
+  payer: string;
+}
+export interface PayArrival {
+  date: string;
+  amount: number;
+  payer: string;
 }
 export interface Home {
   month: TodayMonth;
   fresh_at: string | null;
   payday_hint: PaydayGuess | null;
+  pay_waiting: PayWait | null;
+  pay_arrived: PayArrival | null;
 }
 export interface CategoryDetail {
   category: string;
@@ -620,6 +670,15 @@ export interface SortGuess {
   category: string;
   reason: string;
   at: string;
+  remembered?: string[];
+}
+export interface MemoryLine {
+  id: number;
+  text: string;
+  source: "you" | "payment" | "chat";
+  service: string | null;
+  created_at: string;
+  used: number;
 }
 export interface SortItem {
   service: string;
@@ -675,10 +734,20 @@ export interface Explanation {
   created_at: string;
 }
 export interface SpendPayment {
+  id: string;
   date: string;
   amount: number;
   category: string;
   name: string;
+}
+export interface FixedPayment {
+  id: string;
+  date: string;
+  amount: number;
+  category: string;
+  name: string;
+  commitment_id: number;
+  commitment: string;
 }
 export interface SpendDay {
   date: string;
@@ -732,6 +801,7 @@ export interface SpendView {
   }[];
   highlights?: Highlight[];
   payments: SpendPayment[];
+  fixed: FixedPayment[];
 }
 export interface SpendCategory {
   category: string;
@@ -865,4 +935,36 @@ export interface CategoryMove {
   rule: string;
   merchant: string | null;
   others: number;
+}
+export interface PayeeName {
+  ok: true;
+  payee: string;
+  merchant: string;
+  payments: number;
+}
+export interface Payment {
+  id: string;
+  date: string;
+  booked: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  category: string;
+  name: string;
+  merchant: string;
+  description: string;
+  account: {
+    name: string;
+    bank: string | null;
+    last4: string | null;
+    is_card: boolean;
+  };
+  commitment_id: number | null;
+  commitment: string | null;
+  pinned: boolean;
+  costs: {
+    id: number;
+    name: string;
+  }[];
+  named: boolean;
 }

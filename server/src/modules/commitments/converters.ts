@@ -8,6 +8,8 @@ import type * as S from "./schemas.js";
 
 export type Commitment = z.infer<typeof S.Commitment>;
 export type CommitmentSuggestion = z.infer<typeof S.CommitmentSuggestion>;
+export type FixedItem = z.infer<typeof S.FixedItem>;
+export type FixedMonth = z.infer<typeof S.FixedMonth>;
 
 /** A commitment with what went to it this month, and the six months up to it. */
 export function toCommitment(c: CommitmentRow, spent: number, count: number, over: boolean, history: Commitment["history"]): Commitment {

@@ -36,26 +36,29 @@ export function toIdealGoal(r: { name: string; price: number; saved: number; tar
 }
 
 /** Income less savings, fixed costs and the goals, shared over the days and across categories in the plan's proportions. */
-export function toIdeal(plan: Plan, fixed: number, goals: IdealGoal[], length: number): Ideal {
-  const budget = Math.max(0.0, plan.take_home - plan.keep - fixed - sum(goals.map((g) => g.monthly)));
+/** limit: the month's own working limit, when one was set (to take an overspend from it, or add goal money to it). */
+export function toIdeal(plan: Plan, fixed: number, goals: IdealGoal[], length: number, limit?: number): Ideal {
+  const planned = Math.max(0.0, plan.take_home - plan.keep - fixed - sum(goals.map((g) => g.monthly)));
+  const budget = limit ?? planned;
   const shares: Record<string, number> = plan.budgets;
   const total = sum(Object.values(shares));
   return {
     income: plan.take_home, savings: plan.keep, fixed, goals,
-    budget: pyRound(budget, 2), day: pyRound(budget / length, 2),
+    budget: pyRound(budget, 2), planned: pyRound(planned, 2), day: pyRound(budget / length, 2),
     targets: total ? Object.fromEntries(Object.entries(shares).map(([c, v]) => [c, pyRound(v * budget / total, 2)])) : {},
   };
 }
 
 export function toTodayMonth(v: {
   month: string; firstDay: PyDate; end: PyDate; today: PyDate; length: number; elapsed: number; spent: number;
-  days: TodayMonth["days"]; categories: TodayMonth["categories"]; ideal: Ideal | null;
+  days: TodayMonth["days"]; categories: TodayMonth["categories"]; ideal: Ideal | null; fixed: TodayMonth["fixed"];
+  next_limit: number | null; goal: TodayMonth["goal"]; watch: TodayMonth["watch"];
 }): TodayMonth {
   return {
     month: v.month, start: v.firstDay.isoformat(), end: v.end.isoformat(), today: v.today.isoformat(),
     length: v.length, elapsed: v.elapsed, spent: v.spent, days: v.days,
     average: pyRound(v.spent / v.elapsed, 2), projected: pyRound(v.spent / v.elapsed * v.length, 2),
-    categories: v.categories, ideal: v.ideal,
+    categories: v.categories, ideal: v.ideal, fixed: v.fixed, next_limit: v.next_limit, goal: v.goal, watch: v.watch,
   };
 }
 

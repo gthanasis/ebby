@@ -97,6 +97,18 @@ export async function merchantOf(conn: Conn, id: string): Promise<{ merchant: st
   return (await conn.execute<{ merchant: string }>("SELECT merchant FROM transactions WHERE id = ?", [id])).one();
 }
 
+/** What the bank sent for one payment, and whether its account is a card. */
+export async function rawOf(conn: Conn, id: string): Promise<{ raw: string; is_card: number } | undefined> {
+  return (await conn.execute<{ raw: string; is_card: number }>(`SELECT t.raw, a.is_card FROM transactions t
+                                 JOIN accounts a ON a.id = t.account WHERE t.id = ?`, [id])).one();
+}
+
+/** How many payments show under a merchant, counted as the list counts them: no card copies, no cash offsets. */
+export async function countByMerchant(conn: Conn, merchant: string): Promise<number> {
+  return Number((await conn.execute<{ n: string }>(`SELECT COUNT(*) AS n FROM transactions
+    WHERE merchant = ? AND duplicate_of IS NULL AND status != 'OFFSET'`, [merchant])).one()!.n);
+}
+
 export async function merchantsOf(conn: Conn, ids: string[]): Promise<{ id: string; merchant: string }[]> {
   if (!ids.length) return [];
   return (await conn.execute<{ id: string; merchant: string }>(`SELECT id, merchant FROM transactions WHERE id IN (${ids.map(() => "?").join(",")})`, ids)).rows;
@@ -268,16 +280,55 @@ export async function leftInOther(conn: Conn, since: string): Promise<(PayeeFiel
 }
 
 /** Free spending between two days (both included), oldest first, with payee fields. */
-export async function spendRows(conn: Conn, firstDay: string, lastDay: string): Promise<(PayeeFields & { date: string; amount: number; category: string })[]> {
-  return (await conn.execute<PayeeFields & { date: string; amount: number; category: string }>(`SELECT t.date, -t.amount AS amount, t.category, t.merchant, t.description, t.mcc, a.is_card
+export async function spendRows(conn: Conn, firstDay: string, lastDay: string): Promise<(PayeeFields & { id: string; date: string; amount: number; category: string })[]> {
+  return (await conn.execute<PayeeFields & { id: string; date: string; amount: number; category: string }>(`SELECT t.id, t.date, -t.amount AS amount, t.category, t.merchant, t.description, t.mcc, a.is_card
       FROM transactions t JOIN accounts a ON a.id = t.account WHERE t.date >= ? AND t.date <= ? AND ${T}
-      ORDER BY t.date, t.amount`, [firstDay, lastDay, ...SPEND_ARGS])).rows;
+      ORDER BY t.date, t.amount, t.id`, [firstDay, lastDay, ...SPEND_ARGS])).rows;
+}
+
+/** Payments to fixed costs from first up to and including last, each with its cost's name, oldest first. */
+export async function fixedRows(conn: Conn, firstDay: string, lastDay: string): Promise<(PayeeFields & { id: string; date: string; amount: number; category: string; commitment_id: number; commitment: string })[]> {
+  return (await conn.execute<PayeeFields & { id: string; date: string; amount: number; category: string; commitment_id: number; commitment: string }>(`
+    SELECT t.id, t.date, -t.amount AS amount, t.category, t.merchant, t.description, t.mcc, a.is_card, t.commitment_id, c.name AS commitment
+    FROM transactions t JOIN accounts a ON a.id = t.account JOIN commitments c ON c.id = t.commitment_id
+    WHERE t.date >= ? AND t.date <= ? AND t.amount < 0 AND ${COMMITTED_SQL.replace(/\b(duplicate_of|commitment_id|currency)\b/g, "t.$1")}
+    ORDER BY t.date, t.amount, t.id`, [firstDay, lastDay])).rows;
+}
+
+/** One payment as its sheet shows it: both days, the account, and the fixed cost it belongs to. */
+export async function detail(conn: Conn, id: string): Promise<(PayeeFields & {
+  id: string; date: string; amount: number; currency: string; category: string; status: string; booked: string | null;
+  account_name: string; bank: string | null; last4: string | null; commitment_id: number | null; commitment: string | null; pinned: boolean;
+}) | undefined> {
+  return (await conn.execute<PayeeFields & {
+    id: string; date: string; amount: number; currency: string; category: string; status: string; booked: string | null;
+    account_name: string; bank: string | null; last4: string | null; commitment_id: number | null; commitment: string | null; pinned: boolean;
+  }>(`SELECT t.id, t.date, t.amount, t.currency, t.category, t.status, t.merchant, t.description, t.mcc, a.is_card,
+        NULLIF(t.raw::json->>'booking_date', t.date) AS booked, a.name AS account_name, a.bank, a.last4,
+        t.commitment_id, c.name AS commitment, t.commitment_pinned IS NOT NULL AS pinned
+      FROM transactions t JOIN accounts a ON a.id = t.account LEFT JOIN commitments c ON c.id = t.commitment_id WHERE t.id = ?`, [id])).one();
+}
+
+/** Links one payment to a fixed cost by hand, or with null lets its payee decide again. */
+export async function pinCommitment(conn: Conn, id: string, commitmentId: number | null): Promise<number> {
+  return (await conn.execute("UPDATE transactions SET commitment_pinned = ? WHERE id = ?", [commitmentId, id])).rowCount;
+}
+
+/** After the payees have been matched: payments linked by hand go to their cost whatever their payee. */
+export async function applyPinned(conn: Conn) {
+  await conn.execute("UPDATE transactions SET commitment_id = commitment_pinned WHERE commitment_pinned IS NOT NULL");
 }
 
 /** Euro income deposits of at least min since a day, oldest first. */
 export async function payDeposits(conn: Conn, min: number, since: string): Promise<{ date: string; amount: number }[]> {
   return (await conn.execute<{ date: string; amount: number }>(`SELECT date, amount FROM transactions WHERE category = 'income' AND amount >= ? AND currency = 'EUR'
                                       AND duplicate_of IS NULL AND date >= ? ORDER BY date`, [min, since])).rows;
+}
+
+/** Euro income deposits of at least min since a day, with who paid them, oldest first. */
+export async function payDepositsFrom(conn: Conn, min: number, since: string): Promise<{ date: string; amount: number; merchant: string; description: string }[]> {
+  return (await conn.execute<{ date: string; amount: number; merchant: string; description: string }>(`SELECT date, amount, merchant, description FROM transactions
+    WHERE category = 'income' AND amount >= ? AND currency = 'EUR' AND duplicate_of IS NULL AND date >= ? ORDER BY date, id`, [min, since])).rows;
 }
 
 /** The latest euro income deposit of at least min. */
@@ -429,9 +480,9 @@ export async function clearOrphanDuplicates(conn: Conn) {
                       AND duplicate_of NOT IN (SELECT id FROM transactions)`);
 }
 
-export async function cardPurchases(conn: Conn, account: string): Promise<{ id: string; date: string; amount: number; mcc: string | null }[]> {
-  return (await conn.execute<{ id: string; date: string; amount: number; mcc: string | null }>(
-    "SELECT id, date, amount, mcc FROM transactions WHERE account = ? AND amount < 0 ORDER BY date", [account])).rows;
+export async function cardPurchases(conn: Conn, account: string): Promise<{ id: string; date: string; amount: number; mcc: string | null; duplicate_of: string | null }[]> {
+  return (await conn.execute<{ id: string; date: string; amount: number; mcc: string | null; duplicate_of: string | null }>(
+    "SELECT id, date, amount, mcc, duplicate_of FROM transactions WHERE account = ? AND amount < 0 ORDER BY date, id", [account])).rows;
 }
 
 /** Account rows already paired with a card row. */

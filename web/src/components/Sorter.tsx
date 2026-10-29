@@ -101,7 +101,10 @@ export function Sorter({ byId, version, onChanged }: ScreenProps & { onChanged: 
           {data?.ai && (
             <div className="so-guess">
               <div className="so-gh"><Icon icon="mdi:creation-outline" />Assistant's guess</div>
-              {guess ? <p>{guess.reason}</p>
+              {guess ? <>
+                  <p>{guess.reason}</p>
+                  {guess.remembered?.map((r) => <p key={r} className="so-mem"><Icon icon="mdi:history" /><span>You told it: “{r}”</span></p>)}
+                </>
                 : g === "failed" ? <p className="muted">The assistant couldn't guess this one. Pick it below.</p>
                 : <><div className="sp-skel" /><div className="sp-skel short" /></>}
             </div>

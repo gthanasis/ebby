@@ -5,7 +5,7 @@
  * Banking refuses it), Decline on the fake bank page, an Anthropic key not starting sk-ant-, inviting someone twice.
  *
  * Shortcuts: /__mock/ready (set up and onboarded), /__mock/admin?on=0|1, /__mock/spent?usd=2 (2 = allowance used up:
- * the assistant and Explain answer 429). */
+ * the assistant and Explain answer 429), /__mock/overview?state=ok|behind|over|late (how this month is going). */
 import { createHash } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
@@ -17,7 +17,27 @@ const fresh = () => ({
   signedIn: true, access: null as null | { app_id: string; key_fingerprint: string; verified_at: string },
   accounts: {} as Record<string, number>, done: false, syncing: false, settings: {} as Record<string, unknown>,
   anthropic: null as null | { masked: string; verified_at: string }, admin: true, spent: 0.84, people: PEOPLE(),
+  overview: "ok" as "ok" | "behind" | "over" | "late", nextLimit: null as number | null, goalSaved: 240,
+  memory: MEMORY(), pinned: {} as Record<string, number | null>, payeeNames: {} as Record<string, string>,
 });
+const MEMORY = () => [
+  { id: 2, text: "Revolut top-ups are moves between my own accounts.", source: "chat", service: null, created_at: "2026-08-18T10:00:00Z", used: 9 },
+  { id: 1, text: "Transfers to M. Papadopoulou are my half of the rent.", source: "payment", service: "M. Papadopoulou", created_at: "2026-09-03T19:12:00Z", used: 2 },
+];
+// A few payments for the list, with IRIS transfers that name people only by a phone number: [id, date, amount, bank text, payee, category, account]
+const PAYMENTS: [string, string, number, string, string, string, string][] = [
+  ["m1", "2026-10-29", -45, "To ELENI MARKOU", "Eleni Markou", "people", "Fun fund"],
+  ["m2", "2026-10-27", -60, "ΙRΙS 6900000001", "Iris 6900000001", "people", "Alpha Μισθοδοσία"],
+  ["m3", "2026-10-27", -40, "ΙRΙS 100000002", "Iris 100000002", "people", "Alpha Μισθοδοσία"],
+  ["m4", "2026-10-26", -31, "ΙRΙS 6900000003", "Iris 6900000003", "people", "Alpha Μισθοδοσία"],
+  ["m5", "2026-10-26", -19.45, "ΜΑRΚΕΤ ΙΝ", "Market In", "groceries", "Alpha Ταμιευτήριο"],
+  ["m6", "2026-10-12", -50, "ΙRΙS 6900000001", "Iris 6900000001", "people", "Alpha Μισθοδοσία"],
+];
+const payeeOf = (id: string) => PAYMENTS.find((p) => p[0] === id)?.[4] ?? "";
+const payments = () => PAYMENTS.map(([id, date, amount, description, payee, category, account_name]) => ({
+  id, date, amount, currency: "EUR", status: "BOOK", description, merchant: state.payeeNames[payee] ?? payee, mcc: null, category,
+  commitment_id: null, account_name, is_card: 0, booked: null,
+}));
 const PEOPLE = () => [
   { id: 1, email: "maria@example.com", name: "Maria Papadopoulou", picture: null, is_admin: true, status: "active", ai_budget_usd: 2, ai_spent_usd: 0.84,
     created_at: "2026-09-02T10:00:00Z", last_login_at: "2026-10-18T08:12:00Z" },
@@ -63,6 +83,64 @@ const SORT = () => [
 ];
 let sorter = { left: SORT(), answered: [] as ReturnType<typeof SORT> };
 
+// Overview: a pay month from 25 Sep to 22 Oct (paid on the 25th), on 20 Oct. Fixed costs as Overview lists them.
+const COSTS = [{ id: 1, name: "Rent" }, { id: 2, name: "Loan" }, { id: 3, name: "Internet · Cosmote" }, { id: 4, name: "Gym" }];
+const FIXED = () => {
+  const items = [
+    { id: 2, name: "Loan", kind: "fixed", expected: 155, paid: 0, status: "due", paid_on: null, due_on: "2026-10-21", count: 0 },
+    { id: 3, name: "Internet · Cosmote", kind: "fixed", expected: 35, paid: 35, status: "paid", paid_on: "2026-10-03", due_on: null, count: 1 },
+    { id: 4, name: "Gym", kind: "chosen", expected: 40, paid: 40, status: "paid", paid_on: "2026-10-02", due_on: null, count: 1 },
+    { id: 1, name: "Rent", kind: "fixed", expected: 750, paid: 750, status: "paid", paid_on: "2026-10-01", due_on: null, count: 1 },
+  ];
+  return { items, paid: 825, due: 155, expected: 980 };
+};
+function home() {
+  const spent = { ok: 640, behind: 860, over: 1010, late: 905 }[state.overview];
+  const length = state.overview === "late" ? 32 : 28, elapsed = state.overview === "late" ? 32 : 26;
+  const day = (i: number) => new Date(Date.UTC(2026, 8, 25 + i)).toISOString().slice(0, 10);
+  const weights = Array.from({ length: elapsed }, (_, i) => [0.6, 1.4, 0.8, 1.1, 0.2, 1.7, 0.9][i % 7]);
+  const total = weights.reduce((a, b) => a + b, 0);
+  const days = Array.from({ length }, (_, i) => ({
+    date: day(i), spent: i < elapsed ? Math.round((weights[i] / total) * spent * 100) / 100 : null, fixed: { 6: 750, 7: 40, 8: 35 }[i] ?? 0,
+  }));
+  // Money taken from the goal is added to this month's budget, as the real server does with the month's limit.
+  const budget = 950 + (240 - state.goalSaved);
+  return {
+    month: {
+      month: "2026-10", start: "2026-09-25", end: state.overview === "late" ? "2026-10-27" : "2026-10-23", today: day(elapsed - 1),
+      length, elapsed, spent, days, average: spent / elapsed, projected: (spent / elapsed) * length,
+      categories: [{ category: "groceries", spent: spent * 0.32, count: 21 }, { category: "eating_out", spent: spent * 0.24, count: 11 },
+        { category: "delivery", spent: spent * 0.18, count: 9 }, { category: "shopping", spent: spent * 0.16, count: 4 }, { category: "coffee_bars", spent: spent * 0.1, count: 31 }],
+      ideal: { income: 2400, savings: 300, fixed: 980, goals: [{ name: "Lisbon in March", price: 900, target_date: "2027-03-15", monthly: 170 }],
+        budget, planned: 950, day: budget / length, targets: {} },
+      fixed: FIXED(), next_limit: state.nextLimit,
+      goal: { id: 1, name: "Lisbon in March", price: 900, saved: state.goalSaved, target_date: "2027-03-15" },
+      watch: state.overview === "ok" ? [{ category: "eating_out", spent: spent * 0.24, usual: spent * 0.24 - 46, count: 11 }]
+        : [{ category: "eating_out", spent: spent * 0.24, usual: spent * 0.24 - 110, count: 11 }, { category: "delivery", spent: spent * 0.18, usual: spent * 0.18 - 54, count: 9 }],
+    },
+    fresh_at: "2026-10-20T07:40:00Z", payday_hint: null,
+    pay_waiting: state.overview === "late" ? { expected: "2026-10-23", until: "2026-10-28", amount: 2400, payer: "ACME LTD" } : null,
+    pay_arrived: null,
+  };
+}
+const payment = (id: string) => {
+  const listed = payments().find((p) => p.id === id);
+  if (listed) return { id, date: listed.date, booked: null, amount: listed.amount, currency: "EUR", status: listed.status, category: listed.category,
+    name: listed.merchant, merchant: listed.merchant, description: listed.description,
+    account: { name: listed.account_name, bank: "Alpha Bank", last4: null, is_card: false },
+    commitment_id: null, commitment: null, pinned: false, costs: COSTS, named: listed.merchant !== payeeOf(id) };
+  const pinned = id in state.pinned ? state.pinned[id] : null;
+  const rent = id === "t-rent";
+  const cid = pinned ?? (rent ? 1 : null);
+  return {
+    id, date: rent ? "2026-10-01" : "2026-10-12", booked: rent ? null : "2026-10-13", amount: rent ? -750 : -23.4, currency: "EUR", status: "BOOK",
+    category: rent ? "housing" : "groceries", name: rent ? "M. Papadopoulou" : "Sklavenitis", merchant: rent ? "" : "Sklavenitis",
+    description: rent ? "ENOIKIO OKT" : "SKLAVENITIS 0412 ATHINA",
+    account: { name: rent ? "Current account" : "Card 1", bank: "Alpha Bank", last4: rent ? null : "4101", is_card: !rent },
+    commitment_id: cid, commitment: COSTS.find((c) => c.id === cid)?.name ?? null, pinned: pinned != null, costs: COSTS, named: false,
+  };
+};
+
 const ALLOWANCE = "You've used this month's AI allowance. It resets on 1 November, or add your own Anthropic key in Settings.";
 const overAllowance = () => !state.anthropic && !state.admin && state.spent >= 2;
 let state = fresh();
@@ -102,6 +180,11 @@ async function handle(req: IncomingMessage, res: ServerResponse, next: () => voi
     state = { ...fresh(), done: true, accounts: { Revolut: 1, "Alpha Bank": 3 }, settings: { owner_names: ["PAPADOPOULOU MARIA", "Maria Papadopoulou"] },
       access: { app_id: "3f2b8c1e-5a4d-4e8f-9b21-7c6d0e1f2a3b", key_fingerprint: "SHA256:28:6e:0d:75:b8:45:1b:c3", verified_at: "2026-10-12T09:30:00Z" } };
     return redirect(res, "/#/settings");
+  }
+  if (url.pathname === "/__mock/overview") {
+    state.overview = (["ok", "behind", "over", "late"] as const).find((s) => s === url.searchParams.get("state")) ?? "ok";
+    state.nextLimit = null; state.goalSaved = 240;
+    return redirect(res, "/#/home");
   }
   if (url.pathname === "/__mock/admin") { state.admin = url.searchParams.get("on") !== "0"; return redirect(res, "/#/settings"); }
   if (url.pathname === "/__mock/spent") { state.spent = Number(url.searchParams.get("usd") ?? 0); return redirect(res, "/#/settings/section=ai"); }
@@ -229,6 +312,61 @@ async function handle(req: IncomingMessage, res: ServerResponse, next: () => voi
       return send(res, 200, p);
     }
     case "POST /api/onboarding/done": state.done = true; return send(res, 204);
+    case "GET /api/home": return send(res, 200, home());
+    case "GET /api/fixed": return send(res, 200, FIXED());
+    case "GET /api/payment": return send(res, 200, payment(url.searchParams.get("id") ?? "t-1"));
+    case "PUT /api/payment/commitment": {
+      const { id, commitment_id } = JSON.parse((await readBody(req)).toString() || "{}");
+      state.pinned[id] = commitment_id;
+      return send(res, 200, payment(id));
+    }
+    case "PUT /api/plan/limit": {
+      // Overview's "take it from next month": the mock only remembers next month's limit.
+      const { month, limit } = JSON.parse((await readBody(req)).toString() || "{}");
+      if (month === "2026-11") state.nextLimit = limit;
+      return send(res, 200, { take_home: 2400, keep: 300, budgets: {}, limits: { [month]: limit } });
+    }
+    case "GET /api/assistant/memory": return send(res, 200, state.memory);
+    case "POST /api/assistant/memory": {
+      const { text, service } = JSON.parse((await readBody(req)).toString() || "{}");
+      if (!String(text ?? "").trim()) return send(res, 400, { detail: "Write what the assistant should remember" });
+      const id = Math.max(0, ...state.memory.map((m) => m.id)) + 1;
+      state.memory.unshift({ id, text: String(text).trim(), source: service ? "payment" : "you", service: service ?? null, created_at: new Date().toISOString(), used: 0 });
+      return send(res, 200, state.memory);
+    }
+  }
+  const memory = /^(PUT|DELETE) \/api\/assistant\/memory\/(\d+)$/.exec(route);
+  if (memory) {
+    const id = Number(memory[2]);
+    if (memory[1] === "DELETE") state.memory = state.memory.filter((m) => m.id !== id);
+    else {
+      const { text } = JSON.parse((await readBody(req)).toString() || "{}");
+      const m = state.memory.find((x) => x.id === id);
+      if (!m) return send(res, 404, { detail: "No such line" });
+      m.text = String(text).trim();
+    }
+    return send(res, 200, state.memory);
+  }
+  const goal = /^PATCH \/api\/goals\/(\d+)$/.exec(route);
+  if (goal) {
+    const { add } = JSON.parse((await readBody(req)).toString() || "{}");
+    state.goalSaved = Math.max(0, state.goalSaved + (add ?? 0));
+    return send(res, 200, []);
+  }
+  if (route === "GET /api/transactions") {
+    const q = url.searchParams.get("q")?.toLowerCase(), category = url.searchParams.get("category");
+    const rows = payments().filter((t) => (!q || `${t.merchant} ${t.description}`.toLowerCase().includes(q)) && (!category || t.category === category));
+    return send(res, 200, { rows, total: rows.length, spent: -rows.reduce((s, t) => s + t.amount, 0) });
+  }
+  const payee = /^PUT \/api\/transactions\/(.+)\/payee$/.exec(route);
+  if (payee) {
+    const row = PAYMENTS.find((p) => p[0] === decodeURIComponent(payee[1]));
+    if (!row) return send(res, 404, { detail: "No such transaction" });
+    const name = String(JSON.parse((await readBody(req)).toString() || "{}").name ?? "").trim();
+    if (name && name !== row[4]) state.payeeNames[row[4]] = name; else delete state.payeeNames[row[4]];
+    await wait(300);
+    const merchant = name || row[4];
+    return send(res, 200, { ok: true, payee: row[4], merchant, payments: payments().filter((t) => t.merchant === merchant).length });
   }
   const person = /^PATCH \/api\/people\/(\d+)$/.exec(route);
   if (person) {

@@ -9,7 +9,7 @@ import type { Conn } from "../../shared/db.js";
 import { isoUtc, PyDate, pyDumps, pyRound } from "../../shared/utils/python.js";
 import * as commitmentsRepo from "./repo.js";
 import { body, bool, fail, int, integer, num } from "../../shared/http.js";
-import { assignCommitments, commitmentsView, servicesSeen } from "./service.js";
+import { assignCommitments, commitmentsView, fixedMonth, servicesSeen } from "./service.js";
 import { resplit } from "../plan/service.js";
 import { thisMonth } from "../../shared/months.js";
 
@@ -52,6 +52,9 @@ async function after(conn: Conn) {
 
 export function routes(app: Hono) {
   app.get("/api/commitments", async (c) => c.json(await db.connect((conn) => commitmentsView(conn, c.req.query("month") || thisMonth()))));
+
+  /** A pay month's fixed costs, paid and due. */
+  app.get("/api/fixed", async (c) => c.json(await db.connect((conn) => fixedMonth(conn, c.req.query("month") || thisMonth()))));
 
   /** Services to pick from when creating a commitment; with transfers, big transfers over 13 months too. */
   app.get("/api/commitments/services", async (c) => {

@@ -30,8 +30,8 @@ export const nameOf = (conn: Conn, id: number): Promise<Pick<Goal, "id" | "name"
   conn.db.selectFrom("goals").select(["id", "name"]).where("id", "=", id).executeTakeFirst();
 
 /** What each goal costs and has saved, by target date. */
-export const progress = (conn: Conn): Promise<Pick<Goal, "name" | "price" | "saved" | "target_date">[]> =>
-  conn.db.selectFrom("goals").select(["name", "price", "saved", "target_date"]).orderBy("target_date").execute();
+export const progress = (conn: Conn): Promise<Pick<Goal, "id" | "name" | "price" | "saved" | "target_date">[]> =>
+  conn.db.selectFrom("goals").select(["id", "name", "price", "saved", "target_date"]).orderBy("target_date").orderBy("id").execute();
 
 /** Adds to what a goal has saved (a negative amount takes away), never below zero. */
 export async function addSaved(conn: Conn, id: number, amount: number) {
