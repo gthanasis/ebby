@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ]
+  "extends": ["github>gthanasis/infra//renovate/default"],
+  "description": "ebby's CI wants exactly one release:* label on every PR; a dependency update ships as a patch release.",
+  "addLabels": ["release:patch"]
 }
