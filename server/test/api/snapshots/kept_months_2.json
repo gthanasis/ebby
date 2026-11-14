@@ -1,0 +1,43 @@
+{
+ "body": {
+  "average": 40.06,
+  "goal": 0,
+  "months": [
+   {
+    "end": "2026-08-25",
+    "fixed": 0,
+    "income": 2400,
+    "kept": -484.12,
+    "month": "2026-08",
+    "partial": false,
+    "projected": null,
+    "spending": 2884.12,
+    "start": "2026-07-24"
+   },
+   {
+    "end": "2026-09-25",
+    "fixed": 0,
+    "income": 2400,
+    "kept": 564.23,
+    "month": "2026-09",
+    "partial": false,
+    "projected": null,
+    "spending": 1835.77,
+    "start": "2026-08-25"
+   },
+   {
+    "end": "2026-10-23",
+    "fixed": 0,
+    "income": 2400,
+    "kept": 695.51,
+    "month": "2026-10",
+    "partial": true,
+    "projected": 519.4,
+    "spending": 1704.49,
+    "start": "2026-09-25"
+   }
+  ],
+  "on_track": true
+ },
+ "status": 200
+}

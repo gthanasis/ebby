@@ -92,8 +92,21 @@ export const Year = z.strictObject({
   committed: z.number(), years: z.array(z.string()),
 });
 
+/** One pay month's money in and out. fixed: monthly costs as paid, costs paid every few months at their monthly share.
+ * kept: income − spending − fixed. projected: for the month still running, where kept ends at the pace so far. */
+export const KeptMonth = z.strictObject({
+  month: z.string(), start: z.string(), end: z.string(), partial: z.boolean(),
+  income: z.number(), spending: z.number(), fixed: z.number(), kept: z.number(), projected: z.number().nullable(),
+});
+
+/** What the pay months kept against the plan's goal (keep). average: over the finished months with income. on_track:
+ * that average reaches the goal; null without a plan or a finished month. */
+export const Kept = z.strictObject({
+  goal: z.number().nullable(), months: z.array(KeptMonth), average: z.number().nullable(), on_track: z.boolean().nullable(),
+});
+
 export const schemas = {
-  ExtraPay, Plan, Settings, PaydayGuess, PlanView, PlanSuggestion, PaceCategory, Pace, Ideal, TodayMonth, PayWait, PayArrival, Home, CategoryDetail, Year,
+  ExtraPay, Plan, Settings, PaydayGuess, PlanView, PlanSuggestion, PaceCategory, Pace, Ideal, TodayMonth, PayWait, PayArrival, Home, KeptMonth, Kept, CategoryDetail, Year,
 };
 
 export const responses = {
@@ -102,4 +115,5 @@ export const responses = {
   "PUT /api/plan": Plan,
   "PUT /api/plan/limit": Plan,
   "PUT /api/settings": Settings,
+  "GET /api/kept": Kept,
 };
