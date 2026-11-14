@@ -8,6 +8,7 @@ import * as sync from "../src/modules/banks/sync.js";
 import { PyDate } from "../src/shared/utils/python.js";
 import { users } from "./fixtures.js";
 import * as ingest from "../src/modules/banks/ingest.js";
+import * as rulesRepo from "../src/shared/ledger/rules.js";
 import * as transactionsRepo from "../src/shared/ledger/transactions.js";
 
 type Row = Record<string, any>;
@@ -192,6 +193,36 @@ describe("debit cards", () => {
       // The list shows the day you paid, and the bank's booking day beside it.
       const listed = (await transactionsRepo.list(conn, {}, 10, 0)).rows.map((r) => [r.date, r.booked]);
       expect(listed).toEqual([["2026-10-17", "2026-10-19"], ["2026-10-15", "2026-10-19"]]);
+    }));
+  });
+
+  it("a wallet top-up by debit card counts once, as moving your own money; a purchase beside a transfer still counts", async () => {
+    const t = (entry: string, amount: number, booked: string, value: string, text: string, mcc: string | null = null) => ({
+      entry_reference: entry, merchant_category_code: mcc, credit_debit_indicator: "DBIT", status: "BOOK",
+      transaction_amount: { currency: "EUR", amount: String(amount) }, booking_date: booked, value_date: value, remittance_information: [text],
+    });
+    const user = await ensureUser("dedupe-topup@example.com");
+    // Two ordinary purchases make it a debit card; then a €50 Revolut top-up, and a €50 shop purchase on a day you
+    // also moved €50 to your savings.
+    const card = [t("c1", 66.91, "2026-10-01", "2026-10-03", "Αγορά", "5411"), t("c2", 23.1, "2026-10-02", "2026-10-04", "Αγορά", "5812"),
+      t("c3", 50, "2026-10-03", "2026-10-03", "Αγορά", "6012"), t("c4", 50, "2026-10-10", "2026-10-12", "Αγορά", "5411")];
+    const account = [t("a1", 66.91, "2026-10-03", "2026-10-01", "AB VASILOPOULOS S.A."), t("a2", 23.1, "2026-10-04", "2026-10-02", "WOLT"),
+      t("a3", 50, "2026-10-03", "2026-10-03", "REVOLUT**7587*"), t("a4", 50, "2026-10-10", "2026-10-10", "ΑWΒ 325002101055185")];
+    await db.asUser(user, () => db.connect(async (conn) => {
+      await conn.execute("INSERT INTO accounts(id, uid, name, is_card, bank) VALUES('card', 'u1', 'Enter Visa', 1, 'Alpha Bank')");
+      await conn.execute("INSERT INTO accounts(id, uid, name, is_card, bank) VALUES('current', 'u2', 'Savings', 0, 'Alpha Bank')");
+      await ingest.saveWindow(conn, "card", true, "2026-10-01", "2026-10-31", card);
+      await ingest.saveWindow(conn, "current", false, "2026-10-01", "2026-10-31", account);
+      expect(await ingest.dedupe(conn)).toBe(3);
+      const counted = async () => (await conn.execute(`SELECT amount, category FROM transactions WHERE duplicate_of IS NULL AND amount < 0
+        AND category NOT IN ('transfer', 'investments', 'card_payment', 'income') ORDER BY amount, category`)).rows;
+      // The top-up isn't spending; the €50 purchase is, though €50 moved to savings the same day.
+      expect(await counted()).toEqual([{ amount: -66.91, category: "groceries" }, { amount: -50, category: "groceries" }, { amount: -23.1, category: "delivery" }]);
+      expect((await conn.execute("SELECT category, mcc FROM transactions WHERE id LIKE '%a3'")).one()).toEqual({ category: "transfer", mcc: null });
+      // A category given to the card's copy earlier (here: the cat) no longer counts it, since the copy is hidden.
+      await rulesRepo.set(conn, `tx:${(await conn.execute("SELECT id FROM transactions WHERE id LIKE '%c3'")).one()!.id}`, "pets");
+      await ingest.recategorize(conn);
+      expect(await counted()).toEqual([{ amount: -66.91, category: "groceries" }, { amount: -50, category: "groceries" }, { amount: -23.1, category: "delivery" }]);
     }));
   });
 

@@ -490,13 +490,16 @@ export async function paired(conn: Conn): Promise<Set<string>> {
   return new Set((await conn.execute<{ duplicate_of: string }>("SELECT duplicate_of FROM transactions WHERE duplicate_of IS NOT NULL")).rows.map((r) => r.duplicate_of));
 }
 
-/** Account rows at the same bank for the same amount, from a day before to six days after, nearest first. */
-export async function accountCopies(conn: Conn, bank: string, amount: number, date: string): Promise<{ id: string }[]> {
+/** Account rows at the same bank for the same amount, from a day before to six days after, nearest first.
+ * ownTransfers: a card top-up of a wallet (Revolut, PayPal) whose account copy reads as moving your own money, so a
+ * copy sorted as an own transfer counts too; a purchase never pairs with one, so a same-day transfer can't hide it. */
+export async function accountCopies(conn: Conn, bank: string, amount: number, date: string, ownTransfers = false): Promise<{ id: string }[]> {
   return (await conn.execute<{ id: string }>(`
     SELECT t.id FROM transactions t JOIN accounts a ON a.id = t.account
-    WHERE a.is_card = 0 AND a.bank = ? AND t.amount = ? AND t.category NOT IN ('transfer', 'investments', 'card_payment', 'income')
+    WHERE a.is_card = 0 AND a.bank = ? AND t.amount = ?
+      AND t.category NOT IN (${ownTransfers ? "" : "'transfer', "}'investments', 'card_payment', 'income')
       AND t.date::date - ?::date BETWEEN -1 AND 6
-    ORDER BY abs(t.date::date - ?::date)
+    ORDER BY abs(t.date::date - ?::date), t.id
   `, [bank, amount, date, date])).rows;
 }
 
