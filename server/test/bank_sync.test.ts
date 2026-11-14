@@ -217,12 +217,12 @@ describe("debit cards", () => {
       const counted = async () => (await conn.execute(`SELECT amount, category FROM transactions WHERE duplicate_of IS NULL AND amount < 0
         AND category NOT IN ('transfer', 'investments', 'card_payment', 'income') ORDER BY amount, category`)).rows;
       // The top-up isn't spending; the €50 purchase is, though €50 moved to savings the same day.
-      expect(await counted()).toEqual([{ amount: -66.91, category: "groceries" }, { amount: -50, category: "groceries" }, { amount: -23.1, category: "eating_out" }]);
+      expect(await counted()).toEqual([{ amount: -66.91, category: "groceries" }, { amount: -50, category: "groceries" }, { amount: -23.1, category: "delivery" }]);
       expect((await conn.execute("SELECT category, mcc FROM transactions WHERE id LIKE '%a3'")).one()).toEqual({ category: "transfer", mcc: null });
       // A category given to the card's copy earlier (here: the cat) no longer counts it, since the copy is hidden.
       await rulesRepo.set(conn, `tx:${(await conn.execute("SELECT id FROM transactions WHERE id LIKE '%c3'")).one()!.id}`, "pets");
       await ingest.recategorize(conn);
-      expect(await counted()).toEqual([{ amount: -66.91, category: "groceries" }, { amount: -50, category: "groceries" }, { amount: -23.1, category: "eating_out" }]);
+      expect(await counted()).toEqual([{ amount: -66.91, category: "groceries" }, { amount: -50, category: "groceries" }, { amount: -23.1, category: "delivery" }]);
     }));
   });
 
