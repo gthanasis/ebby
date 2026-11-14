@@ -8,7 +8,7 @@ import * as rulesRepo from "../../shared/ledger/rules.js";
 import * as transactionsRepo from "../../shared/ledger/transactions.js";
 import { pyDumps } from "../../shared/utils/python.js";
 import { readSettings } from "../../shared/settings.js";
-import { categorize, merchantName } from "../../shared/categories.js";
+import { categorize, merchantName, TOP_UP_MCC } from "../../shared/categories.js";
 import { assignCommitments, renameService } from "../commitments/service.js";
 import { serviceIdsAnywhere, serviceName } from "../spending/services.js";
 
@@ -129,20 +129,23 @@ export async function dedupe(conn: Conn): Promise<number> {
     const rows = await transactionsRepo.cardPurchases(conn, card.id);
     if (!rows.length) continue;
     const taken = await transactionsRepo.paired(conn);
-    const pairs: [(typeof rows)[number], string][] = [];
+    const pairs: [(typeof rows)[number], string, boolean][] = [];
     // Purchases paired on an earlier sync keep their copy, and count towards telling a debit card from a credit one:
     // otherwise, once a card's history is paired, a sync's few new purchases never reach the share and stay counted twice.
     const unpaired = rows.filter((r) => !r.duplicate_of);
     for (const r of unpaired) {
-      const matches = await transactionsRepo.accountCopies(conn, card.bank, r.amount, r.date);
+      // A wallet top-up's account copy is sorted as moving your own money, so only a top-up may pair with one.
+      const topUp = TOP_UP_MCC.has(String(r.mcc ?? "").padStart(4, "0"));
+      const matches = await transactionsRepo.accountCopies(conn, card.bank, r.amount, r.date, topUp);
       const m = matches.find((x) => !taken.has(x.id));
-      if (m) { taken.add(m.id); pairs.push([r, m.id]); }
+      if (m) { taken.add(m.id); pairs.push([r, m.id, topUp]); }
     }
     const matched = rows.length - unpaired.length + pairs.length;
     if (matched < rows.length * DEBIT_MATCH_SHARE) continue;  // a credit card, or too few matches to be sure
-    for (const [r, accountRow] of pairs) {
+    for (const [r, accountRow, topUp] of pairs) {
       made += await transactionsRepo.markDuplicate(conn, r.id, accountRow);
-      if (r.mcc) await transactionsRepo.fillMcc(conn, accountRow, r.mcc);
+      // The code sorts a purchase's account copy; a top-up's copy is already an own transfer and stays one.
+      if (r.mcc && !topUp) await transactionsRepo.fillMcc(conn, accountRow, r.mcc);
     }
   }
   // The account books a purchase days after you made it; the card row has the day you paid.

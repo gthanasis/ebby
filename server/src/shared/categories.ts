@@ -40,6 +40,11 @@ export const CATEGORIES: Record<string, [string, string, boolean]> = {
   investments: ["Investments", "mdi:chart-line", false],
   card_payment: ["Card repayments", "mdi:credit-card-check-outline", false],
 };
+/** Card codes for putting money into a wallet or another account rather than buying something: financial
+ * institutions (6012), quasi-cash and e-money (6051), money transfers (4829) and stored-value loads (6540). A debit
+ * card's copy of one pairs with an account row that reads as an own transfer (see dedupe). */
+export const TOP_UP_MCC = new Set(["6012", "6051", "4829", "6540"]);
+
 export const SPENDING = new Set(Object.entries(CATEGORIES).filter(([, [, , spend]]) => spend).map(([k]) => k));
 
 const LOOKALIKE: Record<string, string> = Object.fromEntries([..."ΑΒΕΖΗΙΚΜΝΟΡΤΥΧ"].map((c, i) => [c, "ABEZHIKMNOPTYX"[i]]));
