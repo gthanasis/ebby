@@ -29,7 +29,7 @@ const READS = [
   "/api/commitments", "/api/commitments/services", "/api/commitments/services?transfers=true",
   "/api/habits", "/api/habits/weekly", "/api/habits/rules/{habit}",
   "/api/assistant", "/api/sorter", "/api/assistant/memory",
-  "/api/fixed", "/api/fixed?month=2026-09", "/api/payment?id={payment}",
+  "/api/fixed", "/api/fixed?month=2026-09", "/api/kept", "/api/kept?months=2", "/api/payment?id={payment}",
 ];
 // Reads with no snapshot, and why.
 // Routes with no JSON body to describe: the chat stream sends ChatEvent lines (assistant/schemas.ts).

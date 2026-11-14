@@ -198,5 +198,20 @@ describe("writes", () => {
     await send("PUT", "/api/settings", { month_start: "payday" });
     expect((await api.json("/api/pace")).start).toBe("2026-09-25");
   });
-});
 
+  it("what a month kept counts a cost paid every few months at its monthly share, paid that month or not", async () => {
+    const before = await api.json("/api/kept?months=3");
+    expect(before.months).toHaveLength(4);
+    for (const m of before.months) expect(m.kept).toBeCloseTo(m.income - m.spending - m.fixed, 2);
+    expect(before.months.at(-1).partial).toBe(true);
+    // €1,200 of rent every 6 months, next due well after these months: €200 comes off every one of them.
+    await send("POST", "/api/commitments", { name: "Rent ahead", kind: "fixed", monthly_limit: 200, every_months: 6, amount: 1200, next_date: "2027-03-01" });
+    const after = await api.json("/api/kept?months=3");
+    after.months.forEach((m: any, i: number) => expect(m.fixed).toBeCloseTo(before.months[i].fixed + 200, 2));
+    expect(after.goal).toBe((await api.json("/api/plan")).plan.keep);
+    expect(after.on_track).toBe(after.average >= after.goal);
+    expect((await send("GET", "/api/kept?months=99")).status).toBe(400);
+    const rent = (await api.json("/api/commitments")).items.find((c: any) => c.name === "Rent ahead");
+    await send("DELETE", `/api/commitments/${rent.id}`);
+  });
+});

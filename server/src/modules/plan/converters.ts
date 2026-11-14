@@ -12,6 +12,8 @@ export type PaceCategory = z.infer<typeof S.PaceCategory>;
 export type Pace = z.infer<typeof S.Pace>;
 export type Ideal = z.infer<typeof S.Ideal>;
 export type TodayMonth = z.infer<typeof S.TodayMonth>;
+export type KeptMonth = z.infer<typeof S.KeptMonth>;
+export type Kept = z.infer<typeof S.Kept>;
 export type CategoryDetail = z.infer<typeof S.CategoryDetail>;
 export type Year = z.infer<typeof S.Year>;
 
@@ -86,4 +88,8 @@ export function toYear(v: {
     committed: pyRound(v.committed, 2),
     years: v.years,
   };
+}
+
+export function toKept(goal: number | null, months: KeptMonth[], average: number | null): Kept {
+  return { goal, months, average, on_track: goal == null || average == null ? null : average >= goal };
 }

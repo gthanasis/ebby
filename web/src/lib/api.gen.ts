@@ -302,6 +302,23 @@ export interface Home {
   pay_waiting: PayWait | null;
   pay_arrived: PayArrival | null;
 }
+export interface KeptMonth {
+  month: string;
+  start: string;
+  end: string;
+  partial: boolean;
+  income: number;
+  spending: number;
+  fixed: number;
+  kept: number;
+  projected: number | null;
+}
+export interface Kept {
+  goal: number | null;
+  months: KeptMonth[];
+  average: number | null;
+  on_track: boolean | null;
+}
 export interface CategoryDetail {
   category: string;
   month: string;

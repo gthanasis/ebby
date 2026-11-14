@@ -33,6 +33,7 @@ import { getPlan, savePlan } from "../plan/service.js";
 import { goalView } from "../goals/service.js";
 import { localToday, monthBounds, monthOf, thisMonth } from "../../shared/months.js";
 import { pace } from "../plan/pace.js";
+import { kept } from "../plan/kept.js";
 import { setServiceCategory } from "../banks/ingest.js";
 import { serviceName } from "../spending/services.js";
 import * as ingest from "../banks/ingest.js";
@@ -68,6 +69,10 @@ const TOOLS = [
   { by: { type: "string", enum: ["category", "payee", "month"] }, text: opt("string", "Only payees or descriptions containing this"), category: CATEGORY, ...RANGE }),
   tool("get_overview", "A pay month against the plan: free spending, projection, each category against its budget, "
     + "committed costs, cash.", { month: MONTH }),
+  tool("get_kept", "Money in, spending, fixed costs and what was kept, per pay month (the current one projected), "
+    + "against the plan's savings goal, with the average kept and whether that's on track. Fixed costs paid every few "
+    + "months count at their monthly share. Use it for 'am I saving', 'am I on track', 'do I spend more than I earn'.",
+  { months: opt("integer", "How many finished pay months before the current one (default 6, up to 24)") }),
   tool("get_plan", "The plan: take-home, keep, committed limits, free to spend, budgets per category.", {}),
   tool("list_goals", "Savings goals with progress and what they need per week.", {}),
   tool("propose_set_payment_category", "Draft: move one payment to a category; the payee's other payments stay.",
@@ -185,6 +190,7 @@ const READS: Record<string, Read> = {
   totals: { status: "Adding it up", run: totals },
   get_overview: { status: "Looking at the month", run: (conn, args) => overview(conn, month(args.month)) },
   get_plan: { status: "Checking your plan", run: (conn) => plan(conn) },
+  get_kept: { status: "Adding up what you kept", run: (conn, args) => kept(conn, Math.max(0, Math.min(24, Number(args.months ?? 6)))) },
   list_goals: { status: "Checking your goals", run: (conn) => goals(conn) },
 };
 

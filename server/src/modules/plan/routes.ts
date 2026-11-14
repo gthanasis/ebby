@@ -8,12 +8,13 @@ import * as ai from "../assistant/ai.js";
 import * as push from "../alerts/push.js";
 import { pyDumps } from "../../shared/utils/python.js";
 import * as accountSettings from "../account/settings.js";
-import { body, fail, integer, num } from "../../shared/http.js";
+import { body, fail, int, integer, num } from "../../shared/http.js";
 import { averages, getPlan, planView, savePlan, setLimit, suggestBudgets } from "./service.js";
 import { committedTotal } from "../commitments/service.js";
 import { reloadPayCalendar } from "../../shared/months.js";
 import { detectPayday } from "./payday.js";
 import { extraPay } from "./extra_pay.js";
+import { kept } from "./kept.js";
 import * as ingest from "../banks/ingest.js";
 
 const PlanIn = z.object({
@@ -36,6 +37,13 @@ const SettingsIn = z.object({
 });
 
 export function routes(app: Hono) {
+  /** What each pay month kept against the plan's goal: the current one and up to 24 before it. */
+  app.get("/api/kept", async (c) => {
+    const months = int(c.req.query("months"), "months", 6);
+    if (months < 0 || months > 24) fail(400, "months is from 0 to 24");
+    return c.json(await db.connect((conn) => kept(conn, months)));
+  });
+
   app.get("/api/plan", async (c) => c.json(await db.connect(async (conn) => ({
     ...(await planView(conn)), committed: await committedTotal(conn),
     settings: await accountSettings.settings(conn), devices: await push.count(), ai: await ai.available(),
