@@ -183,6 +183,7 @@ export interface Transactions {
   id: string;
   mcc: string | null;
   merchant: string;
+  not_fixed: Generated<boolean>;
   raw: string;
   status: string;
   user_id: Generated<number>;

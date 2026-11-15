@@ -24,7 +24,7 @@ export async function payment(conn: Conn, id: string): Promise<Payment> {
 }
 
 /** Links a payment to a fixed cost whatever its payee (a transfer to a landlord, a nameless card charge), or with
- * null lets its payee decide again. Spending and the fixed costs' months follow at once. */
+ * null marks it as spending even when its payee pays a fixed cost (a game bought where a subscription is paid). Spending and the fixed costs' months follow at once. */
 export async function pin(conn: Conn, id: string, commitmentId: number | null): Promise<Payment> {
   if (commitmentId != null && !(await commitmentsRepo.exists(conn, commitmentId))) fail(404, "No such fixed cost");
   if (!(await tx.pinCommitment(conn, id, commitmentId))) fail(404, "No such payment");

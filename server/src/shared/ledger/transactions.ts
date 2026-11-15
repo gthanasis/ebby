@@ -305,18 +305,21 @@ export async function detail(conn: Conn, id: string): Promise<(PayeeFields & {
     account_name: string; bank: string | null; last4: string | null; commitment_id: number | null; commitment: string | null; pinned: boolean;
   }>(`SELECT t.id, t.date, t.amount, t.currency, t.category, t.status, t.merchant, t.description, t.mcc, a.is_card,
         NULLIF(t.raw::json->>'booking_date', t.date) AS booked, a.name AS account_name, a.bank, a.last4,
-        t.commitment_id, c.name AS commitment, t.commitment_pinned IS NOT NULL AS pinned
+        t.commitment_id, c.name AS commitment, (t.commitment_pinned IS NOT NULL OR t.not_fixed) AS pinned
       FROM transactions t JOIN accounts a ON a.id = t.account LEFT JOIN commitments c ON c.id = t.commitment_id WHERE t.id = ?`, [id])).one();
 }
 
-/** Links one payment to a fixed cost by hand, or with null lets its payee decide again. */
+/** Links one payment to a fixed cost by hand, or with null marks it as spending whatever its payee. */
 export async function pinCommitment(conn: Conn, id: string, commitmentId: number | null): Promise<number> {
-  return (await conn.execute("UPDATE transactions SET commitment_pinned = ? WHERE id = ?", [commitmentId, id])).rowCount;
+  return (await conn.execute("UPDATE transactions SET commitment_pinned = ?, not_fixed = ? WHERE id = ?",
+    [commitmentId, commitmentId == null, id])).rowCount;
 }
 
-/** After the payees have been matched: payments linked by hand go to their cost whatever their payee. */
+/** After the payees have been matched: payments linked by hand go to their cost, and those marked as spending to
+ * none, whatever their payee. */
 export async function applyPinned(conn: Conn) {
   await conn.execute("UPDATE transactions SET commitment_id = commitment_pinned WHERE commitment_pinned IS NOT NULL");
+  await conn.execute("UPDATE transactions SET commitment_id = NULL WHERE not_fixed AND commitment_id IS NOT NULL");
 }
 
 /** Euro income deposits of at least min since a day, oldest first. */
