@@ -3,6 +3,8 @@
  * query parameters read as the types they are. Responses and status codes match what the Python app (FastAPI) sent.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import type { Context } from "hono";
 import { z } from "zod";
 
@@ -38,8 +40,18 @@ function invalid(issues: { path: PropertyKey[]; message: string }[], where: stri
   throw new HttpError(422, issues.map((i) => ({ type: "value_error", loc: [where, ...i.path.map(String)], msg: i.message })));
 }
 
+/** A request the assistant only rehearses (shared/api.ts): "describe" stops at the body's schema, "check" once the body
+ * fits it. Either way the route stops before it changes anything, as body() comes first in every write. */
+export const rehearsal = new AsyncLocalStorage<"describe" | "check">();
+
+/** What a rehearsed route got to: the body's schema, or the body as it would run. */
+export class Rehearsed extends Error {
+  constructor(readonly result: { schema?: unknown; body?: unknown }) { super("rehearsed"); }
+}
+
 /** The JSON body, checked against the schema. */
 export async function body<S extends z.ZodType>(c: Context, schema: S): Promise<z.infer<S>> {
+  if (rehearsal.getStore() === "describe") throw new Rehearsed({ schema: z.toJSONSchema(schema, { io: "input", unrepresentable: "any" }) });
   let raw: unknown;
   try {
     raw = await c.req.json();
@@ -48,6 +60,7 @@ export async function body<S extends z.ZodType>(c: Context, schema: S): Promise<
   }
   const parsed = schema.safeParse(raw);
   if (!parsed.success) invalid(parsed.error.issues, "body");
+  if (rehearsal.getStore() === "check") throw new Rehearsed({ body: parsed.data });
   return parsed.data;
 }
 

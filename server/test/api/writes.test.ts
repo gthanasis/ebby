@@ -177,6 +177,23 @@ describe("writes", () => {
     for (const c of (await api.json("/api/commitments")).items.filter((c: any) => ["Rent", "Gym two"].includes(c.name))) await send("DELETE", `/api/commitments/${c.id}`);
   });
 
+  it("a payment its payee links to a fixed cost can be marked as spending, and stays so", async () => {
+    const service = (await api.json("/api/commitments/services"))[0].service;
+    const saved = await (await send("POST", "/api/commitments", { name: "Store sub", kind: "fixed", monthly_limit: 10, services: [service] })).json();
+    const cid = saved.items.find((c: any) => c.name === "Store sub").id;
+    const tx = (await api.json(`/api/transactions?commitment=${cid}`)).rows[0];
+    expect(tx).toBeDefined();
+    const marked = await (await send("PUT", "/api/payment/commitment", { id: tx.id, commitment_id: null })).json();
+    expect([marked.commitment_id, marked.pinned]).toEqual([null, true]);
+    // Matching the payees again (any commitment saved) leaves it as spending.
+    await send("POST", "/api/commitments", { name: "Gym three", kind: "chosen", monthly_limit: 10, services: ["nobody at all"] });
+    expect((await api.json(`/api/payment?id=${encodeURIComponent(tx.id)}`)).commitment_id).toBeNull();
+    expect((await api.json(`/api/transactions?commitment=${cid}`)).rows.map((r: any) => r.id)).not.toContain(tx.id);
+    // Picking the cost again links it by hand.
+    expect((await (await send("PUT", "/api/payment/commitment", { id: tx.id, commitment_id: cid })).json()).commitment_id).toBe(cid);
+    for (const c of (await api.json("/api/commitments")).items.filter((c: any) => ["Store sub", "Gym three"].includes(c.name))) await send("DELETE", `/api/commitments/${c.id}`);
+  });
+
   it("what the assistant remembers is added, changed and forgotten", async () => {
     const added = await (await send("POST", "/api/assistant/memory", { text: "  Transfers to Maria are my half of the rent. ", service: null })).json();
     expect(added[0]).toMatchObject({ text: "Transfers to Maria are my half of the rent.", source: "you", used: 0 });

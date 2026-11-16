@@ -552,8 +552,10 @@ cp .env.example .env && echo DEMO=1 >> .env</code></span></li>
   <div class="card prose">
     <div class="card-h"><h2><i data-i="creation-outline"></i>Chat</h2></div>
     <p>Ask in plain words: "how much did we spend on delivery since payday?" or "what changed this month?" The assistant
-      looks up your payments, totals and plan to answer. When it suggests a change, like moving a payment, setting a budget
-      or adding a goal, the change waits for you to tap <b>Do it</b>.</p>
+      reads what every screen shows, the same numbers you see, and knows where each thing lives in the app. It can make
+      any change you could make on those screens, like moving a payment, changing or removing a fixed cost, setting a
+      budget or adding a goal, and each change waits for you to tap <b>Do it</b>. It can't touch sign-in, keys, other
+      people or bank connections.</p>
   </div>
 
   <div class="card">
@@ -769,7 +771,8 @@ cp .env.example .env && echo DEMO=1 >> .env</code></span></li>
   <div class="card" id="m-assistant">
     <div class="card-h"><h2><i data-i="creation-outline"></i>Assistant</h2></div>
     <div class="prose"><p>The Claude chat with its read tools and confirmable actions, the Sorter's guesses, explanations, the
-      weekly read, and the per-person AI allowance.</p></div>
+      weekly read, and the per-person AI allowance. The chat reaches the rest of the app through the app's own routes,
+      called from inside the server as the person it's talking to, so its numbers and checks are the screens' own.</p></div>
     <div class="relies">Relies on <a class="chip" href="#m-spending">Spending</a><a class="chip" href="#m-planning">Planning</a><a class="chip" href="#m-goals">Goals</a><a class="chip" href="#m-ledger">Ledger</a><a class="chip" href="#m-banks">Bank sync</a></div>
     <div class="earns"><i data-i="check-circle-outline"></i><span>It's optional, so it sits at the very top. Nothing below it knows it exists, and an install without a key loses nothing else.</span></div>
   </div>

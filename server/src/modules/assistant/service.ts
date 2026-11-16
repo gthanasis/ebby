@@ -38,6 +38,9 @@ import { setServiceCategory } from "../banks/ingest.js";
 import { serviceName } from "../spending/services.js";
 import * as ingest from "../banks/ingest.js";
 import * as habits from "../habits/service.js";
+import * as api from "../../shared/api.js";
+import { canChange, canRead } from "./app.js";
+import { APP_MAP } from "./prompts/app_map.js";
 
 const MAX_TOOL_ROUNDS = 6;
 const CATEGORY_IDS = Object.keys(CATEGORIES);
@@ -59,7 +62,16 @@ const RANGE = {
 };
 const CATEGORY = opt("string", "A category id");
 const SUMMARY = { type: "string", description: "One sentence shown on the confirm button" };
+const METHOD = { type: "string", enum: ["POST", "PUT", "PATCH", "DELETE"] };
+const PATH = { type: "string", description: "The route's path with its ids filled in, e.g. /api/commitments/9" };
 const TOOLS = [
+  tool("read_app", "GET any screen's data, exactly as the app shows it: a route from the app map with its query, "
+    + "e.g. /api/fixed?month=2026-11. Returns the JSON.", { path: { type: "string" } }),
+  tool("describe_change", "The JSON schema of the body a change route takes, before drafting it with propose_change.",
+    { method: METHOD, path: PATH }),
+  tool("propose_change", "Draft any change the app's screens can make, through its route from the app map; the "
+    + "person confirms it with a button. The body is checked now, so a mistake comes back at once.",
+  { method: METHOD, path: PATH, body_json: opt("string", "The JSON body, or null for DELETE"), summary: SUMMARY }),
   tool("find_payments", "Payments matching every filter given, newest first: up to 20 rows "
     + "(id | date | amount | payee | category; spending is negative) plus how many matched and their sum.",
   { text: opt("string", "Part of the payee or description, e.g. 'wolt'"), amount: opt("number", "About this many euros (within 10%), e.g. 44"),
@@ -185,7 +197,28 @@ interface Read {
   run: (conn: Conn, args: Row) => Promise<unknown>;
 }
 
+/** Long answers (a year of payments) are cut, with a note, rather than filling the conversation. */
+const READ_LIMIT = 40_000;
+
+async function readApp(_conn: Conn, args: Row): Promise<unknown> {
+  const path = String(args.path ?? "");
+  if (!canRead(path)) return { error: "That isn't a route you can read; use one from the app map." };
+  const { status, data } = await api.call("GET", path);
+  if (status >= 400) return { error: data };
+  const text = JSON.stringify(data);
+  return text.length > READ_LIMIT ? `${text.slice(0, READ_LIMIT)}… [cut at ${READ_LIMIT} characters; narrow it with the query]` : data;
+}
+
+async function describeChange(_conn: Conn, args: Row): Promise<unknown> {
+  if (!canChange(args.method, args.path)) return { error: "That isn't a change you can make; use one from the app map." };
+  if (args.method === "DELETE") return { body: "none" };
+  const { data } = await api.call(args.method, args.path, undefined, "describe");
+  return (data as Row)?.rehearsed?.schema ?? { error: data };
+}
+
 const READS: Record<string, Read> = {
+  read_app: { status: "Looking at the app", run: readApp },
+  describe_change: { status: "Checking how to change it", run: describeChange },
   find_payments: { status: "Searching your payments", run: find },
   totals: { status: "Adding it up", run: totals },
   get_overview: { status: "Looking at the month", run: (conn, args) => overview(conn, month(args.month)) },
@@ -216,6 +249,24 @@ interface Action {
 }
 
 const ACTIONS: Record<string, Action> = {
+  /** Anything a screen can change, through its route. */
+  change: {
+    async prepare(_conn, args) {
+      if (!canChange(args.method, args.path)) return "That isn't a change you can make; use one from the app map.";
+      let body: unknown = null;
+      try { body = args.body_json ? JSON.parse(args.body_json) : null; } catch { return "body_json isn't valid JSON."; }
+      delete args.body_json;
+      args.body = body;
+      if (args.method === "DELETE") return null;
+      const { status, data } = await api.call(args.method, args.path, body, "check");
+      return status === 200 && (data as Row)?.rehearsed ? null : `The app refused it: ${JSON.stringify((data as Row)?.detail ?? data)}`;
+    },
+    async run(_conn, p) {
+      const { status, data } = await api.call(p.method, p.path, p.body ?? undefined);
+      if (status >= 400) throw new Error(typeof (data as Row)?.detail === "string" ? (data as Row).detail : "The app refused that change.");
+      return "Done.";
+    },
+  },
   set_category: {
     async run(conn, p) {
       const n = await setServiceCategory(conn, p.service, p.category);
@@ -308,7 +359,8 @@ const ACTIONS: Record<string, Action> = {
 
 const actionOf = (kind: string): Action | undefined => (Object.hasOwn(ACTIONS, kind) ? ACTIONS[kind] : undefined);
 
-async function propose(conn: Conn, conversation: number, name: string, args: Row): Promise<Row> {
+/** Stores a draft change for the person to confirm, or returns the error Claude sees. */
+export async function propose(conn: Conn, conversation: number, name: string, args: Row): Promise<Row> {
   const kind = name.replace(/^propose_/, "");
   const summary = String(args.summary ?? "").trim() || kind.replaceAll("_", " ");
   delete args.summary;
@@ -436,7 +488,7 @@ export async function* chatEvents(text: string): AsyncGenerator<Row> {
     return [c, await ai.assistantModel(conn)] as const;
   });
   // Tools and instructions never change, so they cache; the conversation after them only grows.
-  const system = [{ type: "text" as const, text: ASSISTANT.replace("{categories}", CATEGORY_IDS.join(", ")), cache_control: { type: "ephemeral" as const } }];
+  const system = [{ type: "text" as const, text: ASSISTANT.replace("{categories}", CATEGORY_IDS.join(", ")).replace("{app}", APP_MAP), cache_control: { type: "ephemeral" as const } }];
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const messages = await db.connect((conn) => history(conn, conv));

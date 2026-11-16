@@ -129,15 +129,16 @@ const payment = (id: string) => {
     name: listed.merchant, merchant: listed.merchant, description: listed.description,
     account: { name: listed.account_name, bank: "Alpha Bank", last4: null, is_card: false },
     commitment_id: null, commitment: null, pinned: false, costs: COSTS, named: listed.merchant !== payeeOf(id) };
-  const pinned = id in state.pinned ? state.pinned[id] : null;
+  const byHand = id in state.pinned;
+  const pinned = byHand ? state.pinned[id] : null;
   const rent = id === "t-rent";
-  const cid = pinned ?? (rent ? 1 : null);
+  const cid = byHand ? pinned : rent ? 1 : null;
   return {
     id, date: rent ? "2026-10-01" : "2026-10-12", booked: rent ? null : "2026-10-13", amount: rent ? -750 : -23.4, currency: "EUR", status: "BOOK",
     category: rent ? "housing" : "groceries", name: rent ? "M. Papadopoulou" : "Sklavenitis", merchant: rent ? "" : "Sklavenitis",
     description: rent ? "ENOIKIO OKT" : "SKLAVENITIS 0412 ATHINA",
     account: { name: rent ? "Current account" : "Card 1", bank: "Alpha Bank", last4: rent ? null : "4101", is_card: !rent },
-    commitment_id: cid, commitment: COSTS.find((c) => c.id === cid)?.name ?? null, pinned: pinned != null, costs: COSTS, named: false,
+    commitment_id: cid, commitment: COSTS.find((c) => c.id === cid)?.name ?? null, pinned: byHand, costs: COSTS, named: false,
   };
 };
 

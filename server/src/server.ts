@@ -13,7 +13,8 @@ import * as banksRoutes from "./modules/banks/routes.js";
 import * as commitments from "./modules/commitments/routes.js";
 import * as goals from "./modules/goals/routes.js";
 import * as habitsRoutes from "./modules/habits/routes.js";
-import { HttpError } from "./shared/http.js";
+import { HttpError, Rehearsed } from "./shared/http.js";
+import * as api from "./shared/api.js";
 import * as plan from "./modules/plan/routes.js";
 import * as pushRoutes from "./modules/alerts/routes.js";
 import * as spendingRoutes from "./modules/spending/routes.js";
@@ -56,9 +57,20 @@ export function createApp(): Hono {
 
   app.get("/api/healthz", (c) => c.json({ ok: true }));
   app.route("/", auth.router(store));
-  for (const module of [account, transactions, banksRoutes, spendingRoutes, commitments, assistantRoutes, habitsRoutes, plan, goals, pushRoutes]) {
-    module.routes(app);
-  }
+  const features = [account, transactions, banksRoutes, spendingRoutes, commitments, assistantRoutes, habitsRoutes, plan, goals, pushRoutes];
+  for (const module of features) module.routes(app);
+
+  // The same routes without sign-in, for the assistant to call as the person it's talking to (shared/api.ts). Only
+  // reachable from inside the server, where the person is already known.
+  const inner = new Hono();
+  inner.onError((e, c) => {
+    if (e instanceof Rehearsed) return c.json({ rehearsed: e.result });
+    if (e instanceof HttpError) return c.json({ detail: e.detail }, e.status as any);
+    console.error(`assistant: ${c.req.method} ${c.req.path} failed:`, e);
+    return c.json({ detail: "That failed on the server." }, 500);
+  });
+  for (const module of features) module.routes(inner);
+  api.attach((request) => inner.fetch(request));
 
   if (existsSync(config.WEB_DIST)) {
     const root = resolve(config.WEB_DIST);

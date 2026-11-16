@@ -31,7 +31,7 @@ export const CategoryMove = z.strictObject({ ok: z.literal(true), rule: z.string
  * when the name was cleared); payments: how many show under it. */
 export const PayeeName = z.strictObject({ ok: z.literal(true), payee: z.string(), merchant: z.string(), payments: z.number() });
 
-/** One payment, for its sheet. pinned: linked to its fixed cost by hand rather than by its payee. costs: the fixed
+/** One payment, for its sheet. pinned: its fixed cost, or none, was set by hand rather than by its payee. costs: the fixed
  * costs it could be linked to. named: its payee shows under a name you gave it. */
 export const Payment = z.strictObject({
   id: z.string(), date: z.string(), booked: z.string().nullable(), amount: z.number(), currency: z.string(), status: z.string(),
